@@ -28,6 +28,9 @@ if [[ ${1:-} != --smoke ]]; then
   printf '{"uuid":"%s","name":"sprint2-baseline-%s"}\n' "$created" "$created" > "$scratch/provider.json"
   capture provider-create POST "$base/resource_providers" "$out" 1.0 201 "$scratch/provider.json"
   capture provider-created GET "$base/resource_providers/$created" "$out" 1.0
+  printf '%s\n' '{"resource_provider_generation":0,"inventories":{"VCPU":{"total":1,"reserved":0,"min_unit":1,"max_unit":1,"step_size":1,"allocation_ratio":1.0}}}' > "$scratch/inventory.json"
+  capture inventory-put PUT "$base/resource_providers/$created/inventories" "$out" 1.0 200 "$scratch/inventory.json"
+  capture inventory-created GET "$base/resource_providers/$created/inventories/VCPU" "$out" 1.0
   capture provider-delete DELETE "$base/resource_providers/$created" "$out" 1.0 204
   created=''
 fi

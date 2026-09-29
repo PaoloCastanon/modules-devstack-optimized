@@ -6,7 +6,14 @@ if [[ -z ${OS_AUTH_URL:-} ]]; then
   source /opt/stack/devstack/openrc admin admin
 fi
 get_endpoint() {
-  openstack endpoint list --service "$1" --interface public -f value -c URL | head -1
+  openstack endpoint list -f json | python3 -c '
+import json,sys
+rows=json.load(sys.stdin)
+for row in rows:
+    if str(row.get("Service Type", "")).lower()==sys.argv[1] and str(row.get("Interface", "")).lower()=="public":
+        print(row["URL"])
+        break
+' "$1"
 }
 get_token() { openstack token issue -f value -c id; }
 capture() {
@@ -25,5 +32,9 @@ capture() {
   printf '%s\n' "$status" > "$out/$label.status.txt"
   sed -E '/^[Xx]-[Aa]uth-[Tt]oken:/d; /^[Xx]-[Ss]ubject-[Tt]oken:/d; /^[Ss]et-[Cc]ookie:/d' "$out/$label.headers.tmp" > "$out/$label.headers.txt"
   rm "$out/$label.headers.tmp"
-  [[ $status == "$expected"* ]] || { echo "$label: HTTP $status; expected $expected*" >&2; return 1; }
+  if [[ $expected == '2|3' ]]; then
+    [[ $status == 2* || $status == 3* ]] || { echo "$label: HTTP $status; expected 2xx/3xx" >&2; return 1; }
+  else
+    [[ $status == "$expected"* ]] || { echo "$label: HTTP $status; expected $expected*" >&2; return 1; }
+  fi
 }

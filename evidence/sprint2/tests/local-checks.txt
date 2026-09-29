@@ -1,9 +1,13 @@
-2026-09-29T02:35:13Z
+2026-09-29T02:36:44Z
 $ make docs-check
 Sprint 2 docs gate OK
 docs_check_exit=0
 $ python3 -m py_compile scripts/*.py
 py_compile_exit=0
+$ pdfinfo docs/sprint2/informe_etapa2.pdf
+Pages:           4
+Page size:       595.276 x 841.89 pts (A4)
+pdfinfo_exit=0
 $ make sprint2-verify
 Sprint 2 docs gate OK
 MISSING evidence/sprint2/devstack/service-list.json

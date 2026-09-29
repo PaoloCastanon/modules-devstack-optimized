@@ -7,7 +7,7 @@ out="$root/evidence/sprint2/glance"
 base=$(get_endpoint image)
 [[ -n $base ]] || { echo 'Endpoint Image ausente.' >&2; exit 1; }
 base=${base%/}; base=${base%/v2}
-capture versions GET "$base/" "$out"
+capture versions GET "$base/" "$out" '' '2|3'
 capture images GET "$base/v2/images" "$out"
 image=$(openstack image list -f value -c ID | head -1)
 if [[ -n $image ]]; then
@@ -27,6 +27,8 @@ if [[ ${1:-} != --smoke ]]; then
   printf 'sprint2 raw fixture\n' > "$scratch/image.raw"
   capture image-upload PUT "$base/v2/images/$created/file" "$out" '' 204 "$scratch/image.raw" application/octet-stream
   capture image-active GET "$base/v2/images/$created" "$out"
+  printf '%s\n' '[{"op":"add","path":"/description","value":"Sprint 2 baseline fixture"}]' > "$scratch/image-patch.json"
+  capture image-patch PATCH "$base/v2/images/$created" "$out" '' 200 "$scratch/image-patch.json" application/openstack-images-v2.1-json-patch
   token=$(get_token)
   printf 'GET %s/v2/images/%s/file\nAccept: application/octet-stream\n' "$base" "$created" > "$out/image-download.request.txt"
   status=$(curl -sS -H "X-Auth-Token: $token" -H 'Accept: application/octet-stream' -D "$scratch/download.headers" -o "$scratch/download.raw" -w '%{http_code}' "$base/v2/images/$created/file")
