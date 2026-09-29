@@ -2,7 +2,16 @@
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 log="$here/setup-devstack.log"
-trap 'rc=$?; if ((rc)); then if [[ -f $log ]]; then printf "Instalación fallida (%s). Log: %s\n" "$rc" "$log" >&2; else printf "Preflight falló (%s); stack.sh no se ejecutó.\n" "$rc" >&2; fi; fi' EXIT
+config_tmp=''
+on_exit() {
+  rc=$?
+  if [[ -n $config_tmp ]]; then rm -f "$config_tmp"; fi
+  if ((rc)); then
+    if [[ -f $log ]]; then printf 'Instalación fallida (%s). Log: %s\n' "$rc" "$log" >&2
+    else printf 'Preflight falló (%s); stack.sh no se ejecutó.\n' "$rc" >&2; fi
+  fi
+}
+trap on_exit EXIT
 [[ $EUID -ne 0 ]] || { echo 'Ejecutar como usuario no root.' >&2; exit 1; }
 source /etc/os-release
 [[ ${ID:-} == ubuntu && ${VERSION_ID:-} == 24.04 ]] || { echo 'Se requiere VM/servidor dedicado Ubuntu 24.04.' >&2; exit 1; }
@@ -32,12 +41,18 @@ git -C "$dir" fetch origin "$DEVSTACK_BRANCH"
 git -C "$dir" checkout --detach "$DEVSTACK_SHA"
 [[ $(git -C "$dir" rev-parse HEAD) == "$DEVSTACK_SHA" ]] || exit 1
 conf="$dir/local.conf"
-[[ ! -e $conf ]] || { echo "Ya existe $conf; revisar antes de reemplazar." >&2; exit 1; }
-cp "$here/local.conf.template" "$conf"
-chmod 600 "$conf"
+config_tmp=$(mktemp /opt/stack/local.conf.XXXXXX)
+cp "$here/local.conf.template" "$config_tmp"
+chmod 600 "$config_tmp"
 for var in ADMIN_PASSWORD DATABASE_PASSWORD RABBIT_PASSWORD SERVICE_PASSWORD HOST_IP; do
-  value=${!var}; sed -i "s/@$var@/$value/g" "$conf"
+  value=${!var}; sed -i "s/@$var@/$value/g" "$config_tmp"
 done
+if [[ -e $conf ]]; then
+  cmp -s "$config_tmp" "$conf" || { echo "Ya existe $conf con distinta configuración; revisar manualmente." >&2; exit 1; }
+else
+  mv "$config_tmp" "$conf"
+  config_tmp=''
+fi
 printf 'DevStack %s (%s), SO %s\n' "$DEVSTACK_BRANCH" "$DEVSTACK_SHA" "$PRETTY_NAME" | tee "$log"
 set +e
 (cd "$dir" && ./stack.sh) 2>&1 | tee -a "$log"
