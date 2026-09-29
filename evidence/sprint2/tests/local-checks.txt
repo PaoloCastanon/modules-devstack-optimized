@@ -1,0 +1,19 @@
+2026-09-29T02:35:13Z
+$ make docs-check
+Sprint 2 docs gate OK
+docs_check_exit=0
+$ python3 -m py_compile scripts/*.py
+py_compile_exit=0
+$ make sprint2-verify
+Sprint 2 docs gate OK
+MISSING evidence/sprint2/devstack/service-list.json
+MISSING evidence/sprint2/devstack/resource-provider-list.json
+MISSING evidence/sprint2/tests/boot-states.txt
+MISSING evidence/sprint2/placement/versions.response.json
+MISSING evidence/sprint2/glance/images.response.json
+MISSING evidence/sprint2/nova/scheduler-placement.log
+MISSING runtime versions in infra/devstack/versions.lock
+make: *** [Makefile:22: sprint2-verify] Error 1
+sprint2_verify_exit=2
+$ git diff --check
+diff_check_exit=0

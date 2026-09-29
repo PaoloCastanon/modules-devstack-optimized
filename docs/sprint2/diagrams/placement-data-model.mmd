@@ -18,16 +18,26 @@ erDiagram
     int resource_class_id
     int total
   }
-  RESOURCE_CLASSES { int id PK
-    string name UK }
-  TRAITS { int id PK
-    string name UK }
-  RESOURCE_PROVIDER_TRAITS { int resource_provider_id PK
-    int trait_id PK_FK }
-  ALLOCATIONS { int id PK
+  RESOURCE_CLASSES {
+    int id PK
+    string name UK
+  }
+  TRAITS {
+    int id PK
+    string name UK
+  }
+  RESOURCE_PROVIDER_TRAITS {
+    int resource_provider_id PK
+    int trait_id PK
+  }
+  ALLOCATIONS {
+    int id PK
     int resource_provider_id
     string consumer_id
-    int used }
-  CONSUMERS { int id PK
+    int used
+  }
+  CONSUMERS {
+    int id PK
     string uuid UK
-    int generation }
+    int generation
+  }

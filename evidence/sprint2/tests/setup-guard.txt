@@ -1,0 +1,3 @@
+Se requiere VM/servidor dedicado Ubuntu 24.04.
+Preflight falló (1); stack.sh no se ejecutó.
+exit=1

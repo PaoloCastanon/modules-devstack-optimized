@@ -4,26 +4,38 @@ erDiagram
   IMAGES ||--o{ IMAGE_TAGS : has
   IMAGES ||--o{ IMAGE_MEMBERS : shared_with
   IMAGE_LOCATIONS }o--|| IMAGE_STORE : references
-  IMAGES { string id PK
+  IMAGES {
+    string id PK
     string name
     string status
     string visibility
     string owner
     int size
-    string os_hash_value }
-  IMAGE_PROPERTIES { int id PK
+    string os_hash_value
+  }
+  IMAGE_PROPERTIES {
+    int id PK
     string image_id FK
     string name
-    string value }
-  IMAGE_LOCATIONS { int id PK
+    string value
+  }
+  IMAGE_LOCATIONS {
+    int id PK
     string image_id FK
     string value
-    string status }
-  IMAGE_TAGS { int id PK
+    string status
+  }
+  IMAGE_TAGS {
+    int id PK
     string image_id FK
-    string value }
-  IMAGE_MEMBERS { int id PK
+    string value
+  }
+  IMAGE_MEMBERS {
+    int id PK
     string image_id FK
-    string member }
-  IMAGE_STORE { string blob_path
-    bytes image_data }
+    string member
+  }
+  IMAGE_STORE {
+    string blob_path
+    string image_data
+  }
