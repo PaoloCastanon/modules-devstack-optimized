@@ -1,0 +1,7 @@
+flowchart LR
+  Client[Cliente / Nova] -->|REST + token| A[Glance API]
+  A --> Auth[Autenticación / política]
+  Auth --> Domain[Controlador / dominio]
+  Domain --> DB[(Metadata DB)]
+  Domain --> Store[glance_store]
+  Store --> Bytes[(Image store)]

@@ -1,0 +1,16 @@
+sequenceDiagram
+  participant U as Usuario
+  participant N as Nova API
+  participant C as Nova Compute
+  participant G as Glance API
+  participant S as Image Store
+  U->>N: server create --image ID
+  N->>G: consultar metadata (por verificar)
+  G-->>N: formato, tamaño, estado
+  N->>C: RPC construir VM
+  C->>G: obtener metadata/imagen (por verificar)
+  G->>S: leer bytes
+  S-->>G: contenido
+  G-->>C: stream de imagen
+  C-->>N: VM creada o error
+  Note over C,G: Endpoint/caché dependen del backend real

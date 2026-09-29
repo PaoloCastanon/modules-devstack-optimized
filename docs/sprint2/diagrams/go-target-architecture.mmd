@@ -1,0 +1,13 @@
+flowchart TB
+  CP[cmd/placement] --> PA[internal/placement/api]
+  CG[cmd/glance] --> GA[internal/glance/api]
+  PA --> PS[placement/service]
+  PS --> PR[placement/repository]
+  GA --> GS[glance/service]
+  GS --> GR[glance/repository]
+  GS --> Store[glance/store]
+  PA --> Auth[shared/auth + middleware]
+  GA --> Auth
+  PR --> DB[(Placement DB)]
+  GR --> GDB[(Glance metadata DB)]
+  Store --> Bytes[(Image store)]

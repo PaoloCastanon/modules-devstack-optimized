@@ -1,0 +1,33 @@
+erDiagram
+  RESOURCE_PROVIDERS ||--o{ INVENTORIES : owns
+  RESOURCE_CLASSES ||--o{ INVENTORIES : classifies
+  RESOURCE_PROVIDERS ||--o{ ALLOCATIONS : serves
+  RESOURCE_CLASSES ||--o{ ALLOCATIONS : classifies
+  CONSUMERS ||--o{ ALLOCATIONS : consumes
+  RESOURCE_PROVIDERS ||--o{ RESOURCE_PROVIDER_TRAITS : has
+  TRAITS ||--o{ RESOURCE_PROVIDER_TRAITS : names
+  RESOURCE_PROVIDERS {
+    int id PK
+    string uuid UK
+    int generation
+    int parent_provider_id FK
+  }
+  INVENTORIES {
+    int id PK
+    int resource_provider_id
+    int resource_class_id
+    int total
+  }
+  RESOURCE_CLASSES { int id PK
+    string name UK }
+  TRAITS { int id PK
+    string name UK }
+  RESOURCE_PROVIDER_TRAITS { int resource_provider_id PK
+    int trait_id PK_FK }
+  ALLOCATIONS { int id PK
+    int resource_provider_id
+    string consumer_id
+    int used }
+  CONSUMERS { int id PK
+    string uuid UK
+    int generation }

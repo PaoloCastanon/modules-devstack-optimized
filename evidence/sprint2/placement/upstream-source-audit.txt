@@ -1,0 +1,9 @@
+Inspección local de clones de solo lectura, 2026-09-29 UTC.
+placement stable/2026.2 f4a89d3803cb23df22b8714569889ab39c918c34
+  rg '^class (ResourceProvider|Inventory|ResourceClass|Trait|Allocation|Consumer)' placement/db/sqlalchemy/models.py
+  rg 'version_handler' placement/handlers/{resource_class,trait,allocation_candidate,allocation}.py
+  placement/microversion.py: rango declarado 1.0–1.39.
+nova stable/2026.2 dcae7ceddcedfe2c0e623cc8ab3fcad8690ba1dc
+  nova/scheduler/client/report.py: SAME_SUBTREE_VERSION='1.36', CONSUMER_GENERATION_VERSION='1.28'.
+  get_allocation_candidates usa GET /allocation_candidates; claim_resources usa PUT /allocations/{consumer_uuid}.
+No se observó tráfico de un servicio desplegado.

@@ -1,0 +1,14 @@
+flowchart LR
+  U[Usuario / OpenStackClient] -->|HTTP REST + Keystone token| K[Keystone]
+  U -->|HTTP REST| N[Nova API]
+  U -->|HTTP REST| G[Glance original / futuro Go]
+  N -->|RPC| S[Nova Scheduler]
+  S -->|HTTP REST + token| P[Placement original / futuro Go]
+  S -->|RPC| C[Nova Compute]
+  C -->|HTTP REST + token| P
+  C -->|HTTP REST + token| G
+  N -->|HTTP REST| Q[Neutron]
+  C -->|HTTP REST| Q
+  P -->|SQL| PD[(Placement DB)]
+  G -->|SQL| GD[(Glance DB)]
+  G -->|glance_store| IS[(Image store)]

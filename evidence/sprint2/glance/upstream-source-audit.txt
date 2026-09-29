@@ -1,0 +1,5 @@
+Inspección local de clone de solo lectura, 2026-09-29 UTC.
+glance stable/2026.2 8cd693aadc9d5982d9d71b4c34aab4de937ff70c
+  rg '^class (Image|ImageProperty|ImageLocation|ImageMember)' glance/db/sqlalchemy/models.py
+  Image usa PK id UUID; ImageProperty y ImageLocation referencian images.id.
+  Modelo inspeccionado en código fuente; configuración de backend del laboratorio aún no existe.

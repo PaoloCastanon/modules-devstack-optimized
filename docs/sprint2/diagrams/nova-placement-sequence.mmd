@@ -1,0 +1,18 @@
+sequenceDiagram
+  participant U as Usuario
+  participant N as Nova API
+  participant S as Nova Scheduler
+  participant P as Placement
+  participant D as Placement DB
+  participant C as Nova Compute
+  U->>N: server create
+  N->>S: RPC solicitud de scheduling
+  S->>P: GET /allocation_candidates (código: 1.36)
+  P->>D: consultar inventario/allocations
+  D-->>P: candidatos
+  P-->>S: allocation_requests + provider_summaries
+  S->>P: PUT /allocations/{consumer_uuid}
+  P->>D: transacción + generation
+  P-->>S: status de claim
+  S->>C: RPC construir instancia
+  Note over S,P: Pendiente de observar tráfico en DevStack

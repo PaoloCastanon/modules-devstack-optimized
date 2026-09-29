@@ -1,0 +1,6 @@
+flowchart LR
+  Nova[Nova Scheduler / Compute] -->|REST token + microversion| W[WSGI / auth / policy]
+  W --> H[Handlers Placement]
+  H --> M[Modelos de dominio]
+  M --> SA[SQLAlchemy]
+  SA --> DB[(Placement DB)]
