@@ -3,6 +3,11 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 out="$root/evidence/sprint2/tests"
 mkdir -p "$out"
+if [[ -z ${OS_AUTH_URL:-} ]]; then
+  [[ -f /opt/stack/devstack/openrc ]] || { echo 'Falta openrc.' >&2; exit 1; }
+  # shellcheck disable=SC1091
+  source /opt/stack/devstack/openrc admin admin
+fi
 "$root/infra/devstack/verify-devstack.sh" > "$out/smoke-verify.txt"
 provider=$(openstack resource provider list -f value -c uuid | head -1)
 [[ -n $provider ]] || { echo 'No hay resource provider.' >&2; exit 1; }

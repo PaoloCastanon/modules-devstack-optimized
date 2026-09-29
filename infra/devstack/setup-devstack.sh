@@ -25,7 +25,7 @@ if [[ ${HOST_IP:-} == AUTO_OR_CHANGE_ME ]]; then HOST_IP=$(ip -4 route get 1.1.1
 source "$here/versions.lock"
 dir=${DEVSTACK_DIR:-/opt/stack/devstack}
 [[ $dir == /opt/stack/devstack ]] || { echo 'DEVSTACK_DIR debe ser /opt/stack/devstack para este laboratorio.' >&2; exit 1; }
-mkdir -p /opt/stack/logs
+sudo install -d -o "$(id -un)" -g "$(id -gn)" /opt/stack /opt/stack/logs
 if [[ ! -d $dir/.git ]]; then git clone --branch "$DEVSTACK_BRANCH" https://opendev.org/openstack/devstack "$dir"; fi
 [[ $(git -C "$dir" remote get-url origin) == https://opendev.org/openstack/devstack ]] || { echo 'Origen DevStack inesperado.' >&2; exit 1; }
 git -C "$dir" fetch origin "$DEVSTACK_BRANCH"

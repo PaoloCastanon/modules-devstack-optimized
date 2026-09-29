@@ -12,5 +12,5 @@ capture images GET "$base/v2/images" "$out"
 image=$(openstack image list -f value -c ID | head -1)
 if [[ -n $image ]]; then
   capture image GET "$base/v2/images/$image" "$out"
-  capture image-file HEAD "$base/v2/images/$image/file" "$out"
+  # Download is deliberately separate: do not save arbitrary large binaries in Git.
 fi
