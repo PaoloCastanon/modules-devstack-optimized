@@ -1,0 +1,4 @@
+infra/devstack/.env
+infra/devstack/devstack/
+infra/devstack/*.log
+__pycache__/
