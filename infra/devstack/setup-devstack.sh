@@ -2,7 +2,7 @@
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 log="$here/setup-devstack.log"
-trap 'rc=$?; if ((rc)); then printf "Instalación fallida (%s). Log: %s\n" "$rc" "$log" >&2; fi' EXIT
+trap 'rc=$?; if ((rc)); then if [[ -f $log ]]; then printf "Instalación fallida (%s). Log: %s\n" "$rc" "$log" >&2; else printf "Preflight falló (%s); stack.sh no se ejecutó.\n" "$rc" >&2; fi; fi' EXIT
 [[ $EUID -ne 0 ]] || { echo 'Ejecutar como usuario no root.' >&2; exit 1; }
 source /etc/os-release
 [[ ${ID:-} == ubuntu && ${VERSION_ID:-} == 24.04 ]] || { echo 'Se requiere VM/servidor dedicado Ubuntu 24.04.' >&2; exit 1; }
