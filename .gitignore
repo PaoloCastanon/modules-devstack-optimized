@@ -2,3 +2,7 @@ infra/devstack/.env
 infra/devstack/devstack/
 infra/devstack/*.log
 __pycache__/
+docs/sprint2/*.aux
+docs/sprint2/*.log
+docs/sprint2/*.out
+docs/sprint2/*.toc
