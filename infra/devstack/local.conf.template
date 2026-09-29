@@ -1,0 +1,15 @@
+[[local|localrc]]
+ADMIN_PASSWORD=@ADMIN_PASSWORD@
+DATABASE_PASSWORD=@DATABASE_PASSWORD@
+RABBIT_PASSWORD=@RABBIT_PASSWORD@
+SERVICE_PASSWORD=@SERVICE_PASSWORD@
+HOST_IP=@HOST_IP@
+DEST=/opt/stack
+LOGFILE=/opt/stack/logs/stack.sh.log
+LOGDAYS=2
+RECLONE=no
+NOVA_BRANCH=stable/2026.2
+GLANCE_BRANCH=stable/2026.2
+PLACEMENT_BRANCH=stable/2026.2
+# Keep DevStack's tested default service graph: Keystone, Nova, Placement,
+# Glance, Neutron, database and RabbitMQ are included by default.
