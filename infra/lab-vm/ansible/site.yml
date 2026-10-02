@@ -27,7 +27,7 @@
           - curl
           - git
           - jq
-          - mariadb-client
+          - mysql-server
           - python3
           - python3-pip
           - python3-venv
@@ -41,6 +41,12 @@
     - name: Enable QEMU guest agent
       ansible.builtin.service:
         name: qemu-guest-agent
+        state: started
+        enabled: true
+
+    - name: Keep DevStack database service available
+      ansible.builtin.service:
+        name: mysql
         state: started
         enabled: true
 
