@@ -3,7 +3,9 @@ set -euo pipefail
 if [[ -z ${OS_AUTH_URL:-} ]]; then
   [[ -f /opt/stack/devstack/openrc ]] || { echo 'Falta OS_AUTH_URL/openrc.' >&2; exit 1; }
   # shellcheck disable=SC1091
+  set +u
   source /opt/stack/devstack/openrc admin admin
+  set -u
 fi
 get_endpoint() {
   openstack endpoint list -f json | python3 -c '

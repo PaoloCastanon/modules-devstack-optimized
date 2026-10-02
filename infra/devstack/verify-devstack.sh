@@ -6,7 +6,9 @@ mkdir -p "$out"
 if [[ -z ${OS_AUTH_URL:-} ]]; then
   [[ -f /opt/stack/devstack/openrc ]] || { echo 'Falta autenticación: source /opt/stack/devstack/openrc admin admin' >&2; exit 1; }
   # shellcheck disable=SC1091
+  set +u
   source /opt/stack/devstack/openrc admin admin
+  set -u
 fi
 openstack token issue -f value -c expires > "$out/token-expiry.txt"
 for spec in 'service list' 'endpoint list' 'compute service list' 'image list' 'flavor list' 'network list' 'resource provider list' 'server list'; do

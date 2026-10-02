@@ -6,7 +6,9 @@ mkdir -p "$out"
 if [[ -z ${OS_AUTH_URL:-} ]]; then
   [[ -f /opt/stack/devstack/openrc ]] || { echo 'Falta openrc.' >&2; exit 1; }
   # shellcheck disable=SC1091
+  set +u
   source /opt/stack/devstack/openrc admin admin
+  set -u
 fi
 "$root/infra/devstack/verify-devstack.sh" > "$out/smoke-verify.txt"
 provider=$(openstack resource provider list -f value -c uuid | head -1)
