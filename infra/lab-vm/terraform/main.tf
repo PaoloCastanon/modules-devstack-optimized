@@ -1,7 +1,8 @@
 locals {
-  pool       = "default"
-  image_path = abspath("${path.module}/../.cache/ubuntu-24.04-server-cloudimg-amd64.img")
-  ssh_key    = trimspace(file(pathexpand(var.ssh_public_key_path)))
+  pool          = "default"
+  management_ip = "192.168.122.10"
+  image_path    = abspath("${path.module}/../.cache/ubuntu-24.04-server-cloudimg-amd64.img")
+  ssh_key       = trimspace(file(pathexpand(var.ssh_public_key_path)))
 }
 
 resource "libvirt_volume" "ubuntu_base" {
@@ -38,13 +39,28 @@ resource "libvirt_cloudinit_disk" "seed" {
     "instance-id"    = var.vm_name
     "local-hostname" = var.vm_name
   })
+  network_config = yamlencode({
+    version = 2
+    ethernets = {
+      primary = {
+        match     = { macaddress = "52:54:00:24:10:02" }
+        addresses = ["${local.management_ip}/24"]
+        optional  = true
+      }
+      outbound = {
+        match    = { macaddress = "52:54:00:24:10:03" }
+        dhcp4    = true
+        optional = true
+      }
+    }
+  })
 }
 
 resource "libvirt_volume" "seed" {
   name = "${var.vm_name}-seed.iso"
   pool = local.pool
   target = {
-    format = { type = "raw" }
+    format = { type = "iso" }
   }
   create = {
     content = { url = libvirt_cloudinit_disk.seed.path }
@@ -62,15 +78,39 @@ resource "libvirt_domain" "lab" {
   vcpu        = var.vcpus
 
   os = {
-    type         = "hvm"
-    type_arch    = "x86_64"
-    type_machine = "q35"
+    type            = "hvm"
+    type_arch       = "x86_64"
+    type_machine    = "q35"
+    boot_devices    = [{ dev = "hd" }]
+    firmware        = "efi"
+    loader          = "/usr/share/edk2/x64/OVMF_CODE.4m.fd"
+    loader_readonly = "yes"
+    loader_type     = "pflash"
+    nv_ram = {
+      nv_ram   = "/var/lib/libvirt/qemu/nvram/${var.vm_name}.fd"
+      template = "/usr/share/edk2/x64/OVMF_VARS.4m.fd"
+    }
+  }
+
+  features = {
+    acpi = true
   }
 
   devices = {
+    controllers = [{ type = "virtio-serial", index = 0 }]
+    channels = [{
+      source = { unix = { mode = "bind" } }
+      target = { virt_io = { name = "org.qemu.guest_agent.0" } }
+    }]
+    serials = [{ target = { port = 0, type = "isa-serial" } }]
+    graphics = [{
+      vnc = { listen = "127.0.0.1", auto_port = true }
+    }]
+    videos = [{ model = { type = "vga" } }]
     disks = [
       {
         device = "disk"
+        driver = { name = "qemu", type = "qcow2" }
         source = { file = { file = libvirt_volume.system.path } }
         target = { dev = "vda", bus = "virtio" }
       },
@@ -86,11 +126,11 @@ resource "libvirt_domain" "lab" {
         model  = { type = "virtio" }
         mac    = { address = "52:54:00:24:10:02" }
         source = { network = { network = "default" } }
-        wait_for_ip = {
-          network = "192.168.122.0/24"
-          source  = "lease"
-          timeout = 300
-        }
+      },
+      {
+        model  = { type = "virtio" }
+        mac    = { address = "52:54:00:24:10:03" }
+        source = { user = {} }
       }
     ]
   }

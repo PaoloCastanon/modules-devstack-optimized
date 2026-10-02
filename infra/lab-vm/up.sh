@@ -5,7 +5,8 @@ for cmd in terraform virsh ansible-playbook curl sha256sum; do
   command -v "$cmd" >/dev/null || { echo "Falta $cmd" >&2; exit 1; }
 done
 [[ -r /dev/kvm ]] || { echo 'KVM no disponible.' >&2; exit 1; }
-virsh -c qemu:///system net-info default | grep -q 'Active:.*yes' || { echo 'Red libvirt default no activa.' >&2; exit 1; }
+net_active=$(virsh -c qemu:///system net-info default | awk '$1 == "Active:" {print $2}')
+[[ $net_active == yes ]] || { echo 'Red libvirt default no activa.' >&2; exit 1; }
 [[ $(nproc) -ge 4 ]] || { echo 'Host con menos de 4 CPU.' >&2; exit 1; }
 [[ $(awk '/MemTotal/{print int($2/1024/1024)}' /proc/meminfo) -ge 14 ]] || { echo 'Host con menos de 14 GiB RAM total.' >&2; exit 1; }
 [[ $(df -BG --output=avail "$here" | tail -1 | tr -dc '0-9') -ge 65 ]] || { echo 'Host con menos de 65 GiB libres.' >&2; exit 1; }
