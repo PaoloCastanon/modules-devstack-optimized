@@ -12,6 +12,7 @@
           - ansible_facts.distribution_version == '24.04'
           - ansible_facts.processor_vcpus | int >= 4
           - ansible_facts.memtotal_mb | int >= 7800
+          - ansible_facts.virtualization_role == 'guest'
         fail_msg: The VM does not meet the Ubuntu 24.04 / 4 vCPU / 8 GiB laboratory profile.
 
     - name: Wait until cloud-init finishes package setup
@@ -71,6 +72,61 @@
       ansible.builtin.git:
         repo: https://github.com/PaoloCastanon/modules-devstack-optimized.git
         dest: /home/stack/modules-devstack-optimized
-        version: main
+        version: "{{ repo_revision }}"
         update: true
+        force: true
       become_user: stack
+
+    - name: Generate unique DevStack credentials once
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - |
+            from pathlib import Path
+            import secrets
+            import sys
+            path = Path('/home/stack/modules-devstack-optimized/infra/devstack/.env')
+            keys = ('ADMIN_PASSWORD', 'DATABASE_PASSWORD', 'RABBIT_PASSWORD', 'SERVICE_PASSWORD')
+            content = ''.join(f'{key}={secrets.token_hex(18)}\n' for key in keys)
+            content += f'HOST_IP={sys.argv[1]}\nDEDICATED_LAB=YES\nDEVSTACK_DIR=/opt/stack/devstack\n'
+            path.write_text(content)
+            path.chmod(0o600)
+          - "{{ lab_management_ip }}"
+        creates: /home/stack/modules-devstack-optimized/infra/devstack/.env
+      become_user: stack
+      no_log: true
+
+    - name: Check whether DevStack was installed successfully
+      ansible.builtin.stat:
+        path: /opt/stack/devstack/.sprint2-install-complete
+      register: devstack_marker
+
+    - name: Install pinned DevStack on the dedicated VM
+      ansible.builtin.command: /home/stack/modules-devstack-optimized/infra/devstack/setup-devstack.sh
+      become_user: stack
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      async: 7200
+      poll: 30
+      when: not devstack_marker.stat.exists
+      no_log: true
+
+    - name: Verify critical OpenStack services
+      ansible.builtin.command: /home/stack/modules-devstack-optimized/infra/devstack/verify-devstack.sh
+      become_user: stack
+      changed_when: false
+
+    - name: Record deployed project and package versions
+      ansible.builtin.command: /home/stack/modules-devstack-optimized/infra/devstack/record-versions.sh
+      become_user: stack
+      changed_when: false
+
+    - name: Mark validated DevStack installation
+      ansible.builtin.file:
+        path: /opt/stack/devstack/.sprint2-install-complete
+        state: touch
+        owner: stack
+        group: stack
+        mode: '0644'
+      when: not devstack_marker.stat.exists

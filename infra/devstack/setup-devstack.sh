@@ -19,15 +19,16 @@ source /etc/os-release
 # shellcheck disable=SC1091
 source "$here/.env"
 [[ ${DEDICATED_LAB:-NO} == YES ]] || { echo 'DEDICATED_LAB=YES sólo en VM/servidor dedicado.' >&2; exit 1; }
-for cmd in git curl sed tee sudo python3; do command -v "$cmd" >/dev/null || { echo "Falta $cmd" >&2; exit 1; }; done
+for cmd in git curl sed tee sudo python3 systemd-detect-virt; do command -v "$cmd" >/dev/null || { echo "Falta $cmd" >&2; exit 1; }; done
 sudo -n true || { echo 'Se requiere sudo no interactivo.' >&2; exit 1; }
 for var in ADMIN_PASSWORD DATABASE_PASSWORD RABBIT_PASSWORD SERVICE_PASSWORD; do
   value=${!var:-}; [[ $value =~ ^[A-Za-z0-9]{12,}$ && $value != CHANGE_ME ]] || { echo "Configure $var con >=12 caracteres alfanuméricos." >&2; exit 1; }
 done
 [[ $(nproc) -ge 4 ]] || { echo 'Se requieren >=4 CPU.' >&2; exit 1; }
-[[ $(awk '/MemTotal/{print int($2/1024/1024)}' /proc/meminfo) -ge 8 ]] || { echo 'Se requieren >=8 GiB RAM.' >&2; exit 1; }
+[[ $(awk '/MemTotal/{print $2}' /proc/meminfo) -ge 8000000 ]] || { echo 'Se requieren al menos 8 GiB asignados (>=8000000 KiB visibles).' >&2; exit 1; }
 [[ $(df -BG --output=avail /opt | tail -1 | tr -dc '0-9') -ge 40 ]] || { echo 'Se requieren >=40 GiB libres en /opt.' >&2; exit 1; }
 curl -fsS --max-time 10 -o /dev/null https://opendev.org || { echo 'Sin red a opendev.org.' >&2; exit 1; }
+[[ $(systemd-detect-virt) == kvm || $(systemd-detect-virt) == qemu ]] || { echo 'Sólo se instala en VM KVM/QEMU dedicada.' >&2; exit 1; }
 if [[ ${HOST_IP:-} == AUTO_OR_CHANGE_ME ]]; then HOST_IP=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}'); fi
 [[ $HOST_IP =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'HOST_IP IPv4 inválido.' >&2; exit 1; }
 # shellcheck disable=SC1091

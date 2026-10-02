@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+root=$(cd "$here/../.." && pwd)
 key=${LAB_SSH_KEY:-$HOME/.ssh/id_ed25519}
 [[ -f $key ]] || { echo "Falta clave SSH privada: $key" >&2; exit 1; }
 mkdir -p "$here/.cache"
 ip=$("$here/status.sh" | sed -n 's/^VM_IP=//p')
+revision=$(git -C "$root" rev-parse HEAD)
 ssh_opts=(-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$here/.cache/known_hosts" -i "$key")
 ready=0
 for attempt in {1..30}; do
@@ -15,5 +17,9 @@ done
 ((ready)) || { echo "SSH no respondió en $ip después de 5 minutos." >&2; exit 1; }
 ansible-playbook -i "$ip," -u stack --private-key "$key" \
   --ssh-common-args "-o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$here/.cache/known_hosts" \
+  --extra-vars "lab_management_ip=$ip repo_revision=$revision" \
   "$here/ansible/site.yml"
-echo "VM preparada: ssh -i $key stack@$ip"
+scp "${ssh_opts[@]}" "stack@$ip:/home/stack/modules-devstack-optimized/infra/devstack/versions.lock" "$root/infra/devstack/versions.lock"
+mkdir -p "$root/evidence/sprint2/devstack"
+scp "${ssh_opts[@]}" "stack@$ip:/home/stack/modules-devstack-optimized/evidence/sprint2/devstack/*.json" "$root/evidence/sprint2/devstack/"
+echo "DevStack preparado y verificado: ssh -i $key stack@$ip"
