@@ -1,0 +1,110 @@
+[
+  {
+    "ID": "1",
+    "Name": "m1.tiny",
+    "RAM": 512,
+    "Disk": 1,
+    "Ephemeral": 0,
+    "VCPUs": 1,
+    "Is Public": true
+  },
+  {
+    "ID": "2",
+    "Name": "m1.small",
+    "RAM": 2048,
+    "Disk": 20,
+    "Ephemeral": 0,
+    "VCPUs": 1,
+    "Is Public": true
+  },
+  {
+    "ID": "3",
+    "Name": "m1.medium",
+    "RAM": 4096,
+    "Disk": 40,
+    "Ephemeral": 0,
+    "VCPUs": 2,
+    "Is Public": true
+  },
+  {
+    "ID": "4",
+    "Name": "m1.large",
+    "RAM": 8192,
+    "Disk": 80,
+    "Ephemeral": 0,
+    "VCPUs": 4,
+    "Is Public": true
+  },
+  {
+    "ID": "42",
+    "Name": "m1.nano",
+    "RAM": 192,
+    "Disk": 1,
+    "Ephemeral": 0,
+    "VCPUs": 1,
+    "Is Public": true
+  },
+  {
+    "ID": "5",
+    "Name": "m1.xlarge",
+    "RAM": 16384,
+    "Disk": 160,
+    "Ephemeral": 0,
+    "VCPUs": 8,
+    "Is Public": true
+  },
+  {
+    "ID": "84",
+    "Name": "m1.micro",
+    "RAM": 256,
+    "Disk": 1,
+    "Ephemeral": 0,
+    "VCPUs": 1,
+    "Is Public": true
+  },
+  {
+    "ID": "c1",
+    "Name": "cirros256",
+    "RAM": 256,
+    "Disk": 1,
+    "Ephemeral": 0,
+    "VCPUs": 1,
+    "Is Public": true
+  },
+  {
+    "ID": "d1",
+    "Name": "ds512M",
+    "RAM": 512,
+    "Disk": 5,
+    "Ephemeral": 0,
+    "VCPUs": 1,
+    "Is Public": true
+  },
+  {
+    "ID": "d2",
+    "Name": "ds1G",
+    "RAM": 1024,
+    "Disk": 10,
+    "Ephemeral": 0,
+    "VCPUs": 1,
+    "Is Public": true
+  },
+  {
+    "ID": "d3",
+    "Name": "ds2G",
+    "RAM": 2048,
+    "Disk": 10,
+    "Ephemeral": 0,
+    "VCPUs": 2,
+    "Is Public": true
+  },
+  {
+    "ID": "d4",
+    "Name": "ds4G",
+    "RAM": 4096,
+    "Disk": 20,
+    "Ephemeral": 0,
+    "VCPUs": 4,
+    "Is Public": true
+  }
+]

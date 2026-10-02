@@ -1,0 +1,5 @@
+PUT http://192.168.122.10/placement/resource_providers/4446c55f-ee69-4f16-b6c0-b562d5f200ab/inventories
+Accept: application/json
+OpenStack-API-Version: placement 1.0
+Content-Type: application/json
+Body file: inventory.json

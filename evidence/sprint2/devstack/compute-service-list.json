@@ -1,0 +1,38 @@
+[
+  {
+    "ID": "e72a1222-2401-4209-9ffe-f1fae8625ff7",
+    "Binary": "nova-scheduler",
+    "Host": "tt-openstack-lab",
+    "Zone": "internal",
+    "Status": "enabled",
+    "State": "up",
+    "Updated At": "2026-10-02T17:21:24.000000"
+  },
+  {
+    "ID": "3c618e0c-f965-41b4-b424-a2bb4cfe6e89",
+    "Binary": "nova-conductor",
+    "Host": "tt-openstack-lab",
+    "Zone": "internal",
+    "Status": "enabled",
+    "State": "up",
+    "Updated At": "2026-10-02T17:21:27.000000"
+  },
+  {
+    "ID": "792c4fd0-968a-4484-8a01-b037a4552eb1",
+    "Binary": "nova-conductor",
+    "Host": "tt-openstack-lab",
+    "Zone": "internal",
+    "Status": "enabled",
+    "State": "up",
+    "Updated At": "2026-10-02T17:25:06.000000"
+  },
+  {
+    "ID": "62ed61bd-d201-4be2-b378-7b9909cbe10b",
+    "Binary": "nova-compute",
+    "Host": "tt-openstack-lab",
+    "Zone": "nova",
+    "Status": "enabled",
+    "State": "up",
+    "Updated At": "2026-10-02T17:21:29.000000"
+  }
+]

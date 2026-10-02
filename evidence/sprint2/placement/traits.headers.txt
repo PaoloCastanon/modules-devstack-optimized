@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+Date: Fri, 02 Oct 2026 17:27:40 GMT
+Server: Apache/2.4.58 (Ubuntu)
+Content-Length: 2040
+Content-Type: application/json
+openstack-api-version: placement 1.6
+vary: openstack-api-version
+x-openstack-request-id: req-b4253e7d-9bf7-4da2-8632-ae979ecca032
+Connection: close

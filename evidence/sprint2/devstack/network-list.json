@@ -1,0 +1,25 @@
+[
+  {
+    "ID": "44193c7a-3e3b-4ae2-900e-e1e88856d4e3",
+    "Name": "shared",
+    "Subnets": [
+      "e3ee5676-2cde-44ed-a44a-d5ff5eb41e0b"
+    ]
+  },
+  {
+    "ID": "e9fbb9ed-7664-4d2e-8e2f-1486bd4e7d1f",
+    "Name": "public",
+    "Subnets": [
+      "55547097-6977-49b8-9faf-2cd3390fdc90",
+      "65f54961-0858-4eb6-a211-c44008ea7170"
+    ]
+  },
+  {
+    "ID": "f604a0a4-4592-4f03-bd6b-580358875299",
+    "Name": "private",
+    "Subnets": [
+      "246d33c1-f549-43b1-9eb4-9233938c3c26",
+      "96f5d327-22da-40aa-900b-daa1a32700e6"
+    ]
+  }
+]

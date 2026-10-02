@@ -1,0 +1,9 @@
+HTTP/1.1 201 Created
+Date: Fri, 02 Oct 2026 17:27:44 GMT
+Server: Apache/2.4.58 (Ubuntu)
+Content-Length: 0
+Location: http://192.168.122.10/placement/resource_providers/4446c55f-ee69-4f16-b6c0-b562d5f200ab
+openstack-api-version: placement 1.0
+vary: openstack-api-version
+x-openstack-request-id: req-d164ab3e-9c0a-47b4-9fe9-901f1ca2d649
+Connection: close

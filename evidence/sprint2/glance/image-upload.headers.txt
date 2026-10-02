@@ -1,0 +1,6 @@
+HTTP/1.1 204 No Content
+Date: Fri, 02 Oct 2026 17:27:56 GMT
+Server: Apache/2.4.58 (Ubuntu)
+Content-Type: text/html; charset=UTF-8
+x-openstack-request-id: req-8e8ac51e-d2c5-4301-8f1c-23c715efc556
+Connection: close

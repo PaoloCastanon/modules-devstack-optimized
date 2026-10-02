@@ -1,0 +1,1 @@
+{"allocation_requests": [{"allocations": [{"resource_provider": {"uuid": "3b7cc290-1329-47d2-9502-890059c82d1b"}, "resources": {"VCPU": 1, "MEMORY_MB": 64}}]}], "provider_summaries": {"3b7cc290-1329-47d2-9502-890059c82d1b": {"resources": {"MEMORY_MB": {"capacity": 7423, "used": 0}, "VCPU": {"capacity": 16, "used": 0}}}}}

@@ -1,0 +1,8 @@
+HTTP/1.1 200 OK
+Date: Fri, 02 Oct 2026 17:28:00 GMT
+Server: Apache/2.4.58 (Ubuntu)
+Content-Type: application/octet-stream
+Content-MD5: 241c5b115fe084378b4c6054ca35761f
+x-openstack-request-id: req-b9ef15cb-d3c5-44f3-985c-9f7793d2dfbf
+Connection: close
+Transfer-Encoding: chunked

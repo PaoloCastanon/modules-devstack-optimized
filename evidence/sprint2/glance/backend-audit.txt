@@ -1,0 +1,8 @@
+2026-10-02 UTC; VM tt-openstack-lab, Ubuntu 24.04.5
+Command: sudo rg '^filesystem_store_datadir =' /etc/glance/glance-api.conf
+filesystem_store_datadir = /opt/stack/data/glance/images/
+Command: sudo find /opt/stack/data/glance/images -maxdepth 1 -type f | wc -l
+store_entries=1
+Command: curl -sS -o /dev/null -w '%{http_code}' http://192.168.122.10/image/v2/images (sin token)
+unauth_images_status=401
+Las operaciones autenticadas y el upload/download con SHA256 idéntico constan en los archivos image-*.status.txt e image-download.sha256.txt.

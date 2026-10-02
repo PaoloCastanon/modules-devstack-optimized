@@ -1,0 +1,6 @@
+2026-10-02 UTC; VM tt-openstack-lab; MySQL 8.0.46
+Consulta de solo lectura: SHOW TABLES FROM placement; SHOW TABLES FROM glance;
+Credencial de la VM proporcionada mediante MYSQL_PWD en el proceso remoto; no se guardó.
+placement: allocations, consumers, inventories, resource_providers
+glance: image_locations, images
+Los campos y constraints detallados se documentaron desde los modelos SQLAlchemy del SHA desplegado.

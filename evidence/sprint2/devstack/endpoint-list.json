@@ -1,0 +1,65 @@
+[
+  {
+    "ID": "0170f3f601d04fcea9e606ea3f3105f1",
+    "Region": "RegionOne",
+    "Service Name": "placement",
+    "Service Type": "placement",
+    "Enabled": true,
+    "Interface": "public",
+    "URL": "http://192.168.122.10/placement"
+  },
+  {
+    "ID": "0e0eddd781024bbf88a50298614d1ed2",
+    "Region": "RegionOne",
+    "Service Name": "nova_legacy",
+    "Service Type": "compute_legacy",
+    "Enabled": true,
+    "Interface": "public",
+    "URL": "http://192.168.122.10/compute/v2/$(project_id)s"
+  },
+  {
+    "ID": "108f3015c20a4afe89f9459f3222da16",
+    "Region": "RegionOne",
+    "Service Name": "keystone",
+    "Service Type": "identity",
+    "Enabled": true,
+    "Interface": "public",
+    "URL": "http://192.168.122.10/identity"
+  },
+  {
+    "ID": "710d5eee14724773a76dace7f2007dd0",
+    "Region": "RegionOne",
+    "Service Name": "nova",
+    "Service Type": "compute",
+    "Enabled": true,
+    "Interface": "public",
+    "URL": "http://192.168.122.10/compute/v2.1"
+  },
+  {
+    "ID": "827b590f0ab74ec7a61f6177dbec5f20",
+    "Region": "RegionOne",
+    "Service Name": "neutron",
+    "Service Type": "network",
+    "Enabled": true,
+    "Interface": "public",
+    "URL": "http://192.168.122.10/networking"
+  },
+  {
+    "ID": "88df9e66d53247a39c9484d64e6c1ea2",
+    "Region": "RegionOne",
+    "Service Name": "cinder",
+    "Service Type": "block-storage",
+    "Enabled": true,
+    "Interface": "public",
+    "URL": "http://192.168.122.10/volume/v3"
+  },
+  {
+    "ID": "d49429121d1d4142ae2e012011f5818d",
+    "Region": "RegionOne",
+    "Service Name": "glance",
+    "Service Type": "image",
+    "Enabled": true,
+    "Interface": "public",
+    "URL": "http://192.168.122.10/image"
+  }
+]

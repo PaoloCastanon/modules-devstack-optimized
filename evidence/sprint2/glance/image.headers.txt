@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+Date: Fri, 02 Oct 2026 17:27:53 GMT
+Server: Apache/2.4.58 (Ubuntu)
+Content-Length: 976
+Content-Type: application/json
+x-openstack-request-id: req-5abaaa10-3426-456e-99f1-190f2c47c192
+Connection: close

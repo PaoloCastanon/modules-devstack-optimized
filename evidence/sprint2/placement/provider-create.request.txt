@@ -1,0 +1,5 @@
+POST http://192.168.122.10/placement/resource_providers
+Accept: application/json
+OpenStack-API-Version: placement 1.0
+Content-Type: application/json
+Body file: provider.json

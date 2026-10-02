@@ -1,0 +1,2 @@
+GET http://192.168.122.10/image/v2/images/00000000-0000-4000-8000-000000000000
+Accept: application/json

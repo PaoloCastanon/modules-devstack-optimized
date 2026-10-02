@@ -1,0 +1,4 @@
+PATCH http://192.168.122.10/image/v2/images/0aee5f44-318d-4c64-a52f-c978377a3f82
+Accept: application/json
+Content-Type: application/openstack-images-v2.1-json-patch
+Body file: image-patch.json

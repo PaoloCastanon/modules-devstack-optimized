@@ -1,0 +1,8 @@
+HTTP/1.1 404 Not Found
+Date: Fri, 02 Oct 2026 17:27:43 GMT
+Server: Apache/2.4.58 (Ubuntu)
+openstack-api-version: placement 1.0
+Content-Length: 235
+Content-Type: application/json
+x-openstack-request-id: req-ee08d685-798b-4e46-bdbe-d009d4d5a7f9
+Connection: close

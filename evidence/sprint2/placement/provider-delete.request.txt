@@ -1,0 +1,3 @@
+DELETE http://192.168.122.10/placement/resource_providers/4446c55f-ee69-4f16-b6c0-b562d5f200ab
+Accept: application/json
+OpenStack-API-Version: placement 1.0

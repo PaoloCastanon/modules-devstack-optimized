@@ -1,0 +1,1 @@
+{"resource_provider_generation": 1, "inventories": {"VCPU": {"total": 1, "reserved": 0, "min_unit": 1, "max_unit": 1, "step_size": 1, "allocation_ratio": 1.0}}}

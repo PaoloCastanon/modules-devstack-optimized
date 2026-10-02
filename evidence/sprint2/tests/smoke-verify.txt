@@ -1,0 +1,2 @@
+Endpoints image, placement, compute, identity presentes
+Verificación correcta. Evidencia: /home/stack/modules-devstack-optimized/evidence/sprint2/devstack

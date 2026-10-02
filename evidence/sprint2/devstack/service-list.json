@@ -1,0 +1,37 @@
+[
+  {
+    "ID": "044f79742bce435f848f75158e3724e8",
+    "Name": "nova_legacy",
+    "Type": "compute_legacy"
+  },
+  {
+    "ID": "32461d248ebf400d8d0b0aa747e39d69",
+    "Name": "cinder",
+    "Type": "block-storage"
+  },
+  {
+    "ID": "3b46afc790b248cd8b69e78ecc70bf6f",
+    "Name": "glance",
+    "Type": "image"
+  },
+  {
+    "ID": "49b97ab5934a49819c25cdbb408a78f5",
+    "Name": "neutron",
+    "Type": "network"
+  },
+  {
+    "ID": "cc3004c4f8c34486a92d15316873c6f0",
+    "Name": "keystone",
+    "Type": "identity"
+  },
+  {
+    "ID": "d0731ae19c5947f28eb1fd40d86cf2ca",
+    "Name": "nova",
+    "Type": "compute"
+  },
+  {
+    "ID": "d7c14c60698c485a8425138b6dcc0b3c",
+    "Name": "placement",
+    "Type": "placement"
+  }
+]

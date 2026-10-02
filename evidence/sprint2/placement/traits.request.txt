@@ -1,0 +1,3 @@
+GET http://192.168.122.10/placement/resource_providers/3b7cc290-1329-47d2-9502-890059c82d1b/traits
+Accept: application/json
+OpenStack-API-Version: placement 1.6

@@ -1,0 +1,4 @@
+POST http://192.168.122.10/image/v2/images
+Accept: application/json
+Content-Type: application/json
+Body file: image.json
