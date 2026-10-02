@@ -41,6 +41,11 @@ if [[ ! -d $dir/.git ]]; then git clone --branch "$DEVSTACK_BRANCH" https://open
 git -C "$dir" fetch origin "$DEVSTACK_BRANCH"
 git -C "$dir" checkout --detach "$DEVSTACK_SHA"
 [[ $(git -C "$dir" rev-parse HEAD) == "$DEVSTACK_SHA" ]] || exit 1
+patch_file="$here/patches/neutron-geneve-startup.patch"
+if ! git -C "$dir" apply --reverse --check "$patch_file" 2>/dev/null; then
+  git -C "$dir" apply --check "$patch_file"
+  git -C "$dir" apply "$patch_file"
+fi
 conf="$dir/local.conf"
 config_tmp=$(mktemp /opt/stack/local.conf.XXXXXX)
 cp "$here/local.conf.template" "$config_tmp"
