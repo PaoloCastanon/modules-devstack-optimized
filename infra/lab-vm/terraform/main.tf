@@ -76,6 +76,7 @@ resource "libvirt_domain" "lab" {
   memory      = var.memory_mib
   memory_unit = "MiB"
   vcpu        = var.vcpus
+  cpu         = { mode = "host-passthrough" }
 
   os = {
     type            = "hvm"

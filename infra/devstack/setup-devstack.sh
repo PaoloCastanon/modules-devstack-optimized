@@ -54,11 +54,12 @@ else
   mv "$config_tmp" "$conf"
   config_tmp=''
 fi
-printf 'DevStack %s (%s), SO %s\n' "$DEVSTACK_BRANCH" "$DEVSTACK_SHA" "$PRETTY_NAME" | tee "$log"
-set +e
-(cd "$dir" && ./stack.sh) 2>&1 | tee -a "$log"
-rc=${PIPESTATUS[0]}
-set -e
+printf '\nIntento %s: DevStack %s (%s), SO %s\n' "$(date -u +%FT%TZ)" "$DEVSTACK_BRANCH" "$DEVSTACK_SHA" "$PRETTY_NAME" | tee -a "$log"
+if (cd "$dir" && ./stack.sh) >> "$log" 2>&1; then
+  rc=0
+else
+  rc=$?
+fi
 ((rc==0)) || exit "$rc"
 printf 'Instalación correcta. Log: %s\n' "$log"
 "$here/record-versions.sh"

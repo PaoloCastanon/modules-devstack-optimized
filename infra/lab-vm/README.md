@@ -4,6 +4,8 @@ Se crea **sólo** `tt-openstack-lab` en `qemu:///system` y el pool `default` de 
 
 La interfaz de administración usa `192.168.122.10/24` en la red `default` de libvirt. Otra interfaz usa la red de usuario de QEMU (`10.0.2.15` por DHCP) como ruta de salida y DNS. Esto permite acceso a Internet incluso cuando el firewall del host bloquea el tráfico reenviado por la red NAT de libvirt. El host debe tener libre `192.168.122.10` en esa red.
 
+La VM expone las capacidades de CPU del host (`host-passthrough`), necesarias para las dependencias actuales de Python. La configuración de Nova usa `LIBVIRT_TYPE=qemu` para que el laboratorio funcione aunque KVM anidado no esté disponible.
+
 ## Uso
 
 Desde la raíz del repo: `make lab-up`; ejecuta descarga con SHA256 fijo, `terraform init/plan/apply`, espera SSH y corre `ansible/site.yml`. Ansible comprueba la VM, instala las herramientas base, genera cuatro secretos únicos sólo dentro de la VM, ejecuta el DevStack fijado en `versions.lock` y verifica los servicios críticos. Al finalizar copia el registro de versiones y la evidencia sanitizada al repositorio local. Luego `make lab-verify` deja auditoría en `evidence/sprint2/environment/vm-audit.txt`. `make lab-status` muestra el dominio y la IP de administración. Se usa `~/.ssh/id_ed25519` y su `.pub` por defecto; cambiar con `LAB_SSH_KEY` y `TF_VAR_ssh_public_key_path` si se necesita.
