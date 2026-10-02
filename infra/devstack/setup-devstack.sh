@@ -60,6 +60,12 @@ else
   config_tmp=''
 fi
 printf '\nIntento %s: DevStack %s (%s), SO %s\n' "$(date -u +%FT%TZ)" "$DEVSTACK_BRANCH" "$DEVSTACK_SHA" "$PRETTY_NAME" | tee -a "$log"
+# A failed prior run can leave uWSGI listening on an obsolete port while
+# stack.sh rewrites Apache's proxy target. Start retries with fresh services.
+mapfile -t prior_units < <(systemctl list-unit-files 'devstack@*.service' --no-legend --no-pager | awk '{print $1}')
+if ((${#prior_units[@]})); then
+  sudo systemctl stop "${prior_units[@]}"
+fi
 if (cd "$dir" && ./stack.sh) >> "$log" 2>&1; then
   rc=0
 else
