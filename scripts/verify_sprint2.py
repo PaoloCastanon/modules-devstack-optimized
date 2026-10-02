@@ -2,6 +2,7 @@
 """Non-destructive artifact and evidence gate for Sprint 2."""
 from pathlib import Path
 import argparse
+import json
 import sys
 
 root = Path(__file__).resolve().parents[1]
@@ -48,6 +49,58 @@ if not args.docs_only:
     lock = (root / 'infra/devstack/versions.lock').read_text()
     if 'UNINSTALLED' in lock:
         missing.append('runtime versions in infra/devstack/versions.lock')
+    def require_status(path, expected):
+        target = root / path
+        if target.is_file() and target.read_text().strip() != str(expected):
+            missing.append(f'{path}: expected HTTP {expected}')
+
+    for name, code in {
+        'placement/providers': 200,
+        'placement/provider-create': 201,
+        'placement/inventory-put': 200,
+        'placement/provider-delete': 204,
+        'placement/provider-not-found': 404,
+        'glance/images': 200,
+        'glance/image-create': 201,
+        'glance/image-upload': 204,
+        'glance/image-active': 200,
+        'glance/image-patch': 200,
+        'glance/image-download': 200,
+        'glance/image-delete': 204,
+        'glance/image-not-found': 404,
+    }.items():
+        path = f'evidence/sprint2/{name}.status.txt'
+        if not (root / path).is_file():
+            missing.append(path)
+        else:
+            require_status(path, code)
+
+    versions = root / 'evidence/sprint2/placement/versions.response.json'
+    if versions.is_file():
+        data = json.loads(versions.read_text())
+        offered = data.get('versions', [])
+        if not any(v.get('min_version') == '1.0' and v.get('max_version') == '1.39' for v in offered):
+            missing.append('Placement server microversions 1.0–1.39')
+    flow = root / 'evidence/sprint2/placement/nova-requests.log'
+    if flow.is_file():
+        lines = flow.read_text().splitlines()
+        for method, path, code, micro in (
+            ('GET', '/allocation_candidates', '200', '1.36'),
+            ('GET', '/allocations/', '200', '1.28'),
+            ('PUT', '/allocations/', '204', '1.36'),
+            ('DELETE', '/allocations/', '204', '1.0'),
+        ):
+            if not any(f'"{method} /placement{path}' in line and f'status: {code}' in line and f'microversion: {micro}' in line and 'service nova' in line for line in lines):
+                missing.append(f'Nova→Placement {method} {path} HTTP {code} v{micro}')
+    else:
+        missing.append('evidence/sprint2/placement/nova-requests.log')
+    hashes = root / 'evidence/sprint2/glance/image-download.sha256.txt'
+    if hashes.is_file():
+        values = hashes.read_text().splitlines()
+        if len(values) != 2 or values[0] != values[1]:
+            missing.append('Glance upload/download SHA256 equality')
+    else:
+        missing.append('evidence/sprint2/glance/image-download.sha256.txt')
 for p in missing:
     print(f'MISSING {p}', file=sys.stderr)
 if missing:
