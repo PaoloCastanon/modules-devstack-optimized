@@ -1,4 +1,16 @@
-.PHONY: devstack-setup devstack-verify smoke baseline docs-check sprint2-verify
+.PHONY: lab-up lab-status lab-provision lab-verify devstack-setup devstack-verify smoke baseline docs-check sprint2-verify
+
+lab-up:
+	./infra/lab-vm/up.sh
+
+lab-status:
+	./infra/lab-vm/status.sh
+
+lab-provision:
+	./infra/lab-vm/provision.sh
+
+lab-verify:
+	./infra/lab-vm/verify-vm.sh
 
 devstack-setup:
 	./infra/devstack/setup-devstack.sh

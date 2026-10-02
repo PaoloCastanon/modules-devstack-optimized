@@ -1,0 +1,76 @@
+---
+- name: Prepare dedicated Ubuntu host for DevStack
+  hosts: all
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Require Ubuntu 24.04 and laboratory resources
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Ubuntu'
+          - ansible_facts.distribution_version == '24.04'
+          - ansible_facts.processor_vcpus | int >= 4
+          - ansible_facts.memtotal_mb | int >= 7800
+        fail_msg: The VM does not meet the Ubuntu 24.04 / 4 vCPU / 8 GiB laboratory profile.
+
+    - name: Wait until cloud-init finishes package setup
+      ansible.builtin.command: cloud-init status --wait
+      changed_when: false
+
+  tasks:
+    - name: Install base tools used by DevStack and verification scripts
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - git
+          - jq
+          - mariadb-client
+          - python3
+          - python3-pip
+          - python3-venv
+          - qemu-guest-agent
+          - ripgrep
+          - sudo
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Enable QEMU guest agent
+      ansible.builtin.service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true
+
+    - name: Create DevStack working directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: stack
+        group: stack
+        mode: '0755'
+      loop:
+        - /opt/stack
+        - /opt/stack/logs
+
+    - name: Check non-interactive sudo for stack user
+      ansible.builtin.command: sudo -n true
+      become: false
+      changed_when: false
+
+    - name: Check outbound access to OpenDev
+      ansible.builtin.uri:
+        url: https://opendev.org
+        method: HEAD
+        status_code: [200, 301, 302]
+        timeout: 20
+      changed_when: false
+
+    - name: Check out project scripts on the VM
+      ansible.builtin.git:
+        repo: https://github.com/PaoloCastanon/modules-devstack-optimized.git
+        dest: /home/stack/modules-devstack-optimized
+        version: main
+        update: true
+      become_user: stack
