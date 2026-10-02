@@ -6,3 +6,9 @@ docs/sprint2/*.aux
 docs/sprint2/*.log
 docs/sprint2/*.out
 docs/sprint2/*.toc
+infra/lab-vm/.cache/
+infra/lab-vm/terraform/.terraform/
+infra/lab-vm/terraform/*.tfstate*
+infra/lab-vm/terraform/*.tfplan
+infra/lab-vm/terraform/crash.log
+infra/lab-vm/terraform/terraform.tfvars
