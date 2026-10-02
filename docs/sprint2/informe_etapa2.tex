@@ -9,11 +9,11 @@
 \hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
 \title{Trabajo de Título\\Etapa 2: análisis y diseño de Placement y Glance}
 \author{Paolo Castañon Barrera \and Juan Claudio Cárdenas Uribe\\Profesor guía: Alejandro Mellado Gatica}
-\date{29 de septiembre de 2026}
+\date{2 de octubre de 2026}
 \begin{document}
 \maketitle
 \begin{abstract}
-Se presenta el análisis verificable de OpenStack Placement y Glance para una reimplementación acotada en Go. Se preparó un laboratorio DevStack reproducible, scripts de verificación y captura, contratos API, modelos de datos y estrategias de compatibilidad. El host disponible no es un servidor dedicado Ubuntu 24.04; por seguridad DevStack no se instaló y no existe aún baseline funcional. El estado del backlog refleja esa limitación.
+Se presenta el análisis verificable de OpenStack Placement y Glance para una reimplementación acotada en Go. Una VM Ubuntu 24.04 dedicada quedó provisionada con Terraform y Ansible; DevStack, los smoke tests y el baseline original se ejecutaron con éxito. Los siete elementos de Sprint 2 suman 33 de 33 puntos aceptados con evidencias en el repositorio. La retroalimentación formal del profesor guía sigue pendiente de recibir.
 \end{abstract}
 \tableofcontents
 
@@ -30,10 +30,10 @@ No se encontró retroalimentación formal del profesor guía entre los insumos d
 OE1 exige arquitectura, APIs, dependencias y flujos críticos de Placement y Glance. OE2 exige OpenStack de un nodo reproducible, smoke tests y baseline original. RF03--RF10 describen implementación posterior; el diseño de esta etapa no los valida.
 
 \section{Entorno experimental}
-La auditoría del host registró CachyOS rolling, 16 CPU, 15 GiB RAM, 82 GiB libres, red disponible, virtualización no detectada y sudo no interactivo ausente. Se trata como estación de trabajo. La guía oficial recomienda Ubuntu 24.04 dedicado para DevStack y advierte cambios sustanciales al sistema. Por tanto no se ejecutó \texttt{stack.sh}.
+El host de trabajo CachyOS se mantuvo separado del laboratorio. Terraform creó la VM libvirt \texttt{tt-openstack-lab}, Ubuntu 24.04.5, 4 vCPU, 8 GiB asignados y disco de 55 GiB. Ansible verificó sistema, recursos, red y sudo, instaló MySQL y ejecutó DevStack como usuario \texttt{stack}. La auditoría de VM y los JSON de servicios están en \texttt{evidence/sprint2}.
 
 \section{DevStack}
-El instalador exige Ubuntu 24.04, usuario no root, declaración de VM dedicada, recursos y red. Fija DevStack \texttt{stable/2026.2} al SHA \texttt{0fb9685c1bf22cd0b4d576d7a74f64195ad934fe}. Usa el grafo de servicios por defecto (Keystone, Nova, Placement, Glance, Neutron, DB y RabbitMQ). Los SHAs y versiones reales de los servicios se registrarán después de instalar; hoy constan como \texttt{UNINSTALLED}. Credenciales van en \texttt{.env} ignorado por Git.
+El instalador fija DevStack \texttt{stable/2026.2} al SHA \texttt{0fb9685c1bf22cd0b4d576d7a74f64195ad934fe} y aplica un parche versionado para inicializar Geneve antes de crear la red. Los servicios Keystone, Nova, Placement, Glance, Neutron, MySQL y RabbitMQ respondieron. \texttt{versions.lock} registra Placement \texttt{f4a89d3}, Glance \texttt{a3e5f49}, Nova \texttt{247ea5d}, Python 3.12.3, MySQL 8.0.46 y OpenStackClient 10.3.0. Ansible se repitió con éxito sin reinstalar. Secretos y logs crudos permanecen sólo en la VM.
 
 \section{Arquitectura general}
 \begin{center}
@@ -45,18 +45,18 @@ Nova / Compute $\xrightarrow{HTTP}$ Neutron}}
 Las fuentes Mermaid completas están en \texttt{docs/sprint2/diagrams}. Las rutas HTTP utilizan tokens Keystone; las relaciones internas de Nova usan RPC.
 
 \section{Diseño Placement}
-El código upstream \texttt{stable/2026.2}, SHA \texttt{f4a89d3803cb23df22b8714569889ab39c918c34}, muestra handlers WSGI, microversiones, dominio y SQLAlchemy. ResourceProvider publica capacidad, Inventory cuantifica recursos, Trait y ResourceClass describen cualidades/tipos, y Allocation/Consumer registran uso. \texttt{generation} controla concurrencia y puede producir 409 ante actualización obsoleta. Falta validar pipeline y configuración de un proceso instalado.
+El servicio desplegado Placement SHA \texttt{f4a89d3803cb23df22b8714569889ab39c918c34} expone handlers WSGI, microversiones, dominio y SQLAlchemy. ResourceProvider publica capacidad; Inventory cuantifica recursos; Trait y ResourceClass describen cualidades/tipos; Allocation y Consumer registran uso. \texttt{generation} controla concurrencia. El servidor anunció 1.0--1.39; el baseline probó providers, inventories, traits, classes, candidates, create/update/delete y 404. La traza de acceso mostró solicitudes de Nova y sus microversiones reales.
 
 \section{Diseño Glance}
-El código upstream SHA \texttt{8cd693aadc9d5982d9d71b4c34aab4de937ff70c} separa API, dominio, DB de metadata y \texttt{glance\_store} para binarios. El ciclo mínimo es reservar imagen, cargar datos, consultar, modificar metadata, descargar y borrar. El backend real del laboratorio todavía no se conoce; no se supone ruta de filesystem.
+El servicio desplegado Glance SHA \texttt{a3e5f490b7a28b1161714c94acffe5308d24b567} separa API, dominio, DB de metadata y \texttt{glance\_store} para binarios. La configuración real usa \texttt{/opt/stack/data/glance/images/}. El baseline creó una imagen, cargó bytes, la consultó, modificó metadata, descargó bytes idénticos y la eliminó. Una petición sin token obtuvo HTTP 401; un boot desde CirrOS alcanzó ACTIVE.
 
 \section{Contratos API}
 \begin{center}\begin{tabular}{p{2.6cm}p{7.0cm}p{3.0cm}}\toprule
 Servicio & Operaciones priorizadas & Estado de prueba\\\midrule
-Placement & providers, inventories, traits, classes, allocations, candidates & Documentadas; sin baseline\\
-Glance & POST/GET/PATCH/DELETE imágenes; PUT/GET file & Documentadas; sin baseline\\\bottomrule
+Placement & providers, inventories, traits, classes, allocations, candidates & Baseline ejecutado\\
+Glance & POST/GET/PATCH/DELETE imágenes; PUT/GET file & Baseline ejecutado\\\bottomrule
 \end{tabular}\end{center}
-La rama Placement declara 1.0--1.39. El cliente Nova inspeccionado solicita candidatos con 1.36 y usa 1.28 para operaciones que requieren consumer generation; la negociación efectiva no fue medida. Cada método/ruta, error y prioridad está en los inventarios API del repositorio.
+Placement anunció 1.0--1.39. La traza del boot registró GET candidatos y PUT allocations con 1.36, GET allocations con 1.28 y DELETE allocations con 1.0. Glance anunció Image API v2.18. Cada método/ruta, error y prioridad está en los inventarios API del repositorio.
 
 \section{Modelos de datos}
 \begin{center}\begin{tabular}{p{3.1cm}p{9.4cm}}\toprule
@@ -70,35 +70,35 @@ Los diagramas ER indican claves y relaciones lógicas. En Placement no todas las
 Se proponen procesos \texttt{cmd/placement} y \texttt{cmd/glance}; paquetes internos API, servicio, modelo y repositorio, más \texttt{glance/store}. Autenticación Keystone, configuración, middleware y logging son compartidos. Handlers negocian HTTP/microversión; servicios resuelven reglas; repositorios manejan transacciones; store transmite bytes.
 
 \section{Estrategia de compatibilidad}
-Cada petición se enviará al original y a Go con el mismo estado inicial. Se compararán status, JSON, tipos, campos, headers estables, errores y efectos persistidos. Nova y el cliente OpenStack serán verificadores adicionales. UUID, timestamps, orden no garantizado y request IDs se normalizarán sin ocultar diferencias semánticas. No hay fixtures ejecutadas aún.
+Cada petición se enviará al original y a Go con el mismo estado inicial. Se compararán status, JSON, tipos, campos, headers estables, errores y efectos persistidos. Nova y el cliente OpenStack serán verificadores adicionales. UUID, timestamps, orden no garantizado y request IDs se normalizarán sin ocultar diferencias semánticas. El baseline original y el smoke test se ejecutaron; los fixtures diferenciales contra Go corresponden a Sprint 3.
 
 \section{Estrategia de pruebas}
 Unitarios Go, contrato API, comparación diferencial, integración con Nova y end-to-end de VM forman la pirámide. En la fase posterior se medirán p50/p95/p99 de latencia, throughput, CPU, RAM y errores con carga controlada. No se presentan benchmarks ficticios.
 
 \section{Decisiones técnicas}
-Los ADR en \texttt{design-decisions.md} comparan schema original, propio e intermedio. Se propone schema propio Placement compatible por API y metadata Glance acotada con store filesystem único, condicionado a la configuración real. Auth Keystone se conservará. Estas decisiones se revisarán contra el baseline.
+Los ADR en \texttt{design-decisions.md} comparan schema original, propio e intermedio. Se propone schema propio Placement compatible por API y metadata Glance acotada con store filesystem único, ahora contrastado con el backend real. Auth Keystone se conservará. Las decisiones se revisarán durante las pruebas diferenciales.
 
 \section{Estado del backlog}
 \begin{center}\begin{tabular}{lll}\toprule
 ID & Estado & Motivo principal\\\midrule
-B01 & Bloqueado & falta VM dedicada\\
-B02 & Bloqueado & instalación no ejecutada\\
-B03 & Bloqueado & no hay servicios para smoke tests\\
-B04 & En progreso & código analizado; no servicio real\\
-B05 & En progreso & inventario preliminar; sin microversiones probadas\\
-B06 & Bloqueado & no hay tráfico Nova observado\\
-B19 & En progreso & diseño upstream; backend real pendiente\\\bottomrule
+B01 & Hecho & VM dedicada auditada\\
+B02 & Hecho & DevStack y endpoints verificados\\
+B03 & Hecho & smoke y boot ACTIVE\\
+B04 & Hecho & arquitectura y servicio contrastados\\
+B05 & Hecho & alcance y microversiones medidas\\
+B06 & Hecho & tráfico Nova a Placement capturado\\
+B19 & Hecho & Image API, auth y store probados\\\bottomrule
 \end{tabular}\end{center}
-Ningún elemento S2 cumple aún todo su criterio. Avance formal: 0 de 7 elementos y 0 de 33 story points S2, es decir 0\% por la métrica de aceptación del Excel.
+Los siete elementos S2 cumplen sus criterios con evidencia concreta. Avance formal: 7 de 7 elementos y 33 de 33 story points, es decir 100\% por la métrica de aceptación del Excel derivado.
 
 \section{Riesgos}
-Riesgos: falta de VM, diferencias entre código upstream y despliegue, microversiones negociadas no observadas, almacenamiento Glance real desconocido y retroalimentación formal no recibida. Cada uno tiene verificación pendiente en \texttt{BLOCKERS.md}.
+Riesgos remanentes: dependencias secundarias no fijadas para reproducción bit a bit, cuerpos HTTP internos de Nova no capturados, cobertura de operaciones no críticas aún incompleta y retroalimentación formal del profesor no recibida. Los límites están en \texttt{BLOCKERS.md}.
 
 \section{Conclusiones de la etapa}
-Quedaron preparados artefactos de diseño y automatización, pero OE1 y OE2 no pueden declararse cumplidos sin contrastar flujos y APIs en DevStack. La ausencia de baseline impide cerrar Sprint 2 de manera verificable. El Excel actualizado reflejará bloqueos y avances parciales.
+OE1 y OE2 se contrastaron con DevStack real, APIs, base de datos, logs y un boot activo. Sprint 2 quedó aceptado con 33/33 puntos, sin anticipar implementación Go ni benchmarks. El Excel derivado, los scripts y las evidencias permiten iniciar Sprint 3.
 
 \section{Próximos pasos Sprint 3}
-Primero provisionar la VM y completar B01--B03/B06 y baseline de ambos servicios. Después fijar contratos observados, implementar B07 (providers/inventories), B08 (traits/classes) y B11 (persistencia) con pruebas diferenciales; mantener B20/B25 de Glance en la planificación existente, sin adelantar implementación sin baseline.
+Implementar B07 (providers/inventories), B08 (traits/classes) y B11 (persistencia), más B20/B25 de Glance según la planificación, usando los fixtures del baseline para pruebas diferenciales. Capturar cuerpos HTTP internos y ampliar errores/operaciones según lo requiera la compatibilidad. Incorporar retroalimentación formal del profesor cuando esté disponible.
 
 \begin{thebibliography}{9}
 \bibitem{devstack}\url{https://docs.openstack.org/devstack/latest/}
