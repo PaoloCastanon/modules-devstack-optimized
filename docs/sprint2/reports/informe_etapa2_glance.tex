@@ -1,0 +1,289 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{babel}
+\babelprovide[import,main]{spanish}
+\usepackage{lmodern,microtype}
+\usepackage[margin=2.5cm,headheight=15pt]{geometry}
+\usepackage{booktabs,longtable,array,enumitem,xcolor,titlesec,fancyhdr,lastpage}
+\usepackage{tikz,needspace}
+\usetikzlibrary{arrows.meta,positioning}
+\PassOptionsToPackage{obeyspaces}{url}
+\usepackage{hyperref}
+\definecolor{sectionblue}{RGB}{31,78,121}
+\hypersetup{colorlinks=true,linkcolor=sectionblue,urlcolor=sectionblue,citecolor=sectionblue,
+ pdftitle={Reimplementación compatible de OpenStack Glance: Etapa 2},pdfauthor={Juan Cardenas Uribe}}
+\titleformat{\section}{\Large\bfseries\color{sectionblue}}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.8em}{}
+\titlespacing*{\section}{0pt}{16pt}{9pt}
+\titlespacing*{\subsection}{0pt}{12pt}{6pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\setcounter{tocdepth}{2}
+\emergencystretch=2em
+\raggedbottom
+\clubpenalty=10000
+\widowpenalty=10000
+\setlist{nosep,topsep=5pt,leftmargin=*}
+\renewcommand{\tablename}{Cuadro}
+\addto\captionsspanish{\renewcommand{\tablename}{Cuadro}}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Trabajo de Título -- Etapa 2}
+\fancyhead[R]{\small INFO-1197}
+\fancyfoot[C]{\small\thepage\ de \pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\newcommand{\code}[1]{{\small\expandafter\nolinkurl\expandafter{\detokenize{#1}}}}
+\newcommand{\reporttable}[4]{\begingroup\small\setlength{\LTpre}{8pt}\setlength{\LTpost}{8pt}\setlength{\tabcolsep}{4pt}\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{#2}\caption{#1}\\\toprule #3\\\midrule\endfirsthead
+\toprule #3\\\midrule\endhead\bottomrule\endfoot #4\end{longtable}\endgroup}
+\newcommand{\reportcover}{
+\hypersetup{pageanchor=false}
+\begin{titlepage}\centering
+\vspace*{0.3cm}
+{\Large Universidad Católica de Temuco\par}
+\vspace{0.2cm}{\large Ingeniería Civil en Informática\par}
+\vspace{2cm}
+{\LARGE\bfseries Reimplementación compatible de\\OpenStack Glance\\en un lenguaje compilado\par}
+\vspace{0.65cm}
+{\large\bfseries Etapa 2: análisis, diseño y línea base\par}
+\vspace{1.8cm}
+\begin{tabular}{rl}
+\textbf{Estudiante:}&Juan Cardenas Uribe\\[0.35cm]
+\textbf{Profesor guía:}&Alejandro Mellado Gatica\\[0.35cm]
+\textbf{Curso:}&Trabajo de Título (INFO-1197)\\[0.35cm]
+\textbf{Fecha:}&2 de octubre de 2026
+\end{tabular}
+\vfill Temuco, Chile
+\end{titlepage}
+\pagenumbering{arabic}\hypersetup{pageanchor=true}\tableofcontents\newpage}
+\begin{document}
+\reportcover
+
+\section{Introducción}
+OpenStack Glance permite registrar, consultar y distribuir imágenes utilizadas para crear instancias. El servicio combina un catálogo de metadatos con almacenamiento de archivos binarios y acceso autenticado. Esa combinación permite estudiar una reimplementación que debe preservar tanto la API como la integridad de los datos \cite{glanceoverview,glanceapi}.
+
+Este informe corresponde al trabajo de Juan Cardenas Uribe y concentra el análisis en Glance. Conserva la organización del documento de Etapa 1: definición del problema, objetivos, requerimientos, planificación y conclusiones. En la Etapa 2 se agregan arquitectura, contrato Image API, persistencia, flujo de datos y evidencia de la línea base.
+
+Se propone Go para una implementación acotada de Image API v2. La evaluación posterior deberá comparar compatibilidad, latencia, throughput y recursos. No se supone una mejora automática por el cambio de lenguaje. Esta etapa verifica el servicio original y define el diseño; aún no existe una implementación Go aceptada ni benchmarks comparativos.
+
+El laboratorio es común con el trabajo de Placement. Ese servicio permanece como dependencia original al evaluar Glance. Los resultados de instalación y smoke tests se presentan como evidencia compartida, sin atribuir su ejecución exclusivamente al autor de este informe.
+
+\section{Definición del problema}
+\subsection{Contexto}
+Nova necesita información y datos de imagen para crear una instancia. Glance expone Image API v2, aplica autenticación y políticas, conserva metadatos en una base de datos y delega el almacenamiento binario en un backend. Metadatos y bytes deben mantenerse coherentes a través del ciclo de vida de la imagen \cite{glanceapi,glanceoverview}.
+
+La línea base proviene de DevStack de un nodo, con un único backend filesystem. Permite probar registro, actualización, transferencia, eliminación e integración con Nova, sin introducir la complejidad de almacenamiento distribuido.
+
+\subsection{Problema identificado}
+Una reimplementación que almacena registros de imagen pero altera estados, formatos, políticas o bytes puede responder a la API y aun así impedir el boot de una instancia. La transferencia de imágenes también puede consumir memoria de forma distinta según el diseño. El problema es conservar un ciclo mínimo compatible y evaluar su costo bajo condiciones controladas.
+
+La pregunta de investigación es: \textit{¿es posible reimplementar el alcance seleccionado de Glance en Go, manteniendo la gestión de imágenes y su consumo por Nova, y qué diferencias de rendimiento y recursos presenta frente al servicio original?}
+
+\subsection{Relevancia e impacto}
+El resultado esperado incluye un contrato reproducible de Image API v2 y un prototipo que integre metadatos, persistencia y transferencia binaria. La investigación podrá distinguir los costos de procesamiento de metadatos de los costos de transferencia y almacenamiento. Las conclusiones deberán reportar mejoras, regresiones y límites del backend seleccionado.
+
+\subsection{Partes interesadas y percepción del problema}
+\reporttable{Partes interesadas del proyecto Glance.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{11.4cm}}{\textbf{Parte interesada}&\textbf{Necesidad o interés}}{
+Estudiante responsable&Juan Cardenas Uribe: delimitar, diseñar e implementar Glance y sustentar su evaluación.\\*
+Profesor guía&Validar la coherencia entre alcance, resultados y evidencia del trabajo de título.\\*
+Usuarios y clientes API&Gestionar imágenes con respuestas, estados y reglas compatibles.\\*
+Nova&Consumir metadatos y datos de imagen para el escenario de boot comprometido.\\*
+Equipo del laboratorio&Repetir instalación y pruebas; aislar la sustitución de Glance.\\}
+
+\subsection{Alcance y límites}
+El alcance incluye crear, listar, consultar, actualizar y eliminar metadatos; cargar y descargar datos binarios; conservar autenticación requerida por el laboratorio; y permitir que Nova cree una instancia desde una imagen servida por el reemplazo.
+
+Se utiliza un único backend de archivos local. Multi-store, importación interoperable completa, replicación, federación, caché distribuida y metadefs completos quedan fuera del alcance inicial, salvo que una prueba de integración demuestre una dependencia necesaria. Se deben definir límites de formato, visibilidad y permisos a partir de los casos comprometidos.
+
+El original anunció Image API v2.18. Esa versión describe la API de Glance y no se trata como la negociación de microversiones de Placement. Keystone, Nova, Placement, Neutron y la virtualización permanecen como componentes originales. La evaluación no representa producción ni escalado multinodo.
+
+\Needspace{165pt}
+\section{Objetivos}
+\subsection{Objetivo general}
+Diseñar, implementar y evaluar una reimplementación compatible del subconjunto seleccionado de OpenStack Glance en Go, que permita gestionar y transferir imágenes e integrarse con Nova, comparando su funcionamiento, rendimiento y recursos con el servicio original.
+
+\subsection{Objetivos específicos}
+Los identificadores OE1--OE5 mantienen la trazabilidad de la planificación común; la aplicación de cada objetivo se concentra aquí en Glance. El hito de 50\% de implementación corresponde al proyecto conjunto; el Excel ubica las historias B20 y B25 de Glance en Sprint 4.
+\begin{enumerate}[label=\textbf{OE\arabic*.}]
+\item Analizar arquitectura, Image API, autenticación, persistencia y flujo de datos antes del 2 de octubre de 2026.
+\item Disponer del laboratorio reproducible y verificar la línea base del ciclo de imagen y el boot original antes del 2 de octubre de 2026.
+\item Contribuir al hito común de al menos 50\% de implementación del proyecto al 30 de octubre de 2026, preparando el esqueleto y fixtures de Glance para las historias de Sprint 4.
+\item Integrar y estabilizar gestión de metadatos, transferencia binaria y consumo por Nova antes del 20 de noviembre de 2026.
+\item Comparar compatibilidad, latencia, throughput, CPU, memoria y errores, y presentar conclusiones antes del 4 de diciembre de 2026.
+\end{enumerate}
+
+\subsection{Verificación SMART}
+\reporttable{Objetivos Glance, indicadores y estado al cierre de Sprint 2.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{1cm}>{\raggedright\arraybackslash}p{8cm}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{2.8cm}}{\textbf{ID}&\textbf{Indicador y evidencia}&\textbf{Plazo}&\textbf{Estado}}{
+OE1&Arquitectura, endpoints, datos, estados, backend y flujo de integración documentados.&02-10-2026&Cumplido en S2.\\*
+OE2&Ciclo original probado, descarga idéntica, rechazo sin token y boot ACTIVE.&02-10-2026&Cumplido en S2.\\*
+OE3&Hito común: 50\% del proyecto; Glance prepara esqueleto y fixtures para su implementación.&30-10-2026&Planificado.\\*
+OE4&Nova crea una instancia usando la imagen del reemplazo; casos críticos estabilizados.&20-11-2026&Planificado.\\*
+OE5&Dataset de metadata/transferencia, repeticiones y análisis comparativo.&04-12-2026&Planificado.\\}
+El cumplimiento de OE1 se limita a la especificación de Sprint 2. No implica haber verificado cada política, error o estado de la API completa; esos casos se ampliarán durante el desarrollo.
+
+\Needspace{220pt}
+\subsection{Matriz de trazabilidad problema--objetivos}
+\reporttable{Trazabilidad del problema Glance.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{4.4cm}>{\raggedright\arraybackslash}p{1.8cm}>{\raggedright\arraybackslash}p{8.7cm}}{\textbf{Aspecto del problema}&\textbf{Objetivo}&\textbf{Resultado verificable}}{
+Contrato, estados y almacenamiento&OE1&Inventario Image API, modelo y separación metadata/bytes.\\*
+Pruebas difíciles de repetir&OE2&Laboratorio automatizado y ciclo de imagen original documentado.\\*
+Integridad y consumo por Nova&OE3/OE4&Transferencia idéntica, persistencia y boot con Glance Go.\\*
+Eficiencia sin evidencia&OE5&Mediciones separadas de operaciones metadata y transferencia.\\}
+
+\section{Análisis de requerimientos}
+\subsection{Base técnica y arquitectura del servicio}
+El servicio desplegado separa API HTTP, autenticación/políticas, controladores y dominio, persistencia de metadatos y \code{glance_store}. Los archivos de configuración y las tablas reales se contrastaron con los modelos del código fijado. El backend confirmado usa \code{/opt/stack/data/glance/images/} \cite{repo}.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[node distance=0.7cm,box/.style={draw=sectionblue,rounded corners,align=center,text width=11.5cm,minimum height=0.8cm,font=\small},smallbox/.style={box,text width=6.2cm},arr/.style={-{Latex},thick}]
+\node[box](client){Nova / OpenStackClient / clientes de imágenes};
+\node[box,below=of client](api){HTTP Image API v2: token Keystone, JSON y flujo binario};
+\node[box,below=of api](domain){Autenticación, políticas, controladores y dominio Image};
+\node[smallbox,below=1cm of domain,xshift=-3.4cm](db){SQLAlchemy / base de datos\\Metadatos y ubicaciones};
+\node[smallbox,below=1cm of domain,xshift=3.4cm](store){glance\_store / filesystem\\Datos binarios};
+\draw[arr](client)--(api);\draw[arr](api)--(domain);\draw[arr](domain.south)--(db.north);\draw[arr](domain.south)--(store.north);
+\end{tikzpicture}
+\caption{Separación de metadatos y datos de imagen en el servicio original.}
+\end{figure}
+
+\subsection{Selección del servicio y del lenguaje}
+Glance aporta un caso de investigación que combina llamadas de metadatos, persistencia y transferencia de archivos. Un alcance limitado a Image API v2 y filesystem permite evaluar esa combinación sin implementar todos los backends de OpenStack.
+
+Go se selecciona por su soporte HTTP y de concurrencia, compilación a binario y facilidad para organizar adaptadores de almacenamiento. El beneficio de streaming sobre memoria o throughput debe verificarse; no se atribuye automáticamente al lenguaje.
+\reporttable{Alternativas de lenguaje para Glance.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{4.3cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.6cm}}{\textbf{Criterio}&\textbf{Go}&\textbf{Rust}&\textbf{C++}}{
+API y transferencia&HTTP e interfaces de streaming disponibles.&Buen soporte; mayor curva inicial.&Requiere integrar bibliotecas.\\*
+Memoria y concurrencia&Gestión automática y goroutines.&Propiedad y seguridad estática.&Control manual más complejo.\\*
+Riesgo en el plazo&Moderado.&Mayor costo inicial estimado.&Mayor costo de integración estimado.\\*
+Decisión&Seleccionado.&Alternativa.&No priorizado.\\}
+La comparación expresa la valoración de diseño del proyecto, no una medición experimental de rendimiento entre lenguajes.
+
+\subsection{Entorno de despliegue: DevStack versus instalación manual}
+Se utiliza DevStack para automatizar instalación y configuración en un laboratorio de desarrollo \cite{devstack}. Una instalación manual ofrecería más control por componente, con mayor tiempo y documentación de configuración. Terraform y Ansible hacen repetible la alternativa elegida.
+
+La VM compartida \code{tt-openstack-lab} tiene Ubuntu 24.04.5, 4 vCPU, 8 GiB de RAM y disco de 55 GiB. Se verificaron Keystone, Nova, Placement, Glance, Neutron, MySQL y RabbitMQ. El smoke test utiliza QEMU emulado; una segunda ejecución de Ansible terminó sin reinstalar DevStack.
+\reporttable{Versiones registradas en la línea base Glance.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{4cm}>{\raggedright\arraybackslash}p{11cm}}{\textbf{Componente}&\textbf{Versión o commit}}{
+DevStack&\code{stable/2026.2}; \code{0fb9685c1bf22cd0b4d576d7a74f64195ad934fe}.\\*
+Glance&\code{a3e5f490b7a28b1161714c94acffe5308d24b567}.\\*
+Nova&\code{247ea5d774305b688997f8df81c011b249eb793c}.\\*
+Python / MySQL&3.12.3 / 8.0.46.\\*
+Image API / OpenStackClient&v2.18 anunciada / 10.3.0.\\}
+La configuración y un parche Geneve están versionados. Las dependencias secundarias no se fijaron para una reconstrucción bit a bit. La VM quedó apagada por solicitud del usuario después de registrar la evidencia, conservando sus discos; no se ejecutaron pruebas nuevas para elaborar este documento.
+
+\subsection{Contrato Image API v2}
+La API utiliza tokens Keystone. Metadata usa JSON; la carga binaria emplea \code{application/octet-stream}; PATCH utiliza \code{application/openstack-images-v2.1-json-patch}. Los resultados de la línea base original se detallan a continuación.
+\reporttable{Operaciones Glance y resultados de la línea base.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{6.8cm}>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}p{6.7cm}}{\textbf{Método y ruta}&\textbf{HTTP}&\textbf{Resultado observado}}{
+\texttt{\small POST}\,\code{/v2/images}&201&Imagen registrada en estado queued.\\*
+\texttt{\small GET}\,\code{/v2/images}&200&Listado de imágenes autenticado.\\*
+\texttt{\small GET}\,\code{/v2/images/{id}}&200&Consulta de metadatos y estado.\\*
+\texttt{\small PATCH}\,\code{/v2/images/{id}}&200&Actualización de metadatos mediante JSON Patch.\\*
+\texttt{\small PUT}\,\code{/v2/images/{id}/file}&204&Carga de bytes; consulta posterior en active.\\*
+\texttt{\small GET}\,\code{/v2/images/{id}/file}&200&Descarga idéntica byte a byte y por SHA256.\\*
+\texttt{\small DELETE}\,\code{/v2/images/{id}}&204&Eliminación del recurso temporal.\\*
+\texttt{\small GET}\,\code{/v2/images/{id}} ausente&404&Recurso inexistente tras eliminación.\\*
+\texttt{\small GET}\,\code{/v2/images} sin token&401&Rechazo de la petición no autenticada.\\}
+Las políticas de visibilidad, propietario y roles necesitan fixtures específicos de 403 y acceso permitido. También faltan casos de PATCH inválido, transferencia interrumpida, límites de tamaño y conflicto. El éxito del camino principal no acepta automáticamente estos comportamientos del reemplazo.
+
+\subsection{Modelo de datos y ciclo de vida}
+Los metadatos de \code{images} incluyen UUID, nombre, propietario, estado, visibilidad, formatos, tamaño, checksum, hashes, mínimos de disco/RAM, protección y timestamps. Los bytes se almacenan fuera de la base de datos. La auditoría confirmó las tablas; el detalle de claves proviene de los modelos SQLAlchemy fijados.
+\reporttable{Entidades y almacenamiento del dominio Glance.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{6.2cm}>{\raggedright\arraybackslash}p{5.2cm}}{\textbf{Entidad}&\textbf{Datos centrales}&\textbf{Regla de diseño}}{
+Image&UUID PK, propietario, estado, formatos, tamaño y hashes.&Identidad y ciclo de vida consistentes.\\*
+ImageProperty&ID, image\_id, nombre y valor; unicidad imagen/nombre.&Actualizar propiedades con validación.\\*
+ImageLocation&ID, image\_id, ubicación, metadata y estado.&Relacionar ubicación con el backend autorizado.\\*
+ImageTag / ImageMember&Etiquetas y membresía de acceso.&Delimitar operaciones según los casos necesarios.\\*
+Store filesystem&Archivo binario separado del catálogo.&Integridad, permisos y limpieza de datos.\\}
+Se observó queued tras crear la imagen y active después de cargar los datos. Saving y killed forman parte del análisis del ciclo de carga, pero no se observaron en pruebas de fallo de esta etapa; deben comprobarse antes de aceptar recuperación de errores.
+
+Se propone un esquema propio acotado para metadatos y un adaptador filesystem. El diseño escribe a un archivo temporal, calcula tamaño/hash y publica mediante rename atómico antes de confirmar active. Como base de datos y filesystem no comparten una transacción, se necesita reconciliación y limpieza ante fallos. Esa recuperación es una tarea de implementación y prueba, no una propiedad ya demostrada.
+
+\subsection{Flujo de datos e integración con Nova}
+El flujo mínimo verificado fue registro de imagen, carga de bytes, consulta, modificación de metadata, descarga, comparación y eliminación. El baseline preservó requests, respuestas, status y headers saneados. La igualdad de bytes y SHA256 sustenta la integridad del caso original probado.
+
+El smoke test creó una instancia desde CirrOS y registró la transición BUILD a ACTIVE. La instancia fue eliminada después de la verificación. Este resultado comprueba la integración general del OpenStack original, pero no captura la conversación HTTP interna Nova--Glance ni permite afirmar qué descarga o uso de caché ejecutó Nova.
+
+Para aceptar el reemplazo, Nova deberá consultar y consumir una imagen gestionada por Go. Se capturará el flujo real y se controlará el estado de caché de la prueba. Placement permanecerá original en ese escenario para aislar las diferencias del módulo Glance.
+
+\Needspace{390pt}
+\subsection{Requerimientos funcionales}
+\reporttable{Requerimientos aplicables al módulo Glance.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{1.4cm}>{\raggedright\arraybackslash}p{8.8cm}>{\raggedright\arraybackslash}p{4.8cm}}{\textbf{ID}&\textbf{Requerimiento}&\textbf{Verificación prevista}}{
+RF01&OpenStack de un nodo reproducible.&Instalación y smoke test; base validada en S2.\\*
+RF07&Persistencia consistente de metadata y ubicaciones.&Reinicio, fallos y reconciliación con store.\\*
+RF08&Autenticación requerida por OpenStack.&Casos autorizados, 401 y 403.\\*
+RF10&Registrar, listar, consultar, modificar y eliminar imágenes.&Comparación diferencial de Image API v2.\\*
+RF10&Cargar/descargar bytes y mantener estados e integridad.&Comparación byte a byte/hash y pruebas de fallos.\\*
+RF10&Permitir consumo de imagen por Nova.&Boot usando el reemplazo Glance.\\*
+RF11&Observabilidad del módulo.&Logs saneados y diagnóstico de transferencias/errores.\\*
+RF12&Automatización funcional y de carga.&Scripts versionados y dataset repetible.\\}
+RF10 es el requisito específico de Glance en el Excel. Las filas separan sus criterios para hacerlos verificables sin crear nuevos IDs. RF07/RF08 y RF11/RF12 aportan capacidades transversales. La implementación Go sigue pendiente.
+
+\subsection{Requerimientos no funcionales}
+\reporttable{Atributos de calidad para el módulo Glance.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}p{3.5cm}>{\raggedright\arraybackslash}p{10cm}}{\textbf{ID}&\textbf{Atributo}&\textbf{Criterio}}{
+RNF01&Compatibilidad&Comparar status, metadata, estados, errores, headers y efectos persistidos.\\*
+RNF02&Rendimiento&Latencia de metadata y throughput de transferencia bajo cargas separadas.\\*
+RNF03&Recursos&CPU y memoria en reposo, carga y transferencias de distintos tamaños.\\*
+RNF04&Fiabilidad&Repeticiones, tasa de error y recuperación de cargas interrumpidas.\\*
+RNF05&Reproducibilidad&Versiones, backend, configuración, comandos y dataset registrados.\\*
+RNF06&Mantenibilidad&API, dominio, repositorio y store desacoplados, con pruebas.\\*
+RNF07&Seguridad&Conservar auth/políticas; controlar rutas/permisos y evitar secretos en fixtures.\\}
+
+\subsection{Diseño objetivo y criterios de aceptación}
+El ejecutable propuesto es \code{cmd/glance}. Se separan paquetes API, servicio, modelo y repositorio, con \code{glance/store} para Put/Get/Delete de bytes. Configuración, autenticación Keystone y logging son componentes compartidos. El store deberá transferir datos mediante streaming y evitar cargar el archivo completo en memoria; su comportamiento se medirá.
+
+La aceptación requiere que original y Go superen el ciclo mínimo, que los datos descargados sean idénticos a los cargados, que estados y permisos sean compatibles y que Nova cree una instancia desde la imagen del reemplazo. Se compararán respuestas y estado con semillas equivalentes. UUID, timestamps y request IDs podrán normalizarse sin ocultar diferencias de contenido o visibilidad.
+
+Las pruebas se organizan en unidad, contrato API, comparación diferencial, persistencia y store, integración y boot completo. Los benchmarks separarán metadata de transferencia y controlarán tamaño de imagen, concurrencia, disco, caché, warm-up y repeticiones. QEMU y el único filesystem limitan la generalización de resultados. No se presentan métricas comparativas de Go en esta etapa.
+
+\subsection{Riesgos y mitigaciones}
+\reporttable{Riesgos del desarrollo Glance.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{4.5cm}>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}p{9cm}}{\textbf{Riesgo}&\textbf{Nivel}&\textbf{Mitigación}}{
+Alcance de Image API demasiado amplio&Alto&Conservar ciclo mínimo y un solo backend; ampliar con evidencia de Nova.\\*
+Metadata active sin bytes completos&Alto&Archivo temporal, publicación atómica y recuperación/reconciliación probada.\\*
+Autorización o visibilidad incorrectas&Alto&Fixtures de propietario, roles, 401/403 y acceso permitido.\\*
+Benchmark condicionado por disco/caché&Medio&Controlar estado, tamaño de archivo y carga; separar métricas.\\*
+Flujo interno Nova no capturado&Medio&Captura saneada y boot controlado antes de aceptar sustitución.\\*
+Dependencias o feedback pendientes&Medio&Registrar versiones y añadir observaciones formales del profesor.\\}
+
+\section{Planificación y backlog}
+\subsection{Épicas}
+Aplican las épicas del Excel vigente E1 infraestructura y entorno; E2 análisis y compatibilidad; E4 integración OpenStack; E5 pruebas y benchmarking; E6 reimplementación Glance. E3 reimplementación Placement corresponde al informe independiente de ese módulo. La documentación y la infraestructura común conservan su trazabilidad en ambos informes.
+
+\Needspace{280pt}
+\subsection{Backlog prioritario y estado del Sprint 2}
+Los identificadores corresponden al Excel vigente \cite{plan}. El backlog preliminar del PDF de Etapa 1 fue refinado; no se utiliza su antigua numeración para asociar pruebas actuales.
+\reporttable{Elementos de Sprint 2 relevantes para Glance.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{1cm}>{\raggedright\arraybackslash}p{8.1cm}>{\raggedright\arraybackslash}p{1.2cm}>{\raggedright\arraybackslash}p{4.5cm}}{\textbf{ID}&\textbf{Elemento}&\textbf{SP}&\textbf{Estado}}{
+B01&Preparar VM de laboratorio (compartido).&3&Hecho: VM auditada.\\*
+B02&Instalar DevStack de un nodo (compartido).&5&Hecho: endpoints verificados.\\*
+B03&Smoke tests del original (compartido).&5&Hecho: boot ACTIVE y limpieza.\\*
+B19&Analizar arquitectura, Image API, auth, persistencia y flujo de Glance.&5&Hecho: especificación y baseline.\\}
+La tarea específica de análisis Glance suma 5 SP; las tareas comunes, 13 SP. El Sprint 2 conjunto alcanzó 7/7 elementos y 33/33 SP al incluir B04--B06 de Placement. Esto describe aceptación de la planificación compartida, no productividad individual ni porcentaje implementado de Glance.
+
+Las capturas están en \code{evidence/sprint2/glance/}, incluidas auditoría de backend, resultados de API y \code{image-download.sha256.txt}. El boot está en \code{evidence/sprint2/tests/boot-states.txt}; el modelo y la arquitectura se documentan en \code{docs/sprint2/}. El registro \code{infra/devstack/versions.lock} fija el código inspeccionado. La verificación \code{make sprint2-verify} aprobó las evidencias requeridas.
+
+\Needspace{240pt}
+\subsection{Plan por sprints e hitos}
+\reporttable{Hitos del módulo Glance.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{9.4cm}}{\textbf{Periodo}&\textbf{Hito}&\textbf{Resultado esperado}}{
+Hasta 04-09&Etapa 1&Problema, objetivos y alcance mínimo de imágenes.\\*
+05-09 a 02-10&Etapa 2 / S2&Arquitectura, API, estados, backend y baseline original.\\*
+03-10 a 30-10&Etapa 3 / S3&Hito común de 50\% del proyecto; preparar esqueleto, contratos y fixtures de Glance. B20/B25 permanecen en S4.\\*
+31-10 a 20-11&Cierre / S4&Implementar catálogo mínimo (B20) y carga/descarga (B25); integrar auth, recuperación y boot con Nova.\\*
+21-11 a 04-12&Evaluación / S5&Comparación metadata/transferencia, dataset, conclusiones e informe final.\\}
+
+\section{Conclusiones de la Etapa 2}
+Glance quedó delimitado a un ciclo mínimo de Image API v2 y un store filesystem. La evidencia original confirma registro, consulta, modificación, carga, descarga íntegra y eliminación, junto con el rechazo sin token. El smoke test de OpenStack alcanzó ACTIVE desde CirrOS.
+
+OE1 y OE2 se cumplen para el alcance de Sprint 2. La integración específica del reemplazo Go, las políticas adicionales, los estados de fallo y los benchmarks permanecen como trabajo posterior. No se infiere equivalencia completa a partir del ciclo principal ni se atribuye a Go una mejora aún no medida.
+
+El siguiente paso es implementar metadatos y persistencia, desarrollar el store con streaming y recuperación, y comparar cada operación con la línea base. La captura del flujo Nova--Glance y la retroalimentación formal del profesor completarán la evidencia a medida que avance el desarrollo.
+
+\Needspace{280pt}
+\begingroup\small
+\phantomsection\addcontentsline{toc}{section}{Referencias}
+\begin{thebibliography}{9}
+\bibitem{glanceoverview} OpenStack. \textit{Image service overview -- Glance}. Referencia utilizada en el informe de Etapa 1. \url{https://docs.openstack.org/glance/latest/install/get-started.html}.
+\bibitem{glanceapi} OpenStack. \textit{Image Service API v2}. \url{https://docs.openstack.org/api-ref/image/v2/}.
+\bibitem{devstack} OpenStack. \textit{DevStack Documentation}. \url{https://docs.openstack.org/devstack/latest/}.
+\bibitem{repo} Proyecto \textit{modules-devstack-optimized}. Documentación y evidencias Sprint 2, capturadas el 2 de octubre de 2026. Directorios \code{docs/sprint2/}, \code{evidence/sprint2/} e \code{infra/}; registro de evidencia y matriz final de trazabilidad.
+\bibitem{plan} \textit{Planificacion\_Trabajo\_Titulo\_OpenStack\_Placement\_Glance.xlsx} y copia de seguimiento Sprint 2. Hojas Objetivos\_SMART, Requerimientos, Backlog, Trazabilidad y Sprints. La copia original se mantiene inalterada.
+\end{thebibliography}
+\endgroup
+\end{document}
