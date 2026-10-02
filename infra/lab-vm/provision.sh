@@ -21,5 +21,12 @@ ansible-playbook -i "$ip," -u stack --private-key "$key" \
   "$here/ansible/site.yml"
 scp "${ssh_opts[@]}" "stack@$ip:/home/stack/modules-devstack-optimized/infra/devstack/versions.lock" "$root/infra/devstack/versions.lock"
 mkdir -p "$root/evidence/sprint2/devstack"
-scp "${ssh_opts[@]}" "stack@$ip:/home/stack/modules-devstack-optimized/evidence/sprint2/devstack/*.json" "$root/evidence/sprint2/devstack/"
+snapshot=$(mktemp -d "$here/.cache/verification.XXXXXX")
+trap 'rm -f "$snapshot"/*; rmdir "$snapshot"' EXIT
+scp "${ssh_opts[@]}" "stack@$ip:/home/stack/modules-devstack-optimized/evidence/sprint2/devstack/*.json" "$snapshot/"
+scp "${ssh_opts[@]}" "stack@$ip:/home/stack/modules-devstack-optimized/evidence/sprint2/devstack/token-expiry.txt" "$snapshot/"
+for file in "$snapshot"/*; do
+  target="$root/evidence/sprint2/devstack/${file##*/}"
+  if [[ ${LAB_REFRESH_EVIDENCE:-0} == 1 || ! -e $target ]]; then cp "$file" "$target"; fi
+done
 echo "DevStack preparado y verificado: ssh -i $key stack@$ip"
