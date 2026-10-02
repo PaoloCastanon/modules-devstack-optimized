@@ -1,6 +1,6 @@
 # Modelo Placement
 
-Verificado contra `placement/db/sqlalchemy/models.py` SHA `f4a89d3803cb23df22b8714569889ab39c918c34`; [evidencia de inspección](../../evidence/sprint2/placement/upstream-source-audit.txt). **No** se consultó una DB desplegada.
+Verificado contra `placement/db/sqlalchemy/models.py` SHA desplegado `f4a89d3803cb23df22b8714569889ab39c918c34`; [evidencia de inspección](../../evidence/sprint2/placement/upstream-source-audit.txt). Se comprobó la existencia de las tablas `resource_providers`, `inventories`, `allocations` y `consumers` en la [DB desplegada](../../evidence/sprint2/environment/database-schema-audit.txt); los detalles de columnas y constraints proceden del modelo upstream.
 
 | Tabla / entidad | PK | Relación / campos críticos | Restricción observada |
 |---|---|---|---|

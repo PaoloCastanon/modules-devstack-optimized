@@ -1,7 +1,9 @@
-# Bloqueos reales al 2026-09-29
+# Pendientes externos y límites al 2026-10-02
 
-1. **B01/B02/OE2:** el host auditado es CachyOS, `systemd-detect-virt=none`, y no tiene sudo no interactivo. [Auditoría](../../evidence/sprint2/environment/host-audit.txt). DevStack advierte que modifica sustancialmente el host y debe instalarse en servidor o VM dedicados. Se requiere Ubuntu 24.04 dedicado, 4 CPU, 8 GiB RAM, 40 GiB libres, red y sudo no interactivo. No se ejecutó `stack.sh`.
-2. **B03/B04/B05/B06/B19:** no existe OpenStack local operativo. No se pueden comprobar endpoints, microversión máxima *del servidor desplegado*, tráfico Nova, backend Glance, smoke test ni boot de VM. La inspección upstream no sustituye baseline real.
-3. **Retroalimentación:** no se halló informe o comentarios formales del profesor en los archivos aportados; se requiere aportarlos para completar ese apartado.
+No quedan bloqueos para los siete elementos del backlog S2. La VM Ubuntu 24.04.5 está activa; Ansible instaló y verificó DevStack, el smoke test arrancó una instancia hasta `ACTIVE`, y Placement/Glance tienen baseline original en `evidence/sprint2/`.
 
-Para desbloquear: crear VM Ubuntu 24.04 dedicada; configurar `infra/devstack/.env` desde el ejemplo; ejecutar `make devstack-setup`, `make devstack-verify`, `make smoke`, `make baseline`; revisar resultados y actualizar el Excel sólo con evidencia real.
+1. **Retroalimentación de Etapa 1:** no se encontró un informe o comentario formal del profesor guía entre los insumos disponibles. `feedback-etapa1.md` mantiene ese punto pendiente para incorporación manual; no se inventaron observaciones.
+2. **Reproducción idéntica a largo plazo:** `versions.lock` fija el SHA de DevStack y registra los SHAs efectivamente instalados de Placement, Glance y Nova. El instalador aún resuelve paquetes y repositorios secundarios al ejecutar. Una réplica bit a bit requeriría fijar también esas dependencias; el laboratorio actual es reproducible funcionalmente mediante Terraform y Ansible.
+3. **Pruebas diferenciales Sprint 3:** el baseline cubre las operaciones críticas, pero faltan mutaciones de traits/allocations, errores adicionales y cuerpos HTTP internos exactos de Nova→Placement/Nova→Glance para comparar una futura implementación Go. El log de Placement ya registra rutas, status y microversiones de Nova en el boot real.
+
+Para continuar: usar los fixtures originales como oráculo de compatibilidad e incorporar la retroalimentación formal cuando esté disponible.

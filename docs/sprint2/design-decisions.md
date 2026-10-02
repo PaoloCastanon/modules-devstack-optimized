@@ -1,4 +1,4 @@
-# Decisiones de diseño (provisionales hasta baseline)
+# Decisiones de diseño tras baseline original
 
 ## ADR-01: persistencia Placement
 
@@ -12,13 +12,13 @@
 
 ## ADR-02: metadata y bytes Glance
 
-- **Contexto:** código upstream separa `images`/`image_locations` del backend `glance_store`; RF10 exige ciclo mínimo de imagen.
+- **Contexto:** código desplegado separa `images`/`image_locations` del backend `glance_store`; RF10 exige ciclo mínimo de imagen. La VM confirmó store filesystem en `/opt/stack/data/glance/images/`.
 - **Alternativas:** reutilizar schema Glance; metadata propia acotada; proxy a DB original. Para bytes: filesystem local o backend remoto.
 - **Ventajas:** schema original puede facilitar migración; metadata propia mantiene alcance pequeño; filesystem único es observable y reproducible.
-- **Desventajas:** schema original es amplio; metadata propia exige importación; filesystem limita escalado y puede diferir del backend del laboratorio.
-- **Decisión:** metadata propia acotada y un store filesystem local **sujeto a confirmar** que el laboratorio usa o acepta ese backend.
+- **Desventajas:** schema original es amplio; metadata propia exige importación; filesystem limita escalado horizontal.
+- **Decisión:** metadata propia acotada y un store filesystem local, compatible con el backend observado en este laboratorio.
 - **Justificación:** el Excel restringe Glance al ciclo mínimo, sin multi-store. Escritura temporal y rename atómico permiten evitar `active` sin bytes completos.
-- **Consecuencias:** registrar ruta configurada real, permisos, limpieza y hash; si DevStack usa otro store, documentar incompatibilidad antes de cambiar alcance.
+- **Consecuencias:** configurar ruta/permisos, limpieza y hash; otro backend necesitará adaptador y nuevas pruebas antes de ampliar el alcance.
 
 ## ADR-03: autenticación
 
