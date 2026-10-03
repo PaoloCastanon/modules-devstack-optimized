@@ -6,7 +6,7 @@
 \usepackage{lmodern,microtype}
 \usepackage[margin=2.5cm,headheight=15pt]{geometry}
 \usepackage{booktabs,longtable,array,enumitem,xcolor,titlesec,fancyhdr,lastpage}
-\usepackage{tikz,needspace}
+\usepackage{tikz,needspace,placeins}
 \usetikzlibrary{arrows.meta,positioning}
 \PassOptionsToPackage{obeyspaces}{url}
 \usepackage{hyperref}
@@ -57,7 +57,7 @@
 \end{tabular}
 \vfill Temuco, Chile
 \end{titlepage}
-\pagenumbering{arabic}\hypersetup{pageanchor=true}\tableofcontents\newpage}
+\pagenumbering{arabic}\hypersetup{pageanchor=true}\begingroup\small\setlength{\parskip}{0pt}\tableofcontents\endgroup\newpage}
 \begin{document}
 \reportcover
 
@@ -85,7 +85,7 @@ La pregunta de investigación es: \textit{¿es posible reimplementar el alcance 
 La contribución esperada es una especificación verificable y una implementación experimental integrada. El trabajo puede identificar costos de procesamiento HTTP, acceso a datos y búsqueda de candidatos; también puede mostrar regresiones o límites de compatibilidad. La validez del resultado depende de reportar ambos tipos de hallazgo.
 
 \subsection{Partes interesadas y percepción del problema}
-\reporttable{Partes interesadas del proyecto Placement.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{11.4cm}}{\textbf{Parte interesada}&\textbf{Necesidad o interés}}{
+\reporttable{Partes interesadas del proyecto Placement.}{>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{11.4cm}}{\textbf{Parte interesada}&\textbf{Necesidad o interés}}{
 Estudiante responsable&Paolo Castañon Barrera: delimitar, diseñar e implementar Placement y sustentar las conclusiones con pruebas.\\*
 Profesor guía&Revisar coherencia entre problema, alcance, evidencia y resultados del trabajo de título.\\*
 Consumidores de la API&Nova y clientes de OpenStack: conservar el contrato HTTP y la consistencia del estado.\\*
@@ -114,7 +114,7 @@ Los identificadores OE1--OE5 conservan la trazabilidad de la planificación com�
 \end{enumerate}
 
 \subsection{Verificación SMART}
-\reporttable{Objetivos, indicadores y estado al cierre de Sprint 2.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{1cm}>{\raggedright\arraybackslash}p{8cm}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{2.8cm}}{\textbf{ID}&\textbf{Indicador y evidencia}&\textbf{Plazo}&\textbf{Estado}}{
+\reporttable{Objetivos, indicadores y estado al cierre de Sprint 2.}{>{\raggedright\arraybackslash}p{1cm}>{\raggedright\arraybackslash}p{8cm}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{2.8cm}}{\textbf{ID}&\textbf{Indicador y evidencia}&\textbf{Plazo}&\textbf{Estado}}{
 OE1&Arquitectura y rutas del alcance documentadas; modelo auditado y tráfico Nova registrado.&02-10-2026&Cumplido en S2.\\*
 OE2&Laboratorio instalado; smoke test y baseline ejecutados; instancia en ACTIVE y limpieza.&02-10-2026&Cumplido en S2.\\*
 OE3&Al menos 50\% del alcance priorizado implementado y probado en Go.&30-10-2026&Planificado.\\*
@@ -124,7 +124,7 @@ La medición de OE1 se refiere al alcance documentado para Sprint 2. Los endpoin
 
 \Needspace{220pt}
 \subsection{Matriz de trazabilidad problema--objetivos}
-\reporttable{Trazabilidad del problema Placement.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{4.4cm}>{\raggedright\arraybackslash}p{1.8cm}>{\raggedright\arraybackslash}p{8.7cm}}{\textbf{Aspecto del problema}&\textbf{Objetivo}&\textbf{Resultado verificable}}{
+\reporttable{Trazabilidad del problema Placement.}{>{\raggedright\arraybackslash}p{4.4cm}>{\raggedright\arraybackslash}p{1.8cm}>{\raggedright\arraybackslash}p{8.7cm}}{\textbf{Aspecto del problema}&\textbf{Objetivo}&\textbf{Resultado verificable}}{
 Contrato y versiones desconocidos&OE1&Inventario de métodos, rutas y microversiones; llamadas reales de Nova.\\*
 Instalación y pruebas difíciles de repetir&OE2&Terraform, Ansible, versiones fijadas y scripts versionados.\\*
 Consistencia y equivalencia del reemplazo&OE3/OE4&Transacciones, conflictos de generación y pruebas diferenciales/integradas.\\*
@@ -151,7 +151,7 @@ En el código desplegado se identifican entrada WSGI, middleware de autenticaci�
 Placement se selecciona por su función en la planificación de Nova y por disponer de un contrato HTTP que permite sustituir el proceso del servicio. La selección no implica que su comportamiento sea simple: generaciones, filtros y capacidad disponible deben conservarse.
 
 Se propone Go por su biblioteca HTTP, compilación a binario y soporte de concurrencia. La valoración siguiente es una decisión de diseño del proyecto; no constituye un benchmark entre lenguajes.
-\reporttable{Alternativas de lenguaje para la implementación Placement.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{4.3cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.6cm}}{\textbf{Criterio}&\textbf{Go}&\textbf{Rust}&\textbf{C++}}{
+\reporttable{Alternativas de lenguaje para la implementación Placement.}{>{\raggedright\arraybackslash}p{4.3cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.6cm}}{\textbf{Criterio}&\textbf{Go}&\textbf{Rust}&\textbf{C++}}{
 Desarrollo HTTP&Biblioteca estándar y ecosistema adecuados.&Ecosistema adecuado; mayor curva inicial.&Requiere integrar bibliotecas.\\*
 Memoria y concurrencia&Gestión automática; goroutines.&Control estricto de propiedad.&Mayor responsabilidad manual.\\*
 Riesgo en el plazo&Moderado.&Mayor costo inicial estimado.&Mayor costo de integración estimado.\\*
@@ -162,7 +162,7 @@ DevStack automatiza un entorno de desarrollo y pruebas \cite{devstack}. Frente a
 
 El laboratorio común utiliza Terraform con libvirt y Ansible. La VM \code{tt-openstack-lab} tiene Ubuntu 24.04.5, 4 vCPU, 8 GiB de RAM y disco de 55 GiB. Nova usa QEMU emulado. Se verificaron Keystone, Nova, Placement, Glance, Neutron, MySQL y RabbitMQ, y una segunda ejecución del aprovisionamiento terminó sin reinstalar DevStack.
 
-\reporttable{Versiones registradas en la línea base.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{4cm}>{\raggedright\arraybackslash}p{11cm}}{\textbf{Componente}&\textbf{Versión o commit}}{
+\reporttable{Versiones registradas en la línea base.}{>{\raggedright\arraybackslash}p{4cm}>{\raggedright\arraybackslash}p{11cm}}{\textbf{Componente}&\textbf{Versión o commit}}{
 DevStack&\code{stable/2026.2}; \code{0fb9685c1bf22cd0b4d576d7a74f64195ad934fe}.\\*
 Placement&\code{f4a89d3803cb23df22b8714569889ab39c918c34}.\\*
 Nova&\code{247ea5d774305b688997f8df81c011b249eb793c}.\\*
@@ -172,7 +172,7 @@ La configuración y un parche de inicialización Geneve están versionados. Las 
 
 \subsection{Contrato API y microversiones}
 La autenticación utiliza tokens Keystone. El contrato debe conservar entradas, respuestas, errores y headers relevantes para cada microversión. El cuadro distingue llamadas ejercitadas de operaciones todavía pendientes de captura.
-\reporttable{Operaciones Placement priorizadas y cobertura de la línea base.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{6.8cm}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{6cm}}{\textbf{Método y ruta}&\textbf{Versión}&\textbf{Evidencia o estado}}{
+\reporttable{Operaciones Placement priorizadas y cobertura de la línea base.}{>{\raggedright\arraybackslash}p{6.8cm}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{6cm}}{\textbf{Método y ruta}&\textbf{Versión}&\textbf{Evidencia o estado}}{
 \texttt{\small GET}\,\code{/}&Anunciada 1.0--1.39&Descubrimiento del servidor original.\\*
 \texttt{\small GET/POST}\,\code{/resource_providers}&1.0&Listado y creación probados.\\*
 \texttt{\small GET/DELETE}\,\code{/resource_providers/{uuid}}&1.0&Consulta, eliminación y 404 probados.\\*
@@ -188,13 +188,39 @@ Para la implementación se requieren casos negativos de entradas inválidas, con
 
 \subsection{Modelo de datos y consistencia}
 La auditoría contrastó las tablas MySQL con los modelos SQLAlchemy del servicio fijado. Algunas relaciones son lógicas u ORM y no corresponden a una FK SQL declarada; el diseño evita asumir restricciones que la captura de tablas no demuestra.
-\reporttable{Entidades centrales y restricciones relevantes.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{6.2cm}>{\raggedright\arraybackslash}p{5.2cm}}{\textbf{Entidad}&\textbf{Datos centrales}&\textbf{Regla de diseño}}{
+\reporttable{Entidades centrales y restricciones relevantes.}{>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{6.2cm}>{\raggedright\arraybackslash}p{5.2cm}}{\textbf{Entidad}&\textbf{Datos centrales}&\textbf{Regla de diseño}}{
 ResourceProvider&ID, UUID y nombre únicos; generación; relaciones padre/raíz.&Identidad estable y actualización con generación.\\*
 Inventory&Provider, clase, total, reservado, límites, paso y ratio.&Unicidad provider/clase y validación de capacidad.\\*
 ResourceClass / Trait&Identificador y nombre; asociaciones provider/trait.&Preservar clases y rasgos usados por Nova.\\*
 Consumer&UUID, proyecto, usuario, generación y tipo.&Asociar consumo y controlar concurrencia.\\*
 Allocation&Provider, consumer, clase y cantidad usada.&Operaciones atómicas y consistencia entre uso e inventario.\\}
 Se decide usar un esquema propio en una base separada para Go y mantener compatibilidad por API. Esta decisión reduce acoplamiento con las migraciones Python, pero exige semillas y comparación del estado. Las transacciones deben comprobar capacidad y generaciones antes de confirmar allocations; las reglas concretas se validarán con fixtures diferenciales.
+
+
+\Needspace{360pt}
+\begin{figure}[!ht]
+\centering
+\begin{tikzpicture}[ent/.style={draw=sectionblue,align=left,text width=4.7cm,minimum height=1.3cm,font=\small},rel/.style={thick},lab/.style={font=\scriptsize,fill=white,inner sep=2pt}]
+\node[ent](provider) at (0,0){\textbf{\footnotesize RESOURCE\_PROVIDER}\\PK id; UK uuid, name\\generation; parent/root};
+\node[ent](inventory) at (6,0){\textbf{INVENTORY}\\PK id; provider\_id, class\_id\\UK(provider, class); límites};
+\node[ent](allocation) at (0,-2.5){\textbf{ALLOCATION}\\PK id; provider\_id, class\_id\\consumer\_uuid; used};
+\node[ent](class) at (6,-2.5){\textbf{RESOURCE\_CLASS}\\PK id; UK name};
+\node[ent](consumer) at (0,-5){\textbf{CONSUMER}\\PK id; UK uuid\\generation; project/user};
+\node[ent](traits) at (6,-5){\textbf{PROVIDER\_TRAIT}\\PK(provider\_id, trait\_id)};
+\node[ent](trait) at (6,-7.3){\textbf{TRAIT}\\PK id; UK name};
+\draw[rel](provider)--node[lab,pos=0.2]{1}node[lab,pos=0.8]{0..N}(inventory);
+\draw[rel](provider)--node[lab,pos=0.2]{1}node[lab,pos=0.8]{0..N}(allocation);
+\draw[rel](class)--node[lab,pos=0.2]{1}node[lab,pos=0.8]{0..N}(inventory);
+\draw[rel](class)--node[lab,pos=0.2]{1}node[lab,pos=0.8]{0..N}(allocation);
+\draw[rel](consumer)--node[lab,pos=0.2]{1}node[lab,pos=0.8]{0..N}(allocation);
+\draw[rel](provider.north)--(0,1.35)--(9,1.35)--(9,-5)--node[lab,pos=0.15]{1}node[lab,pos=0.9]{0..N}(traits.east);
+\draw[rel](trait)--node[lab,pos=0.2]{1}node[lab,pos=0.8]{0..N}(traits);
+\end{tikzpicture}
+\caption{Modelo ER lógico del alcance Placement. PK: clave primaria; UK: unicidad. La tabla de atributos distingue las FK observadas de asociaciones lógicas.}
+\label{fig:er}
+\end{figure}
+\FloatBarrier
+El diseño Go conserva las relaciones lógicas de la figura \ref{fig:er}, pero define sus propias migraciones. La transacción de claim debe leer generaciones y capacidad, validar la solicitud, actualizar allocations y generaciones, y confirmar o revertir el conjunto. Se compararán conflictos y rollback con el original antes de aceptar RF05/RF07.
 
 \subsection{Interacción Nova--Placement}
 La traza real del boot confirma búsqueda de candidatos, consulta de allocations, reclamación y liberación. La consulta de Nova solicitó \code{DISK_GB:1,MEMORY_MB:512,VCPU:1} y restricciones \code{OWNER_NOVA,!COMPUTE_STATUS_DISABLED}. Scheduler seleccionó \code{tt-openstack-lab} y la instancia alcanzó ACTIVE.
@@ -206,9 +232,31 @@ La traza real del boot confirma búsqueda de candidatos, consulta de allocations
 \end{enumerate}
 Los logs prueban método, ruta, resultado y microversión. No capturan el cuerpo completo de las solicitudes internas, por lo que aún se deben obtener fixtures específicos de esos cuerpos. El resultado ACTIVE valida la integración del original, no la de un reemplazo Go aún inexistente.
 
+
+\Needspace{310pt}
+\begin{figure}[!ht]
+\centering
+\begin{tikzpicture}[p/.style={draw,fill=black!3,text width=3.1cm,align=center,font=\small},msg/.style={-{Latex},thick},ret/.style={-{Latex},dashed},font=\scriptsize]
+\node[p](nova) at (0,0){Nova};\node[p](placement) at (5,0){Placement};\node[p](db) at (10,0){DB};
+\foreach \x in {0,5,10}{\draw[dashed](\x,-0.5)--(\x,-6.8);}
+\draw[msg](0,-1.0)--node[above,align=center]{GET allocation\_candidates (1.36)}(5,-1.0);
+\draw[msg](5,-1.7)--node[above]{Consultar recursos (inferencia)}(10,-1.7);
+\draw[ret](5,-2.4)--node[above]{200: candidatos}(0,-2.4);
+\draw[msg](0,-3.1)--node[above]{GET allocations (1.28)}(5,-3.1);
+\draw[ret](5,-3.7)--node[above]{200: allocations}(0,-3.7);
+\draw[msg](0,-4.4)--node[above]{PUT allocations (1.36)}(5,-4.4);
+\draw[msg](5,-5.1)--node[above]{Transacción + generation (inferencia)}(10,-5.1);
+\draw[ret](5,-5.8)--node[above]{204: claim registrado}(0,-5.8);
+\node[draw,align=center,text width=11cm,fill=white] at (5,-7.35){Las llamadas HTTP y sus status están observados en el original. Las operaciones internas de DB son inferidas del diseño; no se capturaron cuerpos HTTP completos.};
+\end{tikzpicture}
+\caption{Secuencia Nova--Placement del boot original. Mensajes continuos: solicitudes; discontinuos: respuestas. La eliminación añade DELETE allocations 1.0, HTTP 204.}
+\label{fig:sequence}
+\end{figure}
+\FloatBarrier
+
 \Needspace{390pt}
 \subsection{Requerimientos funcionales}
-\reporttable{Requerimientos aplicables al módulo Placement.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{1.4cm}>{\raggedright\arraybackslash}p{8.8cm}>{\raggedright\arraybackslash}p{4.8cm}}{\textbf{ID}&\textbf{Requerimiento}&\textbf{Verificación prevista}}{
+\reporttable{Requerimientos aplicables al módulo Placement.}{>{\raggedright\arraybackslash}p{1.4cm}>{\raggedright\arraybackslash}p{8.8cm}>{\raggedright\arraybackslash}p{4.8cm}}{\textbf{ID}&\textbf{Requerimiento}&\textbf{Verificación prevista}}{
 RF01&OpenStack de un nodo reproducible.&Instalación y smoke test; base validada en S2.\\*
 RF02&Rutas y microversiones del alcance.&Suite de contrato y comparación de headers/JSON.\\*
 RF03&Proveedores e inventarios compatibles.&CRUD, capacidad y conflictos.\\*
@@ -222,7 +270,7 @@ RF11 / RF12&Observabilidad y automatización.&Logs saneados, scripts y métricas
 RF03--RF09 describen aceptación de la implementación futura. El análisis de Sprint 2 no equivale a tener estos requerimientos implementados en Go.
 
 \subsection{Requerimientos no funcionales}
-\reporttable{Atributos de calidad y criterios de verificación.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}p{3.5cm}>{\raggedright\arraybackslash}p{10cm}}{\textbf{ID}&\textbf{Atributo}&\textbf{Criterio}}{
+\reporttable{Atributos de calidad y criterios de verificación.}{>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}p{3.5cm}>{\raggedright\arraybackslash}p{10cm}}{\textbf{ID}&\textbf{Atributo}&\textbf{Criterio}}{
 RNF01&Compatibilidad&Comparar status, tipos, campos, errores, headers estables y efectos persistidos.\\*
 RNF02&Rendimiento&Latencia p50/p95/p99 y throughput con carga controlada.\\*
 RNF03&Recursos&CPU y memoria del proceso en reposo y carga.\\*
@@ -231,30 +279,75 @@ RNF05&Reproducibilidad&Versiones, configuración, comandos y dataset documentado
 RNF06&Mantenibilidad&Capas separadas, pruebas y commits trazables.\\*
 RNF07&Seguridad&Conservar autenticación y autorización; excluir secretos de fixtures.\\}
 
-\subsection{Diseño objetivo y criterios de aceptación}
+\subsection{Arquitectura del reemplazo Go y criterios de aceptación}
+
+\Needspace{310pt}
+\begin{figure}[!ht]
+\centering
+\begin{tikzpicture}[box/.style={draw=sectionblue,rounded corners,align=center,text width=4.4cm,minimum height=1cm,font=\small},ext/.style={box,draw=black,fill=black!3},arr/.style={-{Latex},thick}]
+\node[ext](nova) at (0,1.2){Nova / OpenStackClient\\Consumidores externos};
+\node[box](api) at (0,-0.6){API + middleware\\HTTP, JSON, microversión, identidad};
+\node[box](service) at (0,-2.5){Service + Model\\Capacidad, generaciones y candidates};
+\node[box](repo) at (0,-4.4){Repository\\Transacciones y lectura de estado};
+\node[ext](keystone) at (6,-0.6){Keystone\\Validación de token};
+\node[ext](db) at (6,-4.4){Base de datos Go\\Esquema separado del original};
+\draw[dashed,sectionblue](-2.7,0.2) rectangle (2.7,-5.2);
+\node[font=\small\bfseries,anchor=west] at (-2.6,-5.5){Proceso cmd/placement (propuesto)};
+\draw[arr](nova)--node[right,font=\scriptsize]{HTTP + token}(api);
+\draw[arr](api)--node[right,font=\scriptsize]{Request tipado + identidad}(service);
+\draw[arr](service)--node[right,font=\scriptsize]{Contrato transaccional}(repo);
+\draw[arr](api)--node[above,font=\scriptsize]{Auth}(keystone);
+\draw[arr](repo)--node[above,font=\scriptsize]{SQL}(db);
+\end{tikzpicture}
+\caption{Vista de componentes del reemplazo Placement Go. Rectángulo discontinuo: límite del proceso; flechas: llamadas o dependencias.}
+\label{fig:go}
+\end{figure}
+\FloatBarrier
+
 El ejecutable propuesto es \code{cmd/placement}. Los paquetes internos separan API, servicio, modelo y repositorio. Los handlers negocian versiones y validan HTTP; el servicio aplica reglas de negocio; el repositorio controla transacciones. Configuración, middleware Keystone y logging se mantienen como componentes reutilizables.
 
 Se aceptará la sustitución cuando el original y Go superen los casos comprometidos, Nova cree y elimine una instancia utilizando Go, y las comparaciones diferenciales no muestren diferencias semánticas relevantes. UUID, timestamps, request IDs y orden no garantizado podrán normalizarse sin ocultar cambios de capacidad o asignación.
 
 Las pruebas abarcarán unidad, contrato, comparación diferencial, integración y escenario completo. La evaluación posterior usará misma VM, versiones, estado inicial, carga, warm-up y número de repeticiones. No se impone una mejora de velocidad como criterio de aceptación ni se presentan benchmarks de esta etapa.
 
+
+\subsection{Notación y trazabilidad de la calidad del diseño}
+La vista de componentes organiza un único proceso Go, sus responsabilidades, interfaces y dependencias externas según las abstracciones del modelo C4 \cite{c4}. Los modelos ER expresan entidades y cardinalidades; las secuencias usan participantes, líneas de vida, mensajes y respuestas siguiendo la notación básica de interacción de UML \cite{uml}. Cada figura distingue sistema original, propuesta Go e intercambios todavía inferidos. Las flechas se interpretan según su leyenda; una relación del dominio no implica una FK SQL.
+
+La compatibilidad HTTP se verificará con método, status, media type, headers y efectos, atendiendo a la semántica de HTTP y al contrato específico de OpenStack \cite{http}. Las matrices siguientes relacionan las decisiones con RF/RNF, objetivos y pruebas de aceptación. Describen prácticas de diseño y un plan de verificación; no constituyen certificación de cumplimiento de una norma ni resultados de pruebas Go.
+
+\reporttable{Requerimientos, prácticas de diseño y verificaciones de aceptación.}{>{\raggedright\arraybackslash}p{3cm}>{\raggedright\arraybackslash}p{5.3cm}>{\raggedright\arraybackslash}p{6.4cm}}{\textbf{Requerimiento}&\textbf{Práctica / artefacto}&\textbf{Prueba o criterio}}{
+RF02 / RNF01&API y contratos HTTP; secuencia de fig. \ref{fig:sequence}.&Mismas rutas, headers, microversiones, status y errores; comparación diferencial.\\*
+RF03--RF06&Modelo ER (fig. \ref{fig:er}); servicio separado de handlers.&Fixtures de inventario, traits, allocations y candidatos, con estado inicial equivalente.\\*
+RF05/RF07&Transacción y concurrencia optimista; ADR-01.&Claim concurrente, generación obsoleta y rollback; revisar capacidad y estado final.\\*
+RF08 / RNF07&Auth Keystone y políticas por operación; ADR-03.&Casos positivos y negativos 401/403; no guardar tokens ni omitir validación.\\*
+RF09 / RNF06&Proceso Go aislado (fig. \ref{fig:go}); DB separada.&Sustitución controlada y boot/delete con Nova original; recuperación del original.\\*
+RNF05 / RF11/RF12&Versiones, configuración y logs con request ID.&Reprovisión repetida, fixtures saneados y scripts versionados.\\}
+\subsection{Decisiones técnicas y alternativas}
+
+\reporttable{Decisiones de diseño Placement y sus consecuencias.}{>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{5.2cm}>{\raggedright\arraybackslash}p{4.4cm}}{\textbf{ADR}&\textbf{Contexto y alternativas}&\textbf{Decisión y razón}&\textbf{Consecuencia / aceptación}}{
+01&Persistencia: esquema original, propio o intermedio.&Esquema propio en DB separada; compatibilidad por HTTP evita depender de migraciones Python.&Semillas y migración explícitas; validar consistencia con transacciones y fixtures.\\*
+03&Auth: red privada, middleware Keystone o políticas completas.&Validar token y políticas mínimas del alcance; preservar RF08/RNF07 sin reimplementar Keystone.&Dependencia Keystone; comparar 401/403 y roles por ruta.\\*
+Módulo&Acoplar SQL a handlers o separar API, servicio y repositorio.&Separación de responsabilidades y request tipado con identidad validada.&Pruebas de dominio aisladas y traducción consistente de errores a HTTP.\\}
+
+\Needspace{350pt}
 \subsection{Riesgos y mitigaciones}
-\reporttable{Riesgos del desarrollo Placement.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{4.5cm}>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}p{9cm}}{\textbf{Riesgo}&\textbf{Nivel}&\textbf{Mitigación}}{
+\reporttable{Riesgos del desarrollo Placement.}{>{\raggedright\arraybackslash}p{4.5cm}>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}p{9cm}}{\textbf{Riesgo}&\textbf{Nivel}&\textbf{Mitigación}}{
 Cobertura de microversiones mayor a la estimada&Alto&Priorizar llamadas reales de Nova y registrar exclusiones.\\*
 Conflictos o sobreasignación&Alto&Pruebas de generación, capacidad y atomicidad antes de optimizar.\\*
 Cambios en dependencias&Medio&Mantener SHA fijados y registrar paquetes secundarios.\\*
 Benchmark sesgado por QEMU o estado&Medio&Comparar procesos bajo la misma configuración y reportar límites del laboratorio.\\*
 Cuerpos Nova incompletos&Medio&Capturar fixtures saneados antes de aceptar la integración Go.\\*
-Retroalimentación formal pendiente&Medio&Incorporar observaciones del profesor cuando estén disponibles.\\}
+Metodología experimental pendiente&Medio&Completar B16 con carga, repeticiones y métricas antes de comparar rendimiento.\\}
 
 \section{Planificación y backlog}
 \subsection{Épicas}
-Se conservan las épicas del Excel vigente que son aplicables: E1 infraestructura y entorno; E2 análisis y compatibilidad; E3 reimplementación Placement; E4 integración OpenStack; E5 pruebas y benchmarking. E6 reimplementación Glance corresponde al informe independiente de ese módulo. La documentación y entrega acompañan estas actividades.
+Se conservan las épicas del Excel vigente que son aplicables: E1 infraestructura y entorno; E2 análisis y compatibilidad; E3 reimplementación Placement; E4 integración OpenStack; E5 pruebas y benchmarking. E6 reimplementación Glance corresponde al informe independiente de ese módulo. E7 documentación incluye B21--B24 y registra arquitectura, reproducción, resultados e informe final.
 
-\Needspace{280pt}
+\Needspace{400pt}
 \subsection{Backlog prioritario y estado del Sprint 2}
 Los IDs del cuadro proceden del Excel vigente \cite{plan} y no del backlog preliminar del PDF de Etapa 1, cuya numeración fue refinada. Se conserva esa distinción para evitar asociar una evidencia al elemento equivocado.
-\reporttable{Elementos de Sprint 2 relevantes para Placement.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{1cm}>{\raggedright\arraybackslash}p{8.1cm}>{\raggedright\arraybackslash}p{1.2cm}>{\raggedright\arraybackslash}p{4.5cm}}{\textbf{ID}&\textbf{Elemento}&\textbf{SP}&\textbf{Estado}}{
+\reporttable{Elementos de Sprint 2 relevantes para Placement.}{>{\raggedright\arraybackslash}p{1cm}>{\raggedright\arraybackslash}p{8.1cm}>{\raggedright\arraybackslash}p{1.2cm}>{\raggedright\arraybackslash}p{4.5cm}}{\textbf{ID}&\textbf{Elemento}&\textbf{SP}&\textbf{Estado}}{
 B01&Preparar VM de laboratorio (compartido).&3&Hecho: VM auditada.\\*
 B02&Instalar DevStack de un nodo (compartido).&5&Hecho: servicios verificados.\\*
 B03&Smoke tests del original (compartido).&5&Hecho: boot ACTIVE y limpieza.\\*
@@ -265,21 +358,97 @@ Las tareas específicas de Placement suman 15 SP; las comunes, 13 SP. El Sprint 
 
 La evidencia está en \code{evidence/sprint2/placement/}, \code{evidence/sprint2/nova/} y \code{evidence/sprint2/tests/}. El registro de versiones es \code{infra/devstack/versions.lock}; la auditoría de tablas está en \code{evidence/sprint2/environment/database-schema-audit.txt}. Los documentos de contrato, modelo y flujo se encuentran en \code{docs/sprint2/}. La verificación \code{make sprint2-verify} aprobó los artefactos y evidencias requeridos.
 
+\subsection{Inventario de diseño y comparación con el backlog completo}
+El backlog vigente contiene 26 elementos y 185 SP: 7 Hecho, 1 En progreso y 18 Pendiente. El avance global por elementos terminados es $7/26=26{,}9\%$; por puntos aceptados es $33/185=17{,}8\%$. B21 no se cuenta como terminado ni se prorratean sus puntos. Estas métricas globales se distinguen del 100\% de aceptación del Sprint 2 ($7/7$, 33/33 SP).
+
+El conjunto de análisis y diseño central comprometido en S2 es el conjunto $D_{S2}$, formado por B04, B05, B06 y B19: 4 de 4 elementos terminados, 20 de 20 SP. En este informe, la evidencia propia del módulo se desarrolla por separado; el otro módulo aporta su expediente independiente.
+
+Al revisar el backlog completo, B21 incluye documentación de arquitectura y decisiones como actividad continua de S3 y B16 diseña el protocolo experimental en S4. Sus estados formales siguen En progreso y Pendiente, respectivamente. Por ello, el 100\% anterior describe exclusivamente el diseño central de S2: no acredita por sí solo el cierre de todas las actividades de diseño y documentación del proyecto. Los diagramas y matrices de esta revisión amplían el soporte de B21 sin modificar el estado del Excel.
+
+
+\Needspace{590pt}
+\reporttable{Backlog completo: clasificación y estado formal al 2 de octubre de 2026.}{>{\raggedright\arraybackslash}p{0.9cm}>{\raggedright\arraybackslash}p{4.8cm}>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{0.8cm}>{\raggedright\arraybackslash}p{1.3cm}>{\raggedright\arraybackslash}p{2.9cm}}{\textbf{ID}&\textbf{Elemento resumido}&\textbf{Naturaleza}&\textbf{SP}&\textbf{Sprint}&\textbf{Estado}}{
+B01&Preparar VM&Entorno&3&S2&Hecho\\
+B02&Instalar DevStack&Entorno&5&S2&Hecho\\
+B03&Smoke tests del original&Entorno&5&S2&Hecho\\
+B04&Arquitectura Placement&Diseño S2&5&S2&Hecho\\
+B05&Endpoints y microversiones&Diseño S2&5&S2&Hecho\\
+B06&Interacción Nova--Placement&Diseño S2&5&S2&Hecho\\
+B07&Providers e inventories&Implementación&8&S3&Pendiente\\
+B08&Traits y resource classes&Implementación&8&S3&Pendiente\\
+B09&Allocations&Implementación&8&S3&Pendiente\\
+B10&Allocation candidates&Implementación&13&S3&Pendiente\\
+B11&Persistencia Placement&Implementación&8&S3&Pendiente\\
+B12&Autenticación OpenStack&Implementación&8&S3&Pendiente\\
+B13&Sustituir Placement&Integración&8&S4&Pendiente\\
+B14&Boot con Placement Go&Integración&8&S4&Pendiente\\
+B15&Suite de integración&Integración&8&S4&Pendiente\\
+B16&Metodología de benchmarking&Diseño experimental&5&S4&Pendiente\\
+B17&Latencia y throughput&Medición&5&S5&Pendiente\\
+B18&CPU y memoria&Medición&5&S5&Pendiente\\
+B19&Análisis integral Glance&Diseño S2&5&S2&Hecho\\
+B20&Catálogo de metadatos Glance&Implementación&13&S4&Pendiente\\
+B21&Arquitectura y decisiones (continua)&Diseño y documentación&5&S3&En progreso\\
+B22&Instalación, despliegue y pruebas&Documentación&5&S4&Pendiente\\
+B23&Resultados comparativos&Análisis&8&S5&Pendiente\\
+B24&Informe final&Entrega&8&S5&Pendiente\\
+B25&Carga/descarga Glance&Implementación&13&S4&Pendiente\\
+B26&Sustitución Glance y boot Nova&Integración&8&S5&Pendiente\\}
+
+
+\subsection{Repositorio, decisiones y cambios trazables}
+Código, fuentes y evidencias se entregan en el \href{https://github.com/PaoloCastanon/modules-devstack-optimized}{repositorio GitHub del proyecto}. El historial Git conserva cambios con mensajes que identifican su propósito. La revisión base de los informes individuales es \code{06b6505}; las fuentes editables están en \code{docs/sprint2/reports/} y los PDF en \code{output/pdf/}. El registro de diseño se apoya en \code{design-decisions.md}, \code{go-target-architecture.md}, los contratos API y las evidencias saneadas de \code{evidence/sprint2/}.
+
+
+\reporttable{Cambios de infraestructura y evidencia registrados en Git.}{>{\raggedright\arraybackslash}p{1.8cm}>{\raggedright\arraybackslash}p{5.5cm}>{\raggedright\arraybackslash}p{7.4cm}}{\textbf{Commit}&\textbf{Cambio registrado}&\textbf{Justificación y evidencia}}{
+6e0ea2d&Instalación DevStack mediante Ansible.&Aprovisionamiento repetible con versión fijada; infraestructura común y scripts en infra/.\\*
+b261278&Inicializar asignaciones Geneve antes de crear la red.&Corrección técnica necesaria para completar DevStack; parche versionado y posterior smoke test.\\*
+6abd728&Conservar MySQL durante las ejecuciones Ansible.&Evitar que una dependencia de cliente retire el servidor; reprovisión del laboratorio.\\*
+30491e9&Capturar baseline y verificaciones reales.&Servicio original, APIs, tablas, store y boot documentados en evidence/sprint2/.\\*
+5052749&Actualizar el libro derivado con evidencia.&Estados Hecho de S2 sustentados; original sin modificar.\\*
+203f001 /\newline 06b6505&Separar informes Placement y Glance.&Un autor y módulo por entrega; conserva evidencia común y formato institucional.\\*
+6344e3f&Preservar evidencia aceptada al repetir provisión.&Evitar que una repetición sustituya las capturas ya usadas para aceptación.\\}
+
+
+\Needspace{415pt}
+\subsection{Refinamientos y desviaciones respecto del plan inicial}
+
+\reporttable{Cambios del plan y justificación documental.}{>{\raggedright\arraybackslash}p{4.1cm}>{\raggedright\arraybackslash}p{5.3cm}>{\raggedright\arraybackslash}p{5.3cm}}{\textbf{Referencia inicial}&\textbf{Estado de Etapa 2}&\textbf{Justificación y efecto}}{
+Backlog preliminar B01--B20 del informe de Etapa 1.&Excel vigente B01--B26; incorpora tareas técnicas y alcance Glance refinado.&Se usan los IDs del libro actual en todas las evidencias; no se equiparan automáticamente los IDs antiguos.\\*
+Entorno de un nodo previsto.&VM dedicada gestionada por Terraform/libvirt y Ansible; Nova usa QEMU emulado.&Aislar el laboratorio del host y reconstruir su configuración. La emulación limita la generalización del benchmark.\\*
+Reimplementación compatible por delimitar.&Placement por rutas/microversiones seleccionadas; Glance con Image API v2 y un filesystem.&El baseline y el tráfico del original acotan lo necesario. No se promete cobertura completa ni todos los stores.\\*
+Persistencia del reemplazo por resolver.&Esquema propio y DB aislada; Glance separa metadata de bytes.&ADR-01/ADR-02 reducen acoplamiento al original; exigen semillas, migración y reconciliación.\\*
+Informe conjunto de ambos módulos.&Dos informes individuales por instrucción de entrega.&Placement para Paolo Castañon Barrera y Glance para Juan Cardenas Uribe; las tareas comunes no se cuentan dos veces.\\*
+Cronograma del libro vigente.&Se conservan S2--S5 y sus estados; B20/B25 en S4 y B26 en S5.&La preparación de fixtures en S3 no adelanta formalmente las historias Glance. No se replanificó el Excel en esta revisión.\\}
+
+
+\Needspace{365pt}
+\subsection{Matriz de evidencia para los criterios técnicos de Etapa 2}
+La pauta del curso denomina esta etapa \textit{Diseño e Implementación Inicial}. Los tres criterios técnicos se verifican con el informe, el libro de seguimiento y el repositorio \cite{rubric}. Sus pesos originales se conservan en el cuadro; no se convierten en una nota ni en un porcentaje de logro académico.
+
+\reporttable{Localización de evidencia para los criterios técnicos de la pauta.}{>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{9.4cm}}{\textbf{Criterio}&\textbf{Peso}&\textbf{Evidencia verificable y límite}}{
+Avance en el diseño&10\%&Inventario de diseño S2 y backlog completo en esta sección. B04/B05/B06/B19: 4/4; B21 y B16 conservan estados del libro. No se afirma 100\% del diseño global.\\*
+Calidad del diseño&55\%&Figuras \ref{fig:go}, \ref{fig:er} y \ref{fig:sequence}; matriz RF/RNF--práctica--prueba; contratos y ADR del módulo. Diferencia explícita entre diseño y validación Go posterior.\\*
+Documentación del proyecto&15\%&Fuentes y PDF, URL Git, decisiones con alternativas/consecuencias, registro de commits y refinamientos del plan. Evidencia de pruebas originales y archivos de reproducción.\\}
+
 \Needspace{240pt}
 \subsection{Plan por sprints e hitos}
-\reporttable{Hitos del módulo Placement.}{>{\raggedright\arraybackslash}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{9.4cm}}{\textbf{Periodo}&\textbf{Hito}&\textbf{Resultado esperado}}{
+\reporttable{Hitos del módulo Placement.}{>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{9.4cm}}{\textbf{Periodo}&\textbf{Hito}&\textbf{Resultado esperado}}{
 Hasta 04-09&Etapa 1&Problema, objetivos y requerimientos iniciales.\\*
 05-09 a 02-10&Etapa 2 / S2&Diseño, entorno, baseline y tráfico Nova registrados.\\*
 03-10 a 30-10&Etapa 3 / S3&Al menos 50\% implementado; priorizar B07 providers/inventories, B08 traits/classes y B11 persistencia.\\*
 31-10 a 20-11&Cierre / S4&Allocations, candidates, auth y sustitución integradas y estabilizadas.\\*
 21-11 a 04-12&Evaluación / S5&Dataset comparativo, gráficos, conclusiones e informe final.\\}
 
+\Needspace{320pt}
 \section{Conclusiones de la Etapa 2}
+El cierre del diseño central de S2 se sustenta en cuatro elementos terminados y en su comparación con los 26 elementos del backlog. Esta revisión incorpora vistas del reemplazo Go, modelo ER, secuencia, decisiones y trazabilidad de calidad. B21 y B16 conservan su estado formal; no se confunde la aceptación del Sprint 2 con el cierre de todo el diseño o con la implementación del reemplazo.
+
 La etapa produjo una especificación de Placement respaldada por el servicio original: arquitectura y tablas contrastadas, alcance HTTP documentado, microversiones observadas y un flujo real de Nova que alcanzó ACTIVE y liberó recursos al eliminar la instancia.
 
 OE1 y OE2 están cumplidos para el alcance de Sprint 2. La implementación Go, la sustitución y la evaluación de rendimiento siguen planificadas. Los fixtures pendientes y la captura de cuerpos internos deben resolverse a medida que se implemente cada contrato, conservando los límites explícitos.
 
-El siguiente paso es desarrollar providers, inventories, traits/classes y persistencia, y compararlos con la línea base. El resultado de esta etapa habilita esa implementación sin anticipar conclusiones sobre eficiencia. La retroalimentación formal del profesor guía permanece pendiente de incorporación.
+El siguiente paso es desarrollar providers, inventories, traits/classes y persistencia, y compararlos con la línea base. El resultado de esta etapa habilita esa implementación sin anticipar conclusiones sobre eficiencia.
 
 \Needspace{280pt}
 \begingroup\small
@@ -290,6 +459,11 @@ El siguiente paso es desarrollar providers, inventories, traits/classes y persis
 \bibitem{devstack} OpenStack. \textit{DevStack Documentation}. \url{https://docs.openstack.org/devstack/latest/}.
 \bibitem{repo} Proyecto \textit{modules-devstack-optimized}. Documentación y evidencias Sprint 2, capturadas el 2 de octubre de 2026. Directorios \code{docs/sprint2/}, \code{evidence/sprint2/} e \code{infra/}; registro de evidencia y matriz final de trazabilidad.
 \bibitem{plan} \textit{Planificacion\_Trabajo\_Titulo\_OpenStack\_Placement\_Glance.xlsx} y copia de seguimiento Sprint 2. Hojas Objetivos\_SMART, Requerimientos, Backlog, Trazabilidad y Sprints. La copia original se mantiene inalterada.
+
+\bibitem{c4} Simon Brown. \textit{C4 model: Component diagram}. Vista de componentes de un contenedor y sus dependencias. \url{https://c4model.com/diagrams/component}. Consultado el 2 de octubre de 2026.
+\bibitem{uml} Object Management Group. \textit{Unified Modeling Language, versión 2.5.1}. \url{https://www.omg.org/spec/UML/2.5.1}. Referencia de notación de interacción; consultado el 2 de octubre de 2026.
+\bibitem{http} IETF. \textit{RFC 9110: HTTP Semantics}. Junio de 2022. \url{https://www.rfc-editor.org/rfc/rfc9110.html}. Consultado el 2 de octubre de 2026.
+\bibitem{rubric} Universidad Católica de Temuco. \textit{Pauta y rúbrica de evaluación del curso de Trabajo de Título (INFO-1197)}. 17 de agosto de 2026. Etapa 2, página 3. Documento proporcionado para esta revisión.
 \end{thebibliography}
 \endgroup
 \end{document}
