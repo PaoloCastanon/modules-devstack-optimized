@@ -33,6 +33,15 @@ if [[ ${HOST_IP:-} == AUTO_OR_CHANGE_ME ]]; then HOST_IP=$(ip -4 route get 1.1.1
 [[ $HOST_IP =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'HOST_IP IPv4 inválido.' >&2; exit 1; }
 # shellcheck disable=SC1091
 source "$here/versions.lock"
+[[ ${NOVA_SHA:-} =~ ^[0-9a-f]{40}$ ]] || { echo 'NOVA_SHA inválido en versions.lock.' >&2; exit 1; }
+# RECLONE=no does not update existing Nova checkouts. Refuse silent drift.
+if [[ -d /opt/stack/nova/.git ]]; then
+  current_nova_sha=$(git -C /opt/stack/nova rev-parse HEAD)
+  [[ $current_nova_sha == "$NOVA_SHA" ]] || {
+    echo "Nova ya existe en $current_nova_sha, pero se exige $NOVA_SHA. Revisar despliegue antes de continuar." >&2
+    exit 1
+  }
+fi
 dir=${DEVSTACK_DIR:-/opt/stack/devstack}
 [[ $dir == /opt/stack/devstack ]] || { echo 'DEVSTACK_DIR debe ser /opt/stack/devstack para este laboratorio.' >&2; exit 1; }
 sudo install -d -o "$(id -un)" -g "$(id -gn)" /opt/stack /opt/stack/logs
@@ -50,7 +59,7 @@ conf="$dir/local.conf"
 config_tmp=$(mktemp /opt/stack/local.conf.XXXXXX)
 cp "$here/local.conf.template" "$config_tmp"
 chmod 600 "$config_tmp"
-for var in ADMIN_PASSWORD DATABASE_PASSWORD RABBIT_PASSWORD SERVICE_PASSWORD HOST_IP; do
+for var in ADMIN_PASSWORD DATABASE_PASSWORD RABBIT_PASSWORD SERVICE_PASSWORD HOST_IP NOVA_SHA; do
   value=${!var}; sed -i "s/@$var@/$value/g" "$config_tmp"
 done
 if [[ -e $conf ]]; then
@@ -72,5 +81,10 @@ else
   rc=$?
 fi
 ((rc==0)) || exit "$rc"
+installed_nova_sha=$(git -C /opt/stack/nova rev-parse HEAD)
+[[ $installed_nova_sha == "$NOVA_SHA" ]] || {
+  echo "Nova no corresponde a la revisión fijada: esperado $NOVA_SHA, instalado $installed_nova_sha." >&2
+  exit 1
+}
 printf 'Instalación correcta. Log: %s\n' "$log"
 "$here/record-versions.sh"
