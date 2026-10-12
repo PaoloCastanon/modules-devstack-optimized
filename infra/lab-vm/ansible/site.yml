@@ -103,6 +103,71 @@
       become_user: stack
       no_log: true
 
+    - name: Prepare MySQL password authentication for DevStack
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - |
+            import json
+            import os
+            import pathlib
+            import re
+            import subprocess
+            import sys
+
+            def fail(message):
+                print(message, file=sys.stderr)
+                sys.exit(1)
+
+            try:
+                values = dict(line.split('=', 1) for line in pathlib.Path(
+                    '/home/stack/modules-devstack-optimized/infra/devstack/.env'
+                ).read_text().splitlines() if '=' in line)
+                password = values['DATABASE_PASSWORD']
+            except (OSError, KeyError, ValueError):
+                fail('Cannot read DevStack database credentials')
+            if not re.fullmatch(r'[A-Za-z0-9]{12,}', password):
+                fail('Invalid DevStack database password')
+
+            env = dict(os.environ, MYSQL_PWD=password)
+            client = ['mysql', '--no-defaults', '--protocol=socket', '--user=root', '-N', '-B']
+
+            def run(argv, sql, message):
+                try:
+                    result = subprocess.run(argv, input=sql, text=True,
+                                            capture_output=True, env=env, timeout=30)
+                except (OSError, subprocess.SubprocessError):
+                    fail(message)
+                if result.returncode != 0:
+                    fail(message)
+                return result.stdout.strip()
+
+            query = "SELECT plugin FROM mysql.user WHERE user='root' AND host='localhost';"
+            plugin = run(client, query, 'Cannot inspect existing MySQL root authentication')
+            if plugin not in ('auth_socket', 'caching_sha2_password', 'mysql_native_password'):
+                fail('Unexpected MySQL authentication plugin')
+            changed = plugin == 'auth_socket'
+            if changed:
+                sql = "ALTER USER 'root'@'localhost' IDENTIFIED WITH caching_sha2_password BY '" + password + "';"
+                run(client, sql, 'Cannot prepare MySQL authentication')
+            probe = run(['sudo', '-n', '-u', 'stack', '--preserve-env=MYSQL_PWD',
+                         'mysql', '--no-defaults', '--protocol=TCP', '--host=127.0.0.1',
+                         '--user=root', '-N', '-B'], 'SELECT 1;', 'DevStack database login failed')
+            if probe != '1':
+                fail('DevStack database login failed')
+            after = run(client, query, 'Cannot verify MySQL authentication plugin')
+            if after != ('caching_sha2_password' if changed else plugin):
+                fail('Unexpected MySQL authentication transition')
+            print(json.dumps({'changed': changed, 'before': plugin, 'after': after, 'tcp': 'ok'}))
+      register: mysql_authentication
+      changed_when: (mysql_authentication.stdout | from_json).changed
+      no_log: true
+
+    - name: Report non-secret MySQL authentication transition
+      ansible.builtin.debug:
+        msg: "MySQL {{ (mysql_authentication.stdout | from_json).before }} -> {{ (mysql_authentication.stdout | from_json).after }}; stack TCP SELECT 1: {{ (mysql_authentication.stdout | from_json).tcp }}"
+
     - name: Check whether DevStack was installed successfully
       ansible.builtin.stat:
         path: /opt/stack/devstack/.sprint2-install-complete
