@@ -16,3 +16,5 @@ make harness-status  # Inventario Go y referencia al estado aceptado
 `make docs-check` conserva la validación documental existente. `make evidence-check` valida las capturas históricas de DevStack, baseline y boot. `make sprint2-verify` puede verificar servicios vivos si encuentra `OS_AUTH_URL` u openrc: usarlo sólo en el laboratorio. La [guía de laboratorio](infra/devstack/README.md) es para una VM Ubuntu 24.04 dedicada. No ejecutar DevStack en la estación de trabajo.
 
 La VM permanece apagada mientras no se use. Los informes de S2 reflejan la entrega del 2 de octubre; las verificaciones locales posteriores no prueban disponibilidad actual del laboratorio.
+
+El [workflow de CI](.github/workflows/verify.yml) ejecuta los mismos controles en pushes a `main`, pull requests y ejecución manual. Usa permisos de lectura y no requiere credenciales del laboratorio. Un fallo marca el check como fallido; configurar protección de rama en GitHub es una tarea administrativa aparte.
