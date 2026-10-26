@@ -8,6 +8,11 @@ for service in placement glance nova; do
   path="/opt/stack/$service"
   [[ -d $path/.git ]] || { echo "Falta checkout: $path" >&2; exit 1; }
 done
+installed_nova_sha=$(git -C /opt/stack/nova rev-parse HEAD)
+[[ $installed_nova_sha == "$NOVA_SHA" ]] || {
+  echo "No se registrarán versiones: Nova instalado ($installed_nova_sha) difiere del pin ($NOVA_SHA)." >&2
+  exit 1
+}
 source /etc/os-release
 db_version=$(mariadb --version 2>/dev/null || mysql --version 2>/dev/null || echo UNAVAILABLE)
 osc_version=$(openstack --version 2>&1 || echo UNAVAILABLE)
@@ -20,7 +25,7 @@ PLACEMENT_SHA=$(git -C /opt/stack/placement rev-parse HEAD)
 GLANCE_BRANCH=$GLANCE_BRANCH
 GLANCE_SHA=$(git -C /opt/stack/glance rev-parse HEAD)
 NOVA_BRANCH=$NOVA_BRANCH
-NOVA_SHA=$(git -C /opt/stack/nova rev-parse HEAD)
+NOVA_SHA=$NOVA_SHA
 OS_VERSION='${PRETTY_NAME}'
 PYTHON_VERSION='$(python3 --version)'
 DATABASE_VERSION='${db_version}'
