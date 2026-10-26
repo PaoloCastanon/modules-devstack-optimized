@@ -1,8 +1,8 @@
 .PHONY: lab-up lab-status lab-provision lab-verify devstack-setup devstack-verify smoke baseline docs-check sprint2-verify
-.PHONY: check check-tools evidence-check harness-check harness-status harness-test infra-check go-check nova-pin-check
+.PHONY: check check-tools evidence-check harness-check harness-status harness-test infra-check go-check nova-pin-check unit-test
 
 # Local gates only. Do not add lab-up, smoke, baseline or sprint2-verify here.
-check: check-tools docs-check evidence-check harness-check nova-pin-check infra-check go-check
+check: check-tools docs-check evidence-check harness-check unit-test nova-pin-check infra-check go-check
 
 check-tools:
 	@command -v shellcheck >/dev/null || { echo 'Missing required tool: shellcheck' >&2; exit 1; }
@@ -20,6 +20,10 @@ harness-status:
 
 harness-test:
 	@python3 -m unittest discover -s tests -p 'test_*.py' -v
+
+# Discover this suite explicitly: tests/unit need not be an importable package.
+unit-test:
+	@if [ -d tests/unit ]; then python3 -m unittest discover -s tests/unit -p 'test_*.py' -v; else echo 'Python unit suite not present on this revision.'; fi
 
 # This isolated template test is introduced by PR #1; baseline scripts contact the lab.
 nova-pin-check:
