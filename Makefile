@@ -1,8 +1,8 @@
 .PHONY: lab-up lab-status lab-provision lab-verify devstack-setup devstack-verify smoke baseline docs-check sprint2-verify
-.PHONY: check check-tools evidence-check harness-check harness-status harness-test infra-check go-check
+.PHONY: check check-tools evidence-check harness-check harness-status harness-test infra-check go-check nova-pin-check
 
 # Local gates only. Do not add lab-up, smoke, baseline or sprint2-verify here.
-check: check-tools docs-check evidence-check harness-check infra-check go-check
+check: check-tools docs-check evidence-check harness-check nova-pin-check infra-check go-check
 
 check-tools:
 	@command -v shellcheck >/dev/null || { echo 'Missing required tool: shellcheck' >&2; exit 1; }
@@ -20,6 +20,10 @@ harness-status:
 
 harness-test:
 	@python3 -m unittest discover -s tests -p 'test_*.py' -v
+
+# This isolated template test is introduced by PR #1; baseline scripts contact the lab.
+nova-pin-check:
+	@if [ -f tests/compatibility/nova_pin.sh ]; then bash tests/compatibility/nova_pin.sh; else echo 'Nova pin regression test not present on this revision.'; fi
 
 infra-check:
 	terraform fmt -check -recursive infra/lab-vm/terraform
