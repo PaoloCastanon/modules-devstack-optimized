@@ -13,7 +13,7 @@ make harness-status  # Inventario Go y referencia al estado aceptado
 
 `make check` requiere Python 3, Make, Bash, ShellCheck, Terraform y Ansible. Ejecuta sintaxis/lint de scripts, navegación del harness, pruebas de los gates, evidencia S2 archivada, formato Terraform y sintaxis Ansible. Cuando exista código Go, exige también Go/gofmt, formato, vet, tests con race detector y build. Sin código Go, muestra `PENDING Go`; pasar los controles locales no acredita servicios reimplementados.
 
-También ejecuta explícitamente la suite `tests/unit` y la regresión aislada `tests/compatibility/nova_pin.sh` cuando estén presentes; si faltan en la revisión actual, lo informa. Las pruebas MySQL propuestas en el PR #2 requieren PyYAML y usan dobles: no conectan a la VM ni a una base de datos.
+También ejecuta explícitamente la suite `tests/unit` y la regresión aislada `tests/compatibility/nova_pin.sh` cuando estén presentes; si faltan en la revisión actual, lo informa. Las pruebas MySQL requieren PyYAML y usan dobles: no conectan a la VM ni a una base de datos.
 
 `make docs-check` conserva la validación documental existente. `make evidence-check` valida las capturas históricas de DevStack, baseline y boot. `make sprint2-verify` puede verificar servicios vivos si encuentra `OS_AUTH_URL` u openrc: usarlo sólo en el laboratorio. La [guía de laboratorio](infra/devstack/README.md) es para una VM Ubuntu 24.04 dedicada. No ejecutar DevStack en la estación de trabajo.
 
