@@ -1,5 +1,29 @@
 .PHONY: lab-up lab-status lab-provision lab-verify devstack-setup devstack-verify smoke baseline docs-check sprint2-verify
 
+.PHONY: glance-fmt-check glance-vet glance-test glance-build glance-test-mysql
+# Go is selected per invocation; no global go env or installation changes.
+GLANCE_TOOLCHAIN ?= go1.27.3
+GLANCE_GOFMT ?= gofmt
+GLANCE_GO = GIT_OPTIONAL_LOCKS=0 GOTOOLCHAIN=$(GLANCE_TOOLCHAIN) GOMAXPROCS=2 go
+
+glance-fmt-check:
+	@files="$$($(GLANCE_GOFMT) -l cmd/glance internal)" || exit 1; \
+	if [ -n "$$files" ]; then printf '%s\n' "$$files"; exit 1; fi
+
+glance-vet:
+	$(GLANCE_GO) vet -p 1 ./cmd/glance/... ./internal/...
+
+glance-test:
+	$(GLANCE_GO) test -p 1 -count=1 ./cmd/glance/... ./internal/...
+
+glance-build:
+	@mkdir -p bin
+	$(GLANCE_GO) build -p 1 -trimpath -buildvcs=false -o bin/glance ./cmd/glance
+
+# Explicitly mutates an independently authorized, empty disposable test schema.
+glance-test-mysql:
+	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./internal/glance/repository/mysql -run '^TestMySQLPersistenceAndTransactions$$' -v
+
 lab-up:
 	./infra/lab-vm/up.sh
 
