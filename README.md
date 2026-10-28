@@ -4,7 +4,7 @@ Trabajo de Título: análisis y futura reimplementación acotada de OpenStack Pl
 
 ## Estado y forma de trabajo
 
-El laboratorio y el análisis de Sprint 2 están aceptados. La reimplementación Go aún no comenzó: al 2026-10-26 no hay `go.mod` ni fuentes `.go`. El siguiente paso funcional es B07 (providers/inventories Placement). El [plan por fases](PLANS.md), las [instrucciones para agentes](AGENTS.md) y el [registro de resultados](harness/build-log.md) permiten continuar con contexto y criterios verificables.
+El laboratorio y el análisis de Sprint 2 están aceptados. Glance Go B20 (Entregas A y B) está implementado y validado; Placement B07 sigue pendiente. La próxima fase de Glance es B25. El [plan por fases](PLANS.md), las [instrucciones para agentes](AGENTS.md) y el [registro de resultados](harness/build-log.md) permiten continuar con contexto y criterios verificables.
 
 ```bash
 make check           # Verificación local; no inicia la VM ni contacta OpenStack
@@ -20,3 +20,15 @@ También ejecuta explícitamente la suite `tests/unit` y la regresión aislada `
 La VM permanece apagada mientras no se use. Los informes de S2 reflejan la entrega del 2 de octubre; las verificaciones locales posteriores no prueban disponibilidad actual del laboratorio.
 
 El [workflow de CI](.github/workflows/verify.yml) ejecuta los mismos controles en pushes a `main`, pull requests y ejecución manual. Usa permisos de lectura y no requiere credenciales del laboratorio. Un fallo marca el check como fallido; configurar protección de rama en GitHub es una tarea administrativa aparte.
+
+## Glance Go — B20
+
+La [Entrega A](docs/glance/development.md) implementa creación y consulta
+de metadatos con MySQL y autenticación Keystone.
+
+La [Entrega B](docs/glance/b20-catalog.md) añade listado paginado,
+JSON Patch, borrado lógico y esquemas de metadatos.
+
+Ambas entregas cuentan con validación local e integración real.
+La transferencia de imágenes, integración Nova y comparación de
+rendimiento permanecen pendientes.

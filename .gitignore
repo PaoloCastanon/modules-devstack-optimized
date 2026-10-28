@@ -12,3 +12,5 @@ infra/lab-vm/terraform/*.tfstate*
 infra/lab-vm/terraform/*.tfplan
 infra/lab-vm/terraform/crash.log
 infra/lab-vm/terraform/terraform.tfvars
+/bin/
+/configs/*.local
