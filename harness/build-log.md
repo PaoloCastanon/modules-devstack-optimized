@@ -65,3 +65,34 @@ Los estados abiertos indicados en las revisiones anteriores describen ese moment
 - **Documentación:** se corrigió el alcance de versiones fijadas (DevStack y Nova) y se documentó la migración de un `local.conf` anterior al pin, sin cambiar el laboratorio.
 - **Límites:** son pruebas de código y archivos; MySQL usa dobles. No se ejecutó instalación completa, no se recapturó evidencia S2 y no se modificó el backlog. `make go-check` sigue informando `PENDING Go`; B07 continúa sin iniciar.
 - **VM:** `virsh -c qemu:///system domstate tt-openstack-lab` devolvió `shut off` después de la integración.
+
+## 2026-10-28 — B25, Acción 2/8: filesystem store aislado
+
+- **Implementado:** paquete `internal/glance/store` con inicialización explícita de
+  raíz privada, scope UUID y flock; Stage streaming con límite/longitud y MD5/SHA-512;
+  Publish con recibo verificado y linkat sin reemplazo; Open seekable con medición
+  de integridad; Delete de claves exactas, idempotente y con fsync de directorios.
+  No se conectó a cmd/glance ni se implementaron SQL, estados o recuperación global.
+- **Seguridad:** aperturas openat/O_NOFOLLOW y verificación del inode; publicación
+  desde descriptor mediante procfs. Linux, mismo filesystem, 0700/0600; sin nuevas
+  dependencias. El README del paquete documenta garantías, requisitos y límites.
+- **Validación local, Go 1.24.4:** gofmt, `go vet -p 1 ./...`, `go build -p 1 ./...`
+  y `go mod verify` aprobados. `go test -p 1 -count=1 -json ./...` ejecutó 59
+  resultados PASS del store (16 tests y 43 subtests) y 368 PASS de otros paquetes,
+  pero falló en el primer test de internal/auth: httptest no pudo abrir un socket
+  local (`operation not permitted`). El resto de esa suite no llegó a ejecutarse.
+- **Race:** `go test -race -p 1 -count=1 -json ./cmd/glance ./internal/config
+  ./internal/glance/...` aprobó esos mismos 427 resultados. No acredita race de
+  internal/auth. Se usaron GOMAXPROCS=2, GOTOOLCHAIN=local, GOPROXY=off, GOFLAGS=-p=1
+  y GOCACHE privado escribible fuera del repositorio, sin configuración global.
+- **Gate completo:** `make check` avanzó por documentación/evidencia, 13 pruebas del
+  harness, 12 pruebas MySQL con dobles, regresión Nova y sintaxis/formato de infra;
+  falló en go-check por el socket prohibido del mismo test Keystone. No se debilitó
+  el gate ni se modificaron las pruebas B20. No se informa make check como aprobado.
+- **Límites:** filesystem temporal real y fallos de I/O inyectados están separados;
+  ENOSPC es simulado. Reapertura entre instancias no demuestra corte de energía o
+  reinicio MySQL. Sin VM, servicios, contenedores, DB real, benchmarks ni integración
+  Nova. El gate integral B20 queda pendiente de ejecutarse donde httptest pueda
+  abrir sockets; esta acción no cierra B25 ni autoriza la siguiente.
+
+Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make check` en `/home/juanc/Proyectos/modules-devstack-main`, con código de salida 0. Pasaron los controles de documentación y evidencias, pruebas Python, verificación Nova, comprobaciones Terraform/Ansible, análisis estático Go, pruebas Go con race detector y compilación. El bloqueo anterior de `httptest` por permisos de sockets correspondía al entorno restringido de la primera ejecución. Esta revalidación no constituye una prueba de integración MySQL real ni de durabilidad ante pérdida de energía.
