@@ -38,6 +38,7 @@ go-check:
 
 .PHONY: glance-fmt-check glance-vet glance-test glance-build glance-test-mysql
 .PHONY: glance-test-mysql-catalog
+.PHONY: glance-test-b25-upgrade glance-test-b25-sql glance-test-b25-pipeline
 # Go is selected per invocation; no global go env or installation changes.
 GLANCE_TOOLCHAIN ?= go1.27.3
 GLANCE_GOFMT ?= gofmt
@@ -64,6 +65,17 @@ glance-test-mysql:
 # NEW EMPTY independently authorized schema; never run alongside the A suite on it.
 glance-test-mysql-catalog:
 	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./internal/glance/repository/mysql -run '^TestMySQLCatalogOperations$$' -v
+
+# MUTATING opt-ins, each requires its OWN new empty schema; not part of check.
+# GLANCE_GO_B25_MYSQL_TEST=1 must be supplied explicitly after authorization.
+glance-test-b25-upgrade:
+	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./internal/glance/repository/mysql -run '^TestB25MySQLVersionedUpgrade$$' -v
+
+glance-test-b25-sql:
+	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./internal/glance/repository/mysql -run '^TestB25MySQLConcurrentFences$$' -v
+
+glance-test-b25-pipeline:
+	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./cmd/glance -run '^TestB25MySQLFilesystemHTTP$$' -v
 
 lab-up:
 	./infra/lab-vm/up.sh
