@@ -48,6 +48,8 @@ type UploadCoordinator struct {
 	now                       func() time.Time
 	mu                        sync.Mutex
 	ready, recovering, closed bool
+	stopping                  bool
+	changed                   chan struct{}
 	active                    map[string]bool
 	deleting                  map[string]bool
 	readers                   int
@@ -60,7 +62,7 @@ func newUploadCoordinator(images ImageReader, t repository.Transfers, s store.St
 	if images == nil || t == nil || s == nil || limits.MaxBytes <= 0 || limits.MaxBytes > MaxServerUploadBytes || limits.MaxConcurrent < 1 || limits.MaxConcurrent > 64 || limits.ResolutionTimeout <= 0 || limits.ResolutionTimeout > time.Minute || limits.RecoveryTimeout <= 0 || limits.RecoveryTimeout > 10*time.Minute {
 		return nil, errors.New("invalid upload dependencies or server limits")
 	}
-	return &UploadCoordinator{images: images, transfers: t, bytes: s, limits: limits, now: time.Now, active: map[string]bool{}, deleting: map[string]bool{}}, nil
+	return &UploadCoordinator{images: images, transfers: t, bytes: s, limits: limits, now: time.Now, active: map[string]bool{}, deleting: map[string]bool{}, changed: make(chan struct{})}, nil
 }
 
 // Close refuses to relinquish ownership while a writer/recovery is still active.
@@ -77,6 +79,7 @@ func (u *UploadCoordinator) Close() error {
 	}
 	u.closed = true
 	u.ready = false
+	u.notifyLocked()
 	if u.release != nil {
 		u.release()
 	}
@@ -86,14 +89,14 @@ func (u *UploadCoordinator) Close() error {
 func (u *UploadCoordinator) claim(id string) (func(), error) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	if u.closed || !u.ready || u.recovering {
+	if u.closed || u.stopping || !u.ready || u.recovering {
 		return nil, ErrUploadNotReady
 	}
 	if u.active[id] || u.deleting[id] || len(u.active)+len(u.deleting)+u.readers >= u.limits.MaxConcurrent {
 		return nil, ErrUploadBusy
 	}
 	u.active[id] = true
-	return func() { u.mu.Lock(); delete(u.active, id); u.mu.Unlock() }, nil
+	return func() { u.mu.Lock(); delete(u.active, id); u.notifyLocked(); u.mu.Unlock() }, nil
 }
 
 func uploadStorageError(err error) error {

@@ -87,7 +87,7 @@ type UploadRecoveryReport struct{ Examined, Cleaned, Kept int }
 // Cleanup is allowed only for a confirmed destination and matching current key.
 func (u *UploadCoordinator) RecoverUploads(ctx context.Context) (report UploadRecoveryReport, result error) {
 	u.mu.Lock()
-	if u.closed || u.ready || u.recovering || len(u.active) != 0 || len(u.deleting) != 0 || u.readers != 0 {
+	if u.closed || u.stopping || u.ready || u.recovering || len(u.active) != 0 || len(u.deleting) != 0 || u.readers != 0 {
 		u.mu.Unlock()
 		return report, ErrUploadNotReady
 	}
@@ -96,9 +96,10 @@ func (u *UploadCoordinator) RecoverUploads(ctx context.Context) (report UploadRe
 	defer func() {
 		u.mu.Lock()
 		u.recovering = false
-		if result == nil && !u.closed {
+		if result == nil && !u.closed && !u.stopping {
 			u.ready = true
 		}
+		u.notifyLocked()
 		u.mu.Unlock()
 	}()
 	ctx, cancel := context.WithTimeout(ctx, u.limits.RecoveryTimeout)

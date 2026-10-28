@@ -32,14 +32,14 @@ func (u *UploadCoordinator) MaxUploadBytes() int64 { return u.limits.MaxBytes }
 func (u *UploadCoordinator) claimDownload() (func(), error) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	if u.closed || !u.ready || u.recovering {
+	if u.closed || u.stopping || !u.ready || u.recovering {
 		return nil, ErrUploadNotReady
 	}
 	if len(u.active)+len(u.deleting)+u.readers >= u.limits.MaxConcurrent {
 		return nil, ErrUploadBusy
 	}
 	u.readers++
-	return func() { u.mu.Lock(); u.readers--; u.mu.Unlock() }, nil
+	return func() { u.mu.Lock(); u.readers--; u.notifyLocked(); u.mu.Unlock() }, nil
 }
 
 type downloadBody struct {

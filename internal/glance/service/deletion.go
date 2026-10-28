@@ -16,14 +16,14 @@ import (
 func (u *UploadCoordinator) claimDeletion(id string) (func(), error) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	if u.closed || !u.ready || u.recovering {
+	if u.closed || u.stopping || !u.ready || u.recovering {
 		return nil, ErrUploadNotReady
 	}
 	if u.active[id] || u.deleting[id] || len(u.active)+len(u.deleting)+u.readers >= u.limits.MaxConcurrent {
 		return nil, ErrUploadBusy
 	}
 	u.deleting[id] = true
-	return func() { u.mu.Lock(); delete(u.deleting, id); u.mu.Unlock() }, nil
+	return func() { u.mu.Lock(); delete(u.deleting, id); u.notifyLocked(); u.mu.Unlock() }, nil
 }
 
 func deletionPolicy(who auth.Identity, i model.Image) error {
