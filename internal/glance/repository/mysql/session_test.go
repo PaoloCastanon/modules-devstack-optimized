@@ -94,7 +94,7 @@ func (c *scriptConn) ExecContext(_ context.Context, q string, args []driver.Name
 		step.checkArgs(args)
 	}
 	if strings.HasPrefix(q, "INSERT INTO schema_migrations") || strings.HasPrefix(q, "UPDATE schema_migrations") {
-		if len(args) != 1 || args[0].Value != checksum() {
+		if step.checkArgs == nil && (len(args) != 1 || args[0].Value != checksum()) {
 			c.s.t.Error("history checksum must be bound explicitly")
 		}
 	}
