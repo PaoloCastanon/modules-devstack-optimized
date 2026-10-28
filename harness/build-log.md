@@ -159,3 +159,43 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   de energía. Se leyó DELETE Python del commit fijado; no se ejecutó el original.
   000/001/002 y store intactos. Sin VM, contenedores, DDL real, infraestructura,
   Git de escritura ni Acción 8. Protocolo y divergencias: docs/glance/b25-deletion.md.
+
+## 2026-10-28 — B25, Acción 8/8: arranque operativo y regresiones locales
+
+- **Implementado:** cmd/glance conecta B25 mediante opt-in de configuración;
+  verifica cuenta runtime y esquema sin migrar, vincula server_uuid/esquema con
+  scope/marcador, adquiere flock y completa RecoverUploads antes de escuchar.
+  store-scope es lectura; store-init exige root existente vacío e inicialización
+  explícita. No hay reparación, esquema/root alternativo o bypass de auth.
+- **Lifecycle:** plazos de metadatos, upload/download, SQL, resolución, recovery y
+  shutdown separados. StopAdmission + WaitIdle conservan ownership de writers,
+  readers y DELETE. Shutdown cancela conexiones al vencer la gracia y espera
+  handlers/compensación antes de cerrar filesystem y SQL. Un fsync del kernel
+  no interrumpible puede prolongar esa espera; no se afirma cierre limpio en ese caso.
+- **Regresión encontrada durante esta acción:** limpiar deadlines al retornar
+  el handler dejaba sin plazo el drenaje posterior de un body HTTP incompleto.
+  El test nuevo reprodujo FAIL y pasó al conservar deadlines durante flush/drain.
+  La evidencia externa conserva ambas ejecuciones, sin ocultar la primera.
+- **Validación final local:** Go 1.24.4, GOMAXPROCS=2, GOTOOLCHAIN=local,
+  GOFLAGS=-p=1, GOPROXY=off. 1042 PASS (162 tests principales + 880 subtests),
+  0 FAIL, 0 SKIP; cobertura de sentencias 88,1 %. gofmt, go vet -p 1 ./...,
+  make check (incluye race ./..., build, 25 Python, Nova, Terraform/Ansible y
+  documentación/evidencias), go mod verify y build explícito terminaron en 0.
+  La cobertura no acredita integración real ni durabilidad.
+- **Filesystem real temporal:** reapertura de componentes, .part/.ready/.blob,
+  corrupción/ausencia, tombstones y limpieza idempotente. Test de flock entre
+  procesos propios temporales. Recorrido POST/PUT/GET/PATCH/DELETE usa SQL doble
+  y adaptador Keystone contra un fixture HTTP: no es Keystone real.
+- **Preparado, NO EJECUTADO:** TestB25MySQLVersionedUpgrade,
+  TestB25MySQLConcurrentFences y TestB25MySQLFilesystemHTTP. Compilación con tag
+  integration y run vacío aprobada, sin ejecutar casos. Cada suite requiere su
+  nuevo esquema independiente y autorización posterior; la última exige además
+  runtime separado y root propio. Auth simulada se etiqueta; modo Keystone real
+  exige credencial/token preexistentes autorizados y nunca hace fallback a fake.
+- **Límites:** 000/001/002, store y código MySQL previo intactos. Sin VM,
+  contenedores, servicios reales, DDL/DML de laboratorio, cuentas/grants,
+  benchmarks, Nova o Git de escritura. Sin prueba de proceso terminado durante
+  transferencia, reinicio MySQL B25 o pérdida de energía. No se declara B25
+  completo. Binding no distingue generaciones recreadas del mismo esquema en
+  el mismo server_uuid; requiere gestión humana conjunta SQL/store y primario
+  directo. Guía reproducible: docs/glance/b25-operations.md.

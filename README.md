@@ -4,7 +4,7 @@ Trabajo de Título: análisis y futura reimplementación acotada de OpenStack Pl
 
 ## Estado y forma de trabajo
 
-El laboratorio y el análisis de Sprint 2 están aceptados. Glance Go B20 (Entregas A y B) está implementado y validado; Placement B07 sigue pendiente. La próxima fase de Glance es B25. El [plan por fases](PLANS.md), las [instrucciones para agentes](AGENTS.md) y el [registro de resultados](harness/build-log.md) permiten continuar con contexto y criterios verificables.
+El laboratorio y el análisis de Sprint 2 están aceptados. Glance Go B20 (Entregas A y B) está implementado y validado; Placement B07 sigue pendiente. B25 tiene componentes y [arranque operativo](docs/glance/b25-operations.md) implementados con regresiones locales; su validación MySQL 8/002 y Keystone/binarios reales sigue pendiente. El [plan por fases](PLANS.md), las [instrucciones para agentes](AGENTS.md) y el [registro de resultados](harness/build-log.md) permiten continuar con contexto y criterios verificables.
 
 ```bash
 make check           # Verificación local; no inicia la VM ni contacta OpenStack

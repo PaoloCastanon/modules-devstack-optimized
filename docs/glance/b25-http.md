@@ -1,5 +1,9 @@
 # B25 — HTTP binario inyectable (Acción 6/8)
 
+Actualización Acción 8: `cmd/glance serve` conecta estas rutas con configuración
+explícita, binding SQL/store y recuperación previa. Véase [operación](b25-operations.md).
+La descripción del CLI pendiente más abajo conserva el estado histórico de Acción 6.
+
 El alcance histórico de esta acción se conserva a continuación. La integración
 posterior del DELETE existente se describe en [Acción 7](b25-deletion.md).
 

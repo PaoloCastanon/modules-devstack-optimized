@@ -1,5 +1,11 @@
 # B25 — Contrato seleccionado de transferencia de imágenes
 
+Nota de evolución: se conserva el diseño original de Acción 1 a continuación.
+Las Acciones 2–8 implementan sus componentes y el [arranque B25](b25-operations.md).
+Los detalles HTTP se precisan en [Acción 6](b25-http.md) y las divergencias DELETE
+en [Acción 7](b25-deletion.md). Esto no marca como ejecutadas las pruebas reales
+pendientes del diseño, ni transforma una inspección de fuentes en una captura.
+
 Estado al 28/10/2026: **documentación del diseño aprobado en planificación**.
 Esta acción no implementa ni valida B25. Las rutas binarias, el store y la
 migración 002 descritos aquí son trabajo posterior. La integración de B20 no

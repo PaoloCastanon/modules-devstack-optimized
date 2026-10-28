@@ -1,5 +1,9 @@
 # B25 — DELETE coordinado y recuperación (Acción 7/8)
 
+Actualización Acción 8: [arranque y cierre operativo](b25-operations.md) conectan
+este coordinador al CLI. El alcance pendiente descrito al final es el de Acción 7;
+las pruebas reales SQL/bytes y Keystone B25 continúan pendientes por separado.
+
 Amplía DELETE `/v2/images/{id}` cuando el handler recibe
 `WithBinaryTransfers(UploadCoordinator)`. Conserva el middleware Keystone B20,
 la política member propietario/admin y protected incluso para admin. Sin esa

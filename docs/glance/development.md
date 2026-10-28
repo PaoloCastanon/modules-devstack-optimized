@@ -4,6 +4,11 @@ Esta guía conserva la fundación A y su reproducción. La [Entrega B](b20-catal
 añade LIST/PATCH/DELETE/esquemas y define sus nuevas pruebas y límites. Los
 resultados reales de A no validan automáticamente B.
 
+Actualización B25: [operación, configuración y pruebas opt-in](b25-operations.md).
+Los límites de transferencia/store descritos abajo corresponden a la Entrega A
+histórica; el CLI puede ahora conectar B25 explícitamente. La integración binaria
+real con 002/Keystone sigue pendiente y no se deduce de la evidencia B20.
+
 Alcance original de A: POST `/v2/images` y GET
 `/v2/images/{id}`. A no incluía listado, PATCH, DELETE ni esquemas auxiliares (añadidos en B).
 Siguen pendientes discovery, transferencia, store, integración Nova y sustitución
