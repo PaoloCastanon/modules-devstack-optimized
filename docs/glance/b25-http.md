@@ -1,5 +1,8 @@
 # B25 — HTTP binario inyectable (Acción 6/8)
 
+El alcance histórico de esta acción se conserva a continuación. La integración
+posterior del DELETE existente se describe en [Acción 7](b25-deletion.md).
+
 Se añaden PUT y GET `/v2/images/{id}/file`. No se amplía DELETE.
 El middleware Keystone B20 sigue siendo la única entrada de identidad; no se
 confía en cabeceras de proyecto/roles. Los errores mantienen el JSON B20 y

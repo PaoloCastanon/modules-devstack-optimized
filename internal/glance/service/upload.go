@@ -49,6 +49,7 @@ type UploadCoordinator struct {
 	mu                        sync.Mutex
 	ready, recovering, closed bool
 	active                    map[string]bool
+	deleting                  map[string]bool
 	readers                   int
 	release                   func()
 }
@@ -59,7 +60,7 @@ func newUploadCoordinator(images ImageReader, t repository.Transfers, s store.St
 	if images == nil || t == nil || s == nil || limits.MaxBytes <= 0 || limits.MaxBytes > MaxServerUploadBytes || limits.MaxConcurrent < 1 || limits.MaxConcurrent > 64 || limits.ResolutionTimeout <= 0 || limits.ResolutionTimeout > time.Minute || limits.RecoveryTimeout <= 0 || limits.RecoveryTimeout > 10*time.Minute {
 		return nil, errors.New("invalid upload dependencies or server limits")
 	}
-	return &UploadCoordinator{images: images, transfers: t, bytes: s, limits: limits, now: time.Now, active: map[string]bool{}}, nil
+	return &UploadCoordinator{images: images, transfers: t, bytes: s, limits: limits, now: time.Now, active: map[string]bool{}, deleting: map[string]bool{}}, nil
 }
 
 // Close refuses to relinquish ownership while a writer/recovery is still active.
@@ -71,7 +72,7 @@ func (u *UploadCoordinator) Close() error {
 	if u.closed {
 		return nil
 	}
-	if u.recovering || len(u.active) > 0 || u.readers > 0 {
+	if u.recovering || len(u.active) > 0 || len(u.deleting) > 0 || u.readers > 0 {
 		return ErrUploadBusy
 	}
 	u.closed = true
@@ -88,7 +89,7 @@ func (u *UploadCoordinator) claim(id string) (func(), error) {
 	if u.closed || !u.ready || u.recovering {
 		return nil, ErrUploadNotReady
 	}
-	if u.active[id] || len(u.active)+u.readers >= u.limits.MaxConcurrent {
+	if u.active[id] || u.deleting[id] || len(u.active)+len(u.deleting)+u.readers >= u.limits.MaxConcurrent {
 		return nil, ErrUploadBusy
 	}
 	u.active[id] = true

@@ -124,3 +124,38 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   coordinador y filesystem reales sobre directorios temporales. No acredita
   integración MySQL 8/002, Keystone binario, reinicio ni durabilidad física. Sin
   VM, contenedores, servicios originales, DDL real, Git de escritura o Acción 7/8.
+
+## 2026-10-28 — B25, Acción 7/8: DELETE coordinado y recuperación
+
+- **Implementado:** DELETE del recurso imagen mediante el mismo coordinador
+  exclusivo de PUT/GET. TombstoneData bloquea imagen antes de operación, repite
+  política/protected y confirma tombstone + cleanup/deleted en una transacción.
+  Conserva UUID, recibos, propiedades y tags; queued sin operación no inventa
+  intentos. Relee SQL antes de Store.Delete y después de CompleteDataCleanup.
+  Un resultado incierto no acredita rollback ni permite unlink a ciegas.
+- **Concurrencia:** DELETE y uploads se excluyen durante toda su ejecución.
+  Un writer vivo produce 503 controlado sin tombstone ni I/O destructivo; esta
+  opción autorizada en Acción 7 difiere de la cancelación prevista en el diseño.
+  Se comprueban intentos tardíos, dos DELETE, Close ocupado y GET con fd abierto,
+  que puede terminar tras unlink en Linux. No se mantiene SQL durante filesystem.
+- **Recuperación:** bajo arranque exclusivo, cleanup/deleted termina en tombstone
+  cleaned y cleanup/killed confirmado termina en killed. Reintenta Delete/fsync
+  si los nombres ya desaparecieron; no promueve saving ni limpia active válido.
+  Inventario obsoleto, estados contradictorios o dependencias fallidas conservan
+  evidencia y bloquean admisión. No usa TTL, barridos ni reconstrucciones.
+- **Validación local Go 1.24.4:** gofmt; MySQL 280 PASS (32 tests/248 subtests),
+  servicio 257 PASS (43/214), API 227 PASS (38/189): 764 resultados, sin FAIL/SKIP.
+  `go vet -p 1 ./...` y `make check` terminaron con código 0, incluido race ./...,
+  compilación, documentación/evidencias, 25 Python, Nova y Terraform/Ansible.
+  GOMAXPROCS=2, GOTOOLCHAIN=local, GOFLAGS=-p=1, GOPROXY=off.
+- **Desarrollo:** el primer caso terminal falló porque su fixture conservaba
+  campos calculados de active al simular saving/cleanup; se corrigió ese fixture,
+  manteniendo el rechazo de estados contradictorios. La negativa previa se
+  conserva para killed/cleanup incompatible y se añade el caso válido positivo.
+- **Límites:** SQL y auth simulados; HTTP/coordinador con filesystem temporal real.
+  TestMySQLCoordinatedDeletion se preparó y compiló con tag integration y run
+  vacío, pero NO SE EJECUTÓ: requiere esquema nuevo independiente y autorización
+  posterior. No demuestra MySQL/Keystone reales, reinicio de servicios ni pérdida
+  de energía. Se leyó DELETE Python del commit fijado; no se ejecutó el original.
+  000/001/002 y store intactos. Sin VM, contenedores, DDL real, infraestructura,
+  Git de escritura ni Acción 8. Protocolo y divergencias: docs/glance/b25-deletion.md.

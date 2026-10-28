@@ -1,5 +1,13 @@
 # B25 — persistencia de intenciones (Acción 4/8)
 
+Extensión Acción 7: `repository.ImageDeletion.TombstoneData` confirma tombstone e
+intención cleanup/deleted en la misma transacción. Bloquea imagen primero y
+operación después, repite política/protected bajo lock y compara el intento
+esperado; nil exige ausencia de operación. No inventa UUID ni borra propiedades,
+tags o recibos. Un error de Commit devuelve ErrCommitUncertain; el servicio relee
+DataState antes de cualquier Delete filesystem. CompleteDataCleanup conserva el
+tombstone. Véase [protocolo y límites](../../../../docs/glance/b25-deletion.md).
+
 Migración append-only 002: `image_data_operations`, una fila vigente por imagen,
 UUID de intento único, FK sin cascada, InnoDB, CHECK de fases/tamaños/recibos/destinos
  y códigos de error acotados. Índice `(phase, updated_at, image_id)` para selección

@@ -108,6 +108,9 @@ func TestRecoveryConservesUnresolvedAndTombstoneEvidence(t *testing.T) {
 			case "terminal-cleanup":
 				d.op.Phase = model.DataCleanup
 				d.op.CleanupTarget = uploadPtr("killed")
+				// A valid pending terminal cleanup is saving, not already killed.
+				// Action 7 covers the supported saving case in positive regressions.
+				d.image.Status = "killed"
 			case "malformed-inventory":
 				d.op.ImageID = "bad"
 			}

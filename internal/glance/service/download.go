@@ -35,7 +35,7 @@ func (u *UploadCoordinator) claimDownload() (func(), error) {
 	if u.closed || !u.ready || u.recovering {
 		return nil, ErrUploadNotReady
 	}
-	if len(u.active)+u.readers >= u.limits.MaxConcurrent {
+	if len(u.active)+len(u.deleting)+u.readers >= u.limits.MaxConcurrent {
 		return nil, ErrUploadBusy
 	}
 	u.readers++

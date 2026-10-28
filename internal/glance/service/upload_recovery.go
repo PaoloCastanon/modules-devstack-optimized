@@ -84,10 +84,10 @@ type UploadRecoveryReport struct{ Examined, Cleaned, Kept int }
 // RecoverUploads is startup-only and enables uploads only on complete success.
 // The exclusive filesystem owner plus the lifecycle gate, not age or TTL, is the
 // proof of writer quiescence. Running/closed coordinators cannot invoke recovery.
-// Tombstones and terminal cleanup need Action 7; preserve them and refuse readiness.
+// Cleanup is allowed only for a confirmed destination and matching current key.
 func (u *UploadCoordinator) RecoverUploads(ctx context.Context) (report UploadRecoveryReport, result error) {
 	u.mu.Lock()
-	if u.closed || u.ready || u.recovering || len(u.active) != 0 {
+	if u.closed || u.ready || u.recovering || len(u.active) != 0 || len(u.deleting) != 0 || u.readers != 0 {
 		u.mu.Unlock()
 		return report, ErrUploadNotReady
 	}
@@ -126,12 +126,32 @@ func (u *UploadCoordinator) RecoverUploads(ctx context.Context) (report UploadRe
 				return report, err
 			}
 			key := store.Key{ImageID: candidate.ImageID, AttemptID: candidate.AttemptID}
+			if s.Operation == nil || s.Operation.AttemptID != key.AttemptID {
+				return report, ErrUploadReconciliation
+			}
+			if s.Deleted {
+				switch {
+				case cleanupFence(s, key, "deleted", model.DataCleanup):
+					if err = u.finishCleanup(ctx, s, "deleted"); err != nil {
+						return report, err
+					}
+					report.Cleaned++
+				case cleanupFence(s, key, "deleted", model.DataCleaned):
+					report.Kept++
+				default:
+					return report, ErrUploadReconciliation
+				}
+				continue
+			}
 			if err = ownState(s, key); err != nil {
 				return report, err
 			}
 			switch s.Operation.Phase {
 			case model.DataCommitted:
 				o := s.Operation
+				if o.CleanupTarget != nil {
+					return report, ErrUploadReconciliation
+				}
 				content := model.DataContent{Size: *o.Size, VirtualSize: o.VirtualSize, Checksum: *o.Checksum, SHA512: *o.SHA512}
 				if !committed(s, key, content) {
 					return report, ErrUploadReconciliation
@@ -141,11 +161,21 @@ func (u *UploadCoordinator) RecoverUploads(ctx context.Context) (report UploadRe
 				}
 				report.Kept++
 			case model.DataCleaned:
-				if s.Status != "queued" || !noImageData(s) || !sameText(s.Operation.CleanupTarget, "queued") {
+				if !noImageData(s) || !(s.Status == "queued" && sameText(s.Operation.CleanupTarget, "queued") || s.Status == "killed" && sameText(s.Operation.CleanupTarget, "killed")) {
 					return report, ErrUploadReconciliation
 				}
 				report.Kept++
 			case model.DataReserved, model.DataStaged, model.DataPublished, model.DataCleanup:
+				if s.Operation.Phase != model.DataCleanup && s.Operation.CleanupTarget != nil {
+					return report, ErrUploadReconciliation
+				}
+				if cleanupFence(s, key, "killed", model.DataCleanup) {
+					if err = u.finishCleanup(ctx, s, "killed"); err != nil {
+						return report, err
+					}
+					report.Cleaned++
+					continue
+				}
 				if err = u.compensate(ctx, key, "recovery"); err != nil {
 					return report, err
 				}

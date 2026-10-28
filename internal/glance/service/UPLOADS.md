@@ -1,5 +1,12 @@
 # B25 — coordinador de upload y recuperación (Acción 5/8)
 
+La descripción siguiente conserva el alcance de Acción 5. La extensión posterior
+de DELETE y recuperación terminal de Acción 7 se documenta en
+[b25-deletion.md](../../../docs/glance/b25-deletion.md): ahora RecoverUploads puede
+terminar cleanup/deleted y cleanup/killed confirmados. DELETE rechaza writers
+vivos con 503 y comparte admisión/ownership; no se abandona un writer ni se limpia
+un active no eliminado. Download se añadió en Acción 6.
+
 `UploadCoordinator` coordina ImageReader, repository.Transfers y store.Store.
 No añade HTTP, download, DELETE de imágenes ni un reconciliador de tombstones.
 MySQL 8/002 y la coordinación completa con bytes reales siguen sin validación
