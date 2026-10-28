@@ -49,6 +49,7 @@ type UploadCoordinator struct {
 	mu                        sync.Mutex
 	ready, recovering, closed bool
 	active                    map[string]bool
+	readers                   int
 	release                   func()
 }
 
@@ -70,7 +71,7 @@ func (u *UploadCoordinator) Close() error {
 	if u.closed {
 		return nil
 	}
-	if u.recovering || len(u.active) > 0 {
+	if u.recovering || len(u.active) > 0 || u.readers > 0 {
 		return ErrUploadBusy
 	}
 	u.closed = true
@@ -87,7 +88,7 @@ func (u *UploadCoordinator) claim(id string) (func(), error) {
 	if u.closed || !u.ready || u.recovering {
 		return nil, ErrUploadNotReady
 	}
-	if u.active[id] || len(u.active) >= u.limits.MaxConcurrent {
+	if u.active[id] || len(u.active)+u.readers >= u.limits.MaxConcurrent {
 		return nil, ErrUploadBusy
 	}
 	u.active[id] = true
@@ -95,12 +96,30 @@ func (u *UploadCoordinator) claim(id string) (func(), error) {
 }
 
 func uploadStorageError(err error) error {
-	for _, known := range []error{context.Canceled, context.DeadlineExceeded, store.ErrTooLarge, store.ErrSizeMismatch, store.ErrStoreFull, store.ErrIntegrity, store.ErrExists} {
+	for _, known := range []error{context.Canceled, context.DeadlineExceeded, ErrUploadInterrupted, store.ErrTooLarge, store.ErrSizeMismatch, store.ErrStoreFull, store.ErrIntegrity, store.ErrExists} {
 		if errors.Is(err, known) {
 			return known
 		}
 	}
-	return ErrUploadInterrupted // no raw reader error/path/SQL secrets in public errors
+	return ErrUploadUnavailable // unknown storage diagnostics are dependency failures
+}
+
+// Mark source failures before entering Stage: otherwise its error can originate
+// either in Reader.Read or in filesystem write/fsync. Preserve only controlled
+// errors; neither the source diagnostic nor a filesystem path reaches HTTP.
+type uploadSource struct{ io.Reader }
+
+func (s uploadSource) Read(p []byte) (int, error) {
+	n, err := s.Reader.Read(p)
+	if err == nil || err == io.EOF {
+		return n, err
+	}
+	for _, known := range []error{context.Canceled, context.DeadlineExceeded, store.ErrTooLarge, store.ErrSizeMismatch} {
+		if errors.Is(err, known) {
+			return n, known
+		}
+	}
+	return n, ErrUploadInterrupted
 }
 
 func uploadCleanupCode(err error) string {
@@ -345,7 +364,7 @@ func (u *UploadCoordinator) Upload(ctx context.Context, who auth.Identity, value
 	if err = formats(current); err != nil {
 		return fail(err)
 	}
-	info, err := u.bytes.Stage(ctx, key, src, u.limits.MaxBytes, expected)
+	info, err := u.bytes.Stage(ctx, key, uploadSource{src}, u.limits.MaxBytes, expected)
 	if err != nil {
 		if errors.Is(err, store.ErrExists) {
 			return zero, ErrUploadReconciliation

@@ -96,3 +96,31 @@ Los estados abiertos indicados en las revisiones anteriores describen ese moment
   abrir sockets; esta acción no cierra B25 ni autoriza la siguiente.
 
 Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make check` en `/home/juanc/Proyectos/modules-devstack-main`, con código de salida 0. Pasaron los controles de documentación y evidencias, pruebas Python, verificación Nova, comprobaciones Terraform/Ansible, análisis estático Go, pruebas Go con race detector y compilación. El bloqueo anterior de `httptest` por permisos de sockets correspondía al entorno restringido de la primera ejecución. Esta revalidación no constituye una prueba de integración MySQL real ni de durabilidad ante pérdida de energía.
+
+## 2026-10-28 — B25, Acción 6/8: HTTP binario autenticado inyectable
+
+- **Implementado:** PUT/GET `/v2/images/{id}/file` mediante opción explícita de
+  construcción del handler, reutilizando Keystone B20 y UploadCoordinator. PUT
+  valida octet-stream, declaraciones y stream real; GET exige active/committed,
+  coteja tamaño/MD5/SHA-512 antes de cabeceras y transmite con buffer fijo.
+  Incluye rangos únicos 206, rechazo 400/416, 204 sin contenido y 503 para blob
+  confirmado perdido/corrupto. Después de cabeceras, aborta errores sin anexar JSON.
+- **Seguridad:** recuperación obligatoria también para download, capacidad
+  compartida y cierre de descriptores antes de liberar propiedad. Se distingue
+  fallo de fuente (400) de fallo filesystem (503) sin exponer diagnósticos.
+  No cambia cmd/glance: scope SQL/store, recuperación al arrancar y deadlines de
+  transferencia siguen pendientes de Acción 8; DELETE coordinado, de Acción 7.
+- **Compatibilidad:** se leyeron image_data.py y wsgi.py del commit Python fijado
+  a3e5f490b7a28b1161714c94acffe5308d24b567. Se confirmó el MD5 completo también
+  para 206, PUT 204, media type 415 y rangos múltiples 400/incorrectos 416.
+  Las diferencias y límites están en `docs/glance/b25-http.md`; no se ejecutó Python.
+- **Validación local Go 1.24.4:** gofmt; pruebas focalizadas API (203 PASS: 32 tests
+  y 171 subtests) y servicio (185 PASS: 33 tests y 152 subtests), sin FAIL/SKIP;
+  `go vet -p 1 ./...`, `go mod verify` y `make check` con código 0. Se usaron
+  GOMAXPROCS=2, GOTOOLCHAIN=local, GOFLAGS=-p=1 y GOPROXY=off. El gate completo
+  incluye documentación/evidencias, 25 pruebas Python, Nova, Terraform/Ansible,
+  pruebas Go con race detector y compilación. No se alteraron gates ni tests previos.
+- **Límites:** httptest y dobles de SQL/identidad; un recorrido local utiliza
+  coordinador y filesystem reales sobre directorios temporales. No acredita
+  integración MySQL 8/002, Keystone binario, reinicio ni durabilidad física. Sin
+  VM, contenedores, servicios originales, DDL real, Git de escritura o Acción 7/8.

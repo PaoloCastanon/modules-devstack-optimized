@@ -32,9 +32,10 @@ type Handler struct {
 	maxBodyBytes int64
 	logger       *slog.Logger
 	challenge    string
+	binary       BinaryTransfers
 }
 
-func New(service *service.Service, authenticator auth.Authenticator, publicURL, keystoneURL string, maxBodyBytes int64, logger *slog.Logger) (http.Handler, error) {
+func New(service *service.Service, authenticator auth.Authenticator, publicURL, keystoneURL string, maxBodyBytes int64, logger *slog.Logger, options ...Option) (http.Handler, error) {
 	if err := config.ValidateURL(publicURL); err != nil {
 		return nil, err
 	}
@@ -49,14 +50,40 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 	identityURL.Path = strings.TrimSuffix(identityURL.Path, "/v3")
 	identityURL.RawPath = ""
 	h := &Handler{service: service, auth: authenticator, publicURL: base, maxBodyBytes: maxBodyBytes, logger: logger, challenge: "Keystone uri=" + strconv.Quote(identityURL.String())}
+	for _, option := range options {
+		if option == nil {
+			return nil, errors.New("invalid HTTP option")
+		}
+		if err := option(h); err != nil {
+			return nil, err
+		}
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v2/images", h.create)
 	mux.HandleFunc("/v2/images/{id}", h.show)
 	mux.HandleFunc("/v2/schemas/{name}", h.schema)
+	if h.binary != nil {
+		mux.HandleFunc("/v2/images/{id}/file", h.file)
+	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		h.failure(w, model.Fail(model.NotFound, "Route not implemented."))
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Own the input even when middleware rejects authentication. Closing on
+		// cancellation unblocks a cooperative/net/http request Body; no goroutine
+		// is abandoned reading the payload.
+		if h.binary != nil && logRoute(r.URL.Path) == "/v2/images/{id}/file" && r.Body != nil {
+			body := &onceBody{ReadCloser: r.Body}
+			r.Body = body
+			done := make(chan struct{})
+			stop := context.AfterFunc(r.Context(), func() { _ = body.Close(); close(done) })
+			defer func() {
+				if !stop() {
+					<-done
+				}
+				_ = body.Close()
+			}()
+		}
 		id, err := uuid.NewRandom()
 		if err != nil {
 			h.failure(w, err)
@@ -110,6 +137,12 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 func logRoute(path string) string {
 	if path == "/v2/images" {
 		return path
+	}
+	if rest, ok := strings.CutPrefix(path, "/v2/images/"); ok && strings.HasSuffix(rest, "/file") {
+		id := strings.TrimSuffix(rest, "/file")
+		if id != "" && !strings.Contains(id, "/") {
+			return "/v2/images/{id}/file"
+		}
 	}
 	if rest, ok := strings.CutPrefix(path, "/v2/images/"); ok && rest != "" && !strings.Contains(rest, "/") {
 		return "/v2/images/{id}"
