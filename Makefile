@@ -1,6 +1,7 @@
 .PHONY: lab-up lab-status lab-provision lab-verify devstack-setup devstack-verify smoke baseline docs-check sprint2-verify
 
 .PHONY: glance-fmt-check glance-vet glance-test glance-build glance-test-mysql
+.PHONY: glance-test-mysql-catalog
 # Go is selected per invocation; no global go env or installation changes.
 GLANCE_TOOLCHAIN ?= go1.27.3
 GLANCE_GOFMT ?= gofmt
@@ -23,6 +24,10 @@ glance-build:
 # Explicitly mutates an independently authorized, empty disposable test schema.
 glance-test-mysql:
 	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./internal/glance/repository/mysql -run '^TestMySQLPersistenceAndTransactions$$' -v
+
+# NEW EMPTY independently authorized schema; never run alongside the A suite on it.
+glance-test-mysql-catalog:
+	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./internal/glance/repository/mysql -run '^TestMySQLCatalogOperations$$' -v
 
 lab-up:
 	./infra/lab-vm/up.sh

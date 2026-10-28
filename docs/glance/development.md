@@ -1,9 +1,13 @@
-# Glance Go — B20, Entrega A
+# Glance Go — fundamento de B20 (Entrega A)
 
-Implementación de catálogo de metadatos: POST `/v2/images` y GET
-`/v2/images/{id}`. No hay listado, PATCH, DELETE, esquemas auxiliares, discovery,
-transferencia, store, integración Nova ni sustitución del original. B20 sigue
-incompleto. Las capturas originales de Sprint 2 permanecen intactas.
+Esta guía conserva la fundación A y su reproducción. La [Entrega B](b20-catalog.md)
+añade LIST/PATCH/DELETE/esquemas y define sus nuevas pruebas y límites. Los
+resultados reales de A no validan automáticamente B.
+
+Alcance original de A: POST `/v2/images` y GET
+`/v2/images/{id}`. A no incluía listado, PATCH, DELETE ni esquemas auxiliares (añadidos en B).
+Siguen pendientes discovery, transferencia, store, integración Nova y sustitución
+del original. La aceptación operativa de B20 requiere validar la Entrega B. Las capturas originales de Sprint 2 permanecen intactas.
 
 ## Compilación y pruebas aisladas
 
@@ -92,7 +96,8 @@ barras finales repetidas; se normalizan al unir componentes con `URL.JoinPath`.
 Así, `/image/` produce `/image/v2/images/{uuid}`. La base debe apuntar al proceso
 de pruebas, no al Glance original; el proxy debe quitar ese prefijo al reenviar.
 Los enlaces self/file/schema siguen el formato `/v2/...` de la captura original.
-Los enlaces file y schema describen el recurso; sus endpoints aún no se sirven.
+El enlace file describe un recurso binario cuyo endpoint sigue fuera de alcance;
+los enlaces schema se sirven en la Entrega B.
 
 ## Preparación de MySQL independiente — operación posterior del operador
 
@@ -155,7 +160,7 @@ ejecuta DDL. El listener tiene plazos y apagado ordenado por SIGINT/SIGTERM.
 
 `images` conserva metadatos tipados y campos calculados anulables. Propiedades y
 etiquetas tienen PK compuesta y FK a images. Índices por propietario/visibilidad,
-borrado y fecha preparan el listado futuro. Hay checks de visibilidad, mínimos,
+borrado y fecha soportan el listado añadido en B. Hay checks de visibilidad, mínimos,
 tamaños y consistencia de borrado. No se almacenan bytes ni ubicaciones.
 
 `000_history.sql` inicializa explícitamente `schema_migrations`; `001_metadata.sql`
@@ -198,8 +203,7 @@ estructuras de las tablas de imágenes como parte de esta comprobación del hist
 
 Crear imagen/propiedades/etiquetas es una sola transacción; un error de hijo revierte
 todo. Consultar usa una transacción de lectura con snapshot consistente. El UUID
-duplicado se traduce a 409. Las consultas excluyen borrados; no hay endpoint DELETE
-todavía. Los valores UTC se conservan con microsegundos y se exponen con segundos,
+duplicado se traduce a 409. Las consultas excluyen borrados; DELETE de B usa esas mismas columnas con tombstones; ver su contrato. Los valores UTC se conservan con microsegundos y se exponen con segundos,
 como el fixture. El pool abre hasta cuatro conexiones y aplica plazos por operación.
 
 ## Integración MySQL explícita — NO comprobada por tests aislados
@@ -368,16 +372,18 @@ Diferencias deliberadas/limitaciones que deben verificarse contra nuevos fixture
 - Nombre/tag/clave hasta 255 caracteres; valor de propiedad hasta 65535 bytes;
   cuotas fijas 128 tags únicos/propiedades y límite de cuerpo configurable. Son
   límites de esta entrega, sin equivalencia negativa completa demostrada.
-- No se anuncian métodos de importación ni soporte completo v2.18. Falta schema,
-  discovery, listado, PATCH y DELETE. No afirmar compatibilidad completa de cliente.
+- No se anuncian métodos de importación ni soporte completo v2.18. Discovery sigue pendiente; schema, listado, PATCH y DELETE están en B. No afirmar compatibilidad completa de cliente.
 - No se replica el puerto loopback del Location histórico ni Server/Date de Apache.
-- Mensajes negativos adicionales, headers 401 y negociación Accept requieren
+- La cabecera 401 se corrige y contrasta en B; el cuerpo conserva JSON frente al
+  texto original. Mensajes negativos adicionales y negociación Accept requieren
   fixtures antes de afirmar equivalencia. El 404 histórico y la creación sí se
   comparan automáticamente a nivel de representación JSON.
-- Persistencia real y DDL están implementados pero **NO VERIFICADOS contra MySQL**
-  si no se ejecutó la suite explícita. No se ha demostrado recuperación de DDL.
+- La Entrega A se validó contra MySQL/Keystone reales el 27/10/2026, incluido
+  DDL parcial e historial tras reinicio del servidor temporal. Las nuevas rutas
+  de B requieren su propia integración; no se ha probado recuperación ante
+  corte de energía ni se extrapolan los resultados funcionales a rendimiento.
 
 No usar `make baseline`, el wrapper antiguo de compatibilidad o `make smoke` para
 validar A: modifican datos/evidencias del original o dependen del ciclo binario.
-Los próximos pasos de B20 son fixtures nuevos de metadatos, políticas negativas,
-listado, PATCH, DELETE y esquemas auxiliares. B25/B26 y benchmarks permanecen fuera.
+La [Entrega B](b20-catalog.md) implementa listado, PATCH, DELETE y esquemas
+auxiliares; su integración real y fixtures diferenciales adicionales siguen pendientes. B25/B26 y benchmarks permanecen fuera.

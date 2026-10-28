@@ -8,3 +8,8 @@ La [Entrega A de Glance Go](docs/glance/development.md) incorpora creación y co
 de metadatos, repositorio MySQL y autenticador Keystone. Su guía distingue tests
 aislados, integración pendiente y límites; no representa B20 completo ni sustitución
 del servicio original. No requiere ejecutar `lab-up`, `smoke` o `baseline`.
+
+La [Entrega B del catálogo](docs/glance/b20-catalog.md) añade listado paginado,
+JSON Patch, borrado lógico y esquemas de metadatos. Sus pruebas de integración
+SQL se seleccionan por separado y requieren un esquema nuevo autorizado;
+los resultados reales de la Entrega A no validan automáticamente estas operaciones.
