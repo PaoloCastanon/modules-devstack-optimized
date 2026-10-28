@@ -18,14 +18,20 @@ var historySQL string
 //go:embed migrations/001_metadata.sql
 var metadataSQL string
 
+//go:embed migrations/002_image_data_operations.sql
+var dataOperationsSQL string
+
 type migration struct {
 	version int64
 	sql     string
+	verify  func(context.Context, querier) error
 }
 
 // Append new immutable migrations here only when their SQL is approved. History
-// initialization (000) is not a metadata schema version; no version 2 exists yet.
-func migrations() []migration { return []migration{{version: 1, sql: metadataSQL}} }
+// initialization (000) is not a metadata schema version.
+func migrations() []migration {
+	return []migration{{version: 1, sql: metadataSQL}, {version: 2, sql: dataOperationsSQL, verify: verifyTransferStructure}}
+}
 
 func (m migration) checksum() string { return fmt.Sprintf("%x", sha256.Sum256([]byte(m.sql))) }
 func checksum() string               { return migrations()[0].checksum() }
@@ -85,7 +91,12 @@ func verifyHistory(ctx context.Context, q querier, allowPrefix bool) error {
 	return err
 }
 
-func VerifySchema(ctx context.Context, db *sql.DB) error { return verifyHistory(ctx, db, false) }
+func VerifySchema(ctx context.Context, db *sql.DB) error {
+	if err := verifyHistory(ctx, db, false); err != nil {
+		return err
+	}
+	return verifyTransferStructure(ctx, db)
+}
 
 // Migrate is called only by the explicit migrate command. MySQL DDL implicitly
 // commits: dirty is persisted before DDL and never cleared after a failed step.
@@ -149,6 +160,13 @@ func migrateVersions(ctx context.Context, db *sql.DB, registry []migration) (res
 	if conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM schema_migrations").Scan(&count) != nil || count != applied {
 		return errors.New("cannot inspect migration history")
 	}
+	for _, m := range registry[:applied] {
+		if m.verify != nil {
+			if err = m.verify(ctx, conn); err != nil {
+				return err
+			}
+		}
+	}
 	for _, m := range registry[applied:] {
 		// Versions are validated positive registry integers, never client input.
 		// Keep the historical version-1 SQL and checksum binding unchanged.
@@ -162,6 +180,11 @@ func migrateVersions(ctx context.Context, db *sql.DB, registry []migration) (res
 			}
 			if _, err = conn.ExecContext(ctx, statement); err != nil {
 				return errors.New("metadata DDL failed; migration remains dirty for manual review")
+			}
+		}
+		if m.verify != nil {
+			if err = m.verify(ctx, conn); err != nil {
+				return err
 			}
 		}
 		finish := fmt.Sprintf("UPDATE schema_migrations SET dirty=FALSE, applied_at=UTC_TIMESTAMP(6) WHERE version=%d AND dirty=TRUE AND checksum=?", m.version)
