@@ -1,0 +1,8 @@
+{
+  "source": "Glance Python original; GET /image/v2/images/{id} without a token; captured 2026-10-27 during delivery A integration",
+  "http_status": 401,
+  "headers": {
+    "content-type": "text/plain; charset=UTF-8",
+    "www-authenticate": "Keystone uri=\"http://192.168.122.10/identity\""
+  }
+}

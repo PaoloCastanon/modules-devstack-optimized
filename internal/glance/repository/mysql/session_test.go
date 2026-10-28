@@ -14,12 +14,13 @@ import (
 // Scripted SQL protocol double: asserts connection ownership and acknowledged
 // statement ordering. It is not a SQL engine or proof of MySQL durability/DDL.
 type sqlStep struct {
-	query    string
-	rows     [][]driver.Value
-	exec     bool
-	err      error
-	rowsErr  error
-	affected int64
+	query     string
+	rows      [][]driver.Value
+	exec      bool
+	err       error
+	rowsErr   error
+	affected  int64
+	checkArgs func([]driver.NamedValue)
 }
 type sessionScript struct {
 	t      *testing.T
@@ -43,8 +44,22 @@ type scriptConn struct{ s *sessionScript }
 func (c *scriptConn) Prepare(string) (driver.Stmt, error) {
 	return nil, errors.New("unexpected prepare")
 }
-func (c *scriptConn) Close() error              { return nil }
-func (c *scriptConn) Begin() (driver.Tx, error) { return nil, errors.New("unexpected transaction") }
+func (c *scriptConn) Close() error { return nil }
+func (c *scriptConn) Begin() (driver.Tx, error) {
+	step := c.next("BEGIN", true)
+	if step.err != nil {
+		return nil, step.err
+	}
+	return &scriptTx{c}, nil
+}
+
+type scriptTx struct{ conn *scriptConn }
+
+func (c *scriptConn) BeginTx(_ context.Context, _ driver.TxOptions) (driver.Tx, error) {
+	return c.Begin()
+}
+func (t *scriptTx) Commit() error   { return t.conn.next("COMMIT", true).err }
+func (t *scriptTx) Rollback() error { return t.conn.next("ROLLBACK", true).err }
 func (c *scriptConn) next(q string, exec bool) sqlStep {
 	c.s.t.Helper()
 	if len(c.s.steps) == 0 {
@@ -59,8 +74,11 @@ func (c *scriptConn) next(q string, exec bool) sqlStep {
 	}
 	return step
 }
-func (c *scriptConn) QueryContext(_ context.Context, q string, _ []driver.NamedValue) (driver.Rows, error) {
+func (c *scriptConn) QueryContext(_ context.Context, q string, args []driver.NamedValue) (driver.Rows, error) {
 	step := c.next(q, false)
+	if step.checkArgs != nil {
+		step.checkArgs(args)
+	}
 	if step.err != nil {
 		return nil, step.err
 	}
@@ -72,6 +90,9 @@ func (c *scriptConn) QueryContext(_ context.Context, q string, _ []driver.NamedV
 }
 func (c *scriptConn) ExecContext(_ context.Context, q string, args []driver.NamedValue) (driver.Result, error) {
 	step := c.next(q, true)
+	if step.checkArgs != nil {
+		step.checkArgs(args)
+	}
 	if strings.HasPrefix(q, "INSERT INTO schema_migrations") || strings.HasPrefix(q, "UPDATE schema_migrations") {
 		if len(args) != 1 || args[0].Value != checksum() {
 			c.s.t.Error("history checksum must be bound explicitly")

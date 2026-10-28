@@ -61,7 +61,7 @@ func run(args []string, logger *slog.Logger) error {
 	}
 	client := &http.Client{Timeout: c.DependencyTimeout}
 	authenticator := auth.NewKeystone(c.KeystoneURL, client, c.Credential)
-	handler, err := api.New(service.New(mysql.New(db, c.DependencyTimeout), time.Now), authenticator, c.PublicURL, c.MaxBodyBytes, logger)
+	handler, err := api.New(service.New(mysql.New(db, c.DependencyTimeout), time.Now), authenticator, c.PublicURL, c.KeystoneURL, c.MaxBodyBytes, logger)
 	if err != nil {
 		return err
 	}

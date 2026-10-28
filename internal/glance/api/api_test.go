@@ -34,9 +34,12 @@ func (a *authFake) Authenticate(context.Context, string) (auth.Identity, error) 
 }
 
 type repoFake struct {
-	image   model.Image
-	err     error
-	creates int
+	image       model.Image
+	err         error
+	creates     int
+	deleted     bool
+	images      []model.Image
+	listOptions model.ListOptions
 }
 
 func (r *repoFake) Create(ctx context.Context, image model.Image) error {
@@ -44,14 +47,61 @@ func (r *repoFake) Create(ctx context.Context, image model.Image) error {
 	r.image = image
 	return r.err
 }
-func (r *repoFake) Get(context.Context, string) (model.Image, error) { return r.image, r.err }
+func (r *repoFake) Get(context.Context, string) (model.Image, error) {
+	if r.deleted {
+		return model.Image{}, repository.ErrNotFound
+	}
+	return r.image, r.err
+}
+func (r *repoFake) List(_ context.Context, o model.ListOptions) ([]model.Image, error) {
+	r.listOptions = o
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.deleted {
+		return []model.Image{}, nil
+	}
+	if r.images != nil {
+		return r.images, nil
+	}
+	if r.image.ID != "" {
+		return []model.Image{r.image}, nil
+	}
+	return []model.Image{}, nil
+}
+func (r *repoFake) Update(_ context.Context, _ string, f func(model.Image) (model.Image, error)) (model.Image, error) {
+	if r.err != nil {
+		return model.Image{}, r.err
+	}
+	if r.deleted || r.image.ID == "" {
+		return model.Image{}, repository.ErrNotFound
+	}
+	i, err := f(r.image)
+	if err == nil {
+		r.image = i
+	}
+	return i, err
+}
+func (r *repoFake) Delete(_ context.Context, _ string, _ time.Time, f func(model.Image) error) error {
+	if r.err != nil {
+		return r.err
+	}
+	if r.deleted || r.image.ID == "" {
+		return repository.ErrNotFound
+	}
+	if err := f(r.image); err != nil {
+		return err
+	}
+	r.deleted = true
+	return nil
+}
 
 func harness() (http.Handler, *repoFake, *authFake, *bytes.Buffer) {
 	repo := &repoFake{}
 	a := &authFake{identity: auth.Identity{UserID: "u", ProjectID: "p", Roles: []string{"member", "reader"}, ExpiresAt: time.Now().Add(time.Hour)}}
 	logs := &bytes.Buffer{}
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
-	h, err := New(service.New(repo, time.Now), a, "http://127.0.0.1:9293", 1048576, logger)
+	h, err := New(service.New(repo, time.Now), a, "http://127.0.0.1:9293", "http://192.168.122.10/identity/v3", 1048576, logger)
 	if err != nil {
 		panic(err)
 	} // Static test configuration must be valid.
@@ -269,7 +319,7 @@ func TestMediaSizeAndScope(t *testing.T) {
 	for _, tc := range []struct {
 		method, path string
 		status       int
-	}{{"GET", "/v2/images", 405}, {"PATCH", "/v2/images/00000000-0000-4000-8000-000000000000", 405}, {"PUT", "/v2/images/00000000-0000-4000-8000-000000000000/file", 404}, {"GET", "/v2/schemas/image", 404}} {
+	}{{"GET", "/v2/images", 200}, {"POST", "/v2/images/00000000-0000-4000-8000-000000000000", 405}, {"PUT", "/v2/images/00000000-0000-4000-8000-000000000000/file", 404}, {"GET", "/v2/schemas/image", 200}} {
 		if w := request(h, tc.method, tc.path, `{}`); w.Code != tc.status {
 			t.Fatalf("unexpected route %s %s: %d", tc.method, tc.path, w.Code)
 		}
@@ -310,7 +360,7 @@ func TestLocationUsesParsedBase(t *testing.T) {
 	for _, base := range []string{"http://example.invalid", "http://example.invalid/", "https://example.invalid/image/", "https://example.invalid/image///"} {
 		t.Run(base, func(t *testing.T) {
 			_, repo, a, logs := harness()
-			h, err := New(service.New(repo, time.Now), a, base, 1048576, slog.New(slog.NewJSONHandler(logs, nil)))
+			h, err := New(service.New(repo, time.Now), a, base, "http://192.168.122.10/identity/v3", 1048576, slog.New(slog.NewJSONHandler(logs, nil)))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -328,7 +378,7 @@ func TestLocationUsesParsedBase(t *testing.T) {
 	for _, base := range []string{"http://example.invalid?", "http://example.invalid/#", "http://example.invalid?a=b", "http://example.invalid/#frag"} {
 		t.Run("reject "+base, func(t *testing.T) {
 			_, repo, a, logs := harness()
-			h, err := New(service.New(repo, time.Now), a, base, 1024, slog.New(slog.NewJSONHandler(logs, nil)))
+			h, err := New(service.New(repo, time.Now), a, base, "http://192.168.122.10/identity/v3", 1024, slog.New(slog.NewJSONHandler(logs, nil)))
 			if err == nil || h != nil || repo.creates != 0 {
 				t.Fatal("handler accepted invalid public URL")
 			}

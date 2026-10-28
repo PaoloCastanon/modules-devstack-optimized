@@ -15,6 +15,8 @@ type repositoryStub struct {
 	image   model.Image
 	err     error
 	creates int
+	deleted bool
+	options model.ListOptions
 }
 
 func (r *repositoryStub) Create(ctx context.Context, i model.Image) error {
@@ -23,6 +25,36 @@ func (r *repositoryStub) Create(ctx context.Context, i model.Image) error {
 	return r.err
 }
 func (r *repositoryStub) Get(context.Context, string) (model.Image, error) { return r.image, r.err }
+func (r *repositoryStub) List(_ context.Context, o model.ListOptions) ([]model.Image, error) {
+	r.options = o
+	return []model.Image{}, r.err
+}
+func (r *repositoryStub) Update(_ context.Context, _ string, f func(model.Image) (model.Image, error)) (model.Image, error) {
+	if r.err != nil {
+		return model.Image{}, r.err
+	}
+	if r.deleted {
+		return model.Image{}, repository.ErrNotFound
+	}
+	i, err := f(r.image)
+	if err == nil {
+		r.image = i
+	}
+	return i, err
+}
+func (r *repositoryStub) Delete(_ context.Context, _ string, _ time.Time, f func(model.Image) error) error {
+	if r.err != nil {
+		return r.err
+	}
+	if r.deleted {
+		return repository.ErrNotFound
+	}
+	if err := f(r.image); err != nil {
+		return err
+	}
+	r.deleted = true
+	return nil
+}
 
 func identity(roles ...string) auth.Identity {
 	return auth.Identity{UserID: "u", ProjectID: "p", Roles: roles, ExpiresAt: time.Now().Add(time.Hour)}

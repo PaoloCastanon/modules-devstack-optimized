@@ -11,6 +11,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -30,17 +31,28 @@ type Handler struct {
 	publicURL    *url.URL
 	maxBodyBytes int64
 	logger       *slog.Logger
+	challenge    string
 }
 
-func New(service *service.Service, authenticator auth.Authenticator, publicURL string, maxBodyBytes int64, logger *slog.Logger) (http.Handler, error) {
+func New(service *service.Service, authenticator auth.Authenticator, publicURL, keystoneURL string, maxBodyBytes int64, logger *slog.Logger) (http.Handler, error) {
 	if err := config.ValidateURL(publicURL); err != nil {
 		return nil, err
 	}
 	base, _ := url.Parse(publicURL) // ValidateURL has checked the same value.
-	h := &Handler{service: service, auth: authenticator, publicURL: base, maxBodyBytes: maxBodyBytes, logger: logger}
+	if err := config.ValidateURL(keystoneURL); err != nil {
+		return nil, err
+	}
+	identityURL, _ := url.Parse(strings.TrimRight(keystoneURL, "/"))
+	if !strings.HasSuffix(identityURL.Path, "/v3") {
+		return nil, errors.New("Keystone URL must end in /v3")
+	}
+	identityURL.Path = strings.TrimSuffix(identityURL.Path, "/v3")
+	identityURL.RawPath = ""
+	h := &Handler{service: service, auth: authenticator, publicURL: base, maxBodyBytes: maxBodyBytes, logger: logger, challenge: "Keystone uri=" + strconv.Quote(identityURL.String())}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v2/images", h.create)
 	mux.HandleFunc("/v2/images/{id}", h.show)
+	mux.HandleFunc("/v2/schemas/{name}", h.schema)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		h.failure(w, model.Fail(model.NotFound, "Route not implemented."))
 	})
@@ -134,8 +146,12 @@ func (w *responseLog) Write(data []byte) (int, error) {
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		h.list(w, r)
+		return
+	}
 	if r.Method != http.MethodPost {
-		w.Header().Set("Allow", "POST")
+		w.Header().Set("Allow", "GET, POST")
 		h.status(w, 405, "Method not implemented.")
 		return
 	}
@@ -194,8 +210,16 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) show(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPatch {
+		h.patch(w, r)
+		return
+	}
+	if r.Method == http.MethodDelete {
+		h.delete(w, r)
+		return
+	}
 	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", "GET")
+		w.Header().Set("Allow", "GET, PATCH, DELETE")
 		h.status(w, 405, "Method not implemented.")
 		return
 	}
@@ -214,6 +238,9 @@ func (h *Handler) json(w http.ResponseWriter, status int, value any) {
 }
 
 func (h *Handler) status(w http.ResponseWriter, status int, message string) {
+	if status == http.StatusUnauthorized {
+		w.Header().Set("WWW-Authenticate", h.challenge)
+	}
 	h.json(w, status, map[string]string{"message": message + "<br /><br />\n\n\n", "code": fmt.Sprintf("%d %s", status, http.StatusText(status)), "title": http.StatusText(status)})
 }
 
