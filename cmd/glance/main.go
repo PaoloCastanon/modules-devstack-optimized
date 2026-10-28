@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +17,7 @@ import (
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/api"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/service"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/store"
 )
 
 func main() {
@@ -25,9 +28,10 @@ func main() {
 	}
 }
 
-func run(args []string, logger *slog.Logger) error {
-	if len(args) != 1 || (args[0] != "serve" && args[0] != "migrate") {
-		return errors.New("usage: glance serve | glance migrate")
+func run(args []string, logger *slog.Logger) (result error) {
+	started := time.Now()
+	if len(args) != 1 || (args[0] != "serve" && args[0] != "migrate" && args[0] != "store-scope" && args[0] != "store-init") {
+		return errors.New("usage: glance serve | migrate | store-scope | store-init")
 	}
 	mode := args[0]
 	c, err := config.Load(os.Getenv, mode)
@@ -38,7 +42,11 @@ func run(args []string, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() {
+		if db.Close() != nil {
+			result = errors.Join(result, errors.New("database pool close failed"))
+		}
+	}()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	startup, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -53,45 +61,66 @@ func run(args []string, logger *slog.Logger) error {
 		logger.Info("metadata migration verified")
 		return nil
 	}
-	if err = mysql.CheckAccount(startup, db, "serve"); err != nil {
+	checks := startupChecks{ping: db.PingContext, account: func(ctx context.Context) error { return mysql.CheckAccount(ctx, db, "serve") }, schema: func(ctx context.Context) error { return mysql.VerifySchema(ctx, db) }, scope: func(ctx context.Context) (string, error) { return databaseScope(ctx, db) }}
+	if err = verifyBackend(startup, checks); err != nil {
 		return err
 	}
-	if err = mysql.VerifySchema(startup, db); err != nil {
-		return err
+	if mode == "store-scope" || mode == "store-init" {
+		scope, err := checks.scope(startup)
+		if err != nil {
+			return err
+		}
+		if mode == "store-scope" {
+			_, err = fmt.Fprintln(os.Stdout, scope)
+			return err
+		}
+		if scope != c.Binary.Scope {
+			return errors.New("SQL/store scope mismatch")
+		}
+		if startup.Err() != nil {
+			return errors.New("store initialization cancelled")
+		}
+		if err = store.Initialize(c.Binary.Root, scope); err != nil {
+			return errors.New("store initialization failed; inspect partial setup without automatic repair")
+		}
+		logger.Info("store explicitly initialized")
+		return nil
+	}
+	r := mysql.New(db, c.DependencyTimeout)
+	var binary *binaryRuntime
+	var options []api.Option
+	if c.Binary.Enabled {
+		// Account/schema checks have their own 30s budget; recovery has its
+		// configured finite budget and may hash large confirmed objects.
+		binary, err = prepareBinary(ctx, c, r, checks.scope, logger)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if binary.close() != nil {
+				result = errors.Join(result, errors.New("store close failed"))
+			}
+		}()
+		options = append(options, api.WithBinaryTransfers(binary.owner))
 	}
 	client := &http.Client{Timeout: c.DependencyTimeout}
 	authenticator := auth.NewKeystone(c.KeystoneURL, client, c.Credential)
-	handler, err := api.New(service.New(mysql.New(db, c.DependencyTimeout), time.Now), authenticator, c.PublicURL, c.KeystoneURL, c.MaxBodyBytes, logger)
+	handler, err := api.New(service.New(r, time.Now), authenticator, c.PublicURL, c.KeystoneURL, c.MaxBodyBytes, logger, options...)
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Addr: c.ListenAddress, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: c.RequestTimeout,
-		WriteTimeout: c.RequestTimeout + 5*time.Second, IdleTimeout: 30 * time.Second,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			requestCtx, cancel := context.WithTimeout(r.Context(), c.RequestTimeout)
-			defer cancel()
-			handler.ServeHTTP(w, r.WithContext(requestCtx))
-		})}
-	closed := make(chan struct{})
-	shutdownFinished := make(chan struct{})
-	go func() {
-		defer close(shutdownFinished)
-		select {
-		case <-ctx.Done():
-			shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if server.Shutdown(shutdown) != nil {
-				_ = server.Close()
-			}
-		case <-closed:
-		}
-	}()
-	logger.Info("metadata API listening", "address", c.ListenAddress)
-	err = server.ListenAndServe()
-	close(closed)
-	<-shutdownFinished
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err = ctx.Err(); err != nil {
+		return errors.New("startup cancelled before listener")
+	}
+	ln, err := net.Listen("tcp", c.ListenAddress)
+	if err != nil {
 		return errors.New("HTTP listener failed")
 	}
-	return nil
+	defer ln.Close()
+	logger.Info("image API listening", "address", c.ListenAddress, "binary_enabled", c.Binary.Enabled, "startup_ms", time.Since(started).Milliseconds())
+	var owner *service.UploadCoordinator
+	if binary != nil {
+		owner = binary.owner
+	}
+	return serveHTTP(ctx, ln, c, handler, owner, logger)
 }

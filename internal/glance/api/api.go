@@ -107,7 +107,7 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 			default:
 				method = "OTHER"
 			}
-			h.logger.Log(r.Context(), level, "request completed", "request_id", requestID, "method", method, "route", logRoute(r.URL.Path), "status", observed.status, "duration_ms", time.Since(start).Milliseconds(), "error_kind", observed.kind)
+			h.logger.Log(r.Context(), level, "request completed", "request_id", requestID, "method", method, "route", logRoute(r.URL.Path), "status", observed.status, "duration_ms", time.Since(start).Milliseconds(), "response_bytes", observed.bytes, "error_kind", observed.kind)
 		}()
 		values := r.Header.Values("X-Auth-Token")
 		if len(values) != 1 || strings.TrimSpace(values[0]) == "" {
@@ -154,6 +154,7 @@ type responseLog struct {
 	http.ResponseWriter
 	status int
 	kind   string
+	bytes  int64
 }
 
 func (w *responseLog) Unwrap() http.ResponseWriter { return w.ResponseWriter }
@@ -172,6 +173,7 @@ func (w *responseLog) Write(data []byte) (int, error) {
 		w.WriteHeader(http.StatusOK)
 	}
 	n, err := w.ResponseWriter.Write(data)
+	w.bytes += int64(n)
 	if err != nil {
 		w.kind = "response_write"
 	}

@@ -25,6 +25,7 @@ type Config struct {
 	Credential                                         ServiceCredential
 	RequestTimeout, DependencyTimeout                  time.Duration
 	MaxBodyBytes                                       int64
+	Binary                                             Binary
 }
 
 // ReadSecret rejects group/world-readable files and never returns their contents in errors.
@@ -80,8 +81,8 @@ var dnsLabel = regexp.MustCompile(`^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])
 
 // Load keeps migration mode independent of Keystone. It does not open a DB or run SQL.
 func Load(getenv func(string) string, mode string) (Config, error) {
-	if mode != "serve" && mode != "migrate" {
-		return Config{}, errors.New("command must be serve or migrate")
+	if mode != "serve" && mode != "migrate" && mode != "store-scope" && mode != "store-init" {
+		return Config{}, errors.New("command must be serve, migrate, store-scope or store-init")
 	}
 	c := Config{ListenAddress: "127.0.0.1:9293", PublicURL: "http://127.0.0.1:9293", RequestTimeout: 15 * time.Second, DependencyTimeout: 5 * time.Second, MaxBodyBytes: 1048576}
 	if value := getenv("GLANCE_GO_LISTEN_ADDR"); value != "" {
@@ -129,7 +130,10 @@ func Load(getenv func(string) string, mode string) (Config, error) {
 	if c.DatabaseDSN == "" {
 		return Config{}, errors.New("empty database configuration")
 	}
-	if mode == "migrate" {
+	if err := loadBinary(&c, getenv, mode); err != nil {
+		return Config{}, err
+	}
+	if mode != "serve" {
 		return c, nil
 	}
 	c.KeystoneURL = strings.TrimRight(getenv("GLANCE_GO_KEYSTONE_AUTH_URL"), "/")
