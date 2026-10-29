@@ -94,10 +94,17 @@ func (c *scriptConn) ExecContext(_ context.Context, q string, args []driver.Name
 		step.checkArgs(args)
 	}
 	if strings.HasPrefix(q, "INSERT INTO schema_migrations") || strings.HasPrefix(q, "UPDATE schema_migrations") {
-		if len(args) != 1 || args[0].Value != checksum() {
-			c.s.t.Error("history checksum must be bound explicitly")
+		if step.checkArgs == nil {
+			version := 1
+			if strings.Contains(q, "VALUES (2,") || strings.Contains(q, "version=2 ") {
+				version = 2
+			}
+			if len(args) != 1 || args[0].Value != migrations()[version-1].checksum() {
+				c.s.t.Error("version checksum must be bound explicitly")
+			}
 		}
 	}
+
 	return driver.RowsAffected(step.affected), step.err
 }
 
@@ -202,33 +209,50 @@ func TestAccountEffectivePrivilegeBoundary(t *testing.T) {
 
 const historyQuery = "SELECT version, checksum, dirty FROM schema_migrations ORDER BY version"
 
+// Version-1 fixtures remain available for explicit append-only upgrade tests.
 func migrationSteps(existing bool) []sqlStep {
+	applied := 0
+	if existing {
+		applied = len(migrations())
+	}
+	return migrationStepsFrom(applied)
+}
+func historyRows(n int) [][]driver.Value {
+	rows := [][]driver.Value{}
+	for _, m := range migrations()[:n] {
+		rows = append(rows, []driver.Value{m.version, m.checksum(), false})
+	}
+	return rows
+}
+func migrationStepsFrom(applied int) []sqlStep {
 	steps := accountSteps(true, "", "NONE", "GRANT SELECT, INSERT, UPDATE, CREATE, ALTER, INDEX, REFERENCES ON `glance_go`.* TO `fixture`@`localhost`")
 	steps = append(steps, query("SELECT @@SESSION.autocommit", int64(1)), query("SELECT DATABASE()", "glance_go"), query("SELECT GET_LOCK(?, 0)", int64(1)))
 	table := sqlStep{query: historyTableQuery}
-	history := sqlStep{query: historyQuery}
-	count := int64(0)
-	if existing {
+	if applied > 0 {
 		table.rows = [][]driver.Value{{"BASE TABLE", "InnoDB"}}
-		history.rows = [][]driver.Value{{int64(1), checksum(), false}}
-		count = 1
 	}
 	steps = append(steps, table)
-	if !existing {
+	if applied == 0 {
 		steps = append(steps, execute(historySQL))
 	}
 	steps = append(steps, historyStructureSteps()...)
-	steps = append(steps, history, query("SELECT COUNT(*) FROM schema_migrations", count))
-	if !existing {
-		steps = append(steps, execute("INSERT INTO schema_migrations (version, checksum, dirty) VALUES (1, ?, TRUE)"))
-		for _, q := range strings.Split(metadataSQL, ";") {
+	steps = append(steps, sqlStep{query: historyQuery, rows: historyRows(applied)}, query("SELECT COUNT(*) FROM schema_migrations", int64(applied)))
+	if applied == 2 {
+		steps = append(steps, transferStructureSteps()...)
+	}
+	for _, m := range migrations()[applied:] {
+		steps = append(steps, execute(fmt.Sprintf("INSERT INTO schema_migrations (version, checksum, dirty) VALUES (%d, ?, TRUE)", m.version)))
+		for _, q := range strings.Split(m.sql, ";") {
 			if strings.TrimSpace(q) != "" {
 				steps = append(steps, execute(q))
 			}
 		}
-		steps = append(steps, execute("UPDATE schema_migrations SET dirty=FALSE, applied_at=UTC_TIMESTAMP(6) WHERE version=1 AND dirty=TRUE AND checksum=?"))
+		if m.version == 2 {
+			steps = append(steps, transferStructureSteps()...)
+		}
+		steps = append(steps, execute(fmt.Sprintf("UPDATE schema_migrations SET dirty=FALSE, applied_at=UTC_TIMESTAMP(6) WHERE version=%d AND dirty=TRUE AND checksum=?", m.version)))
 		steps = append(steps, historyStructureSteps()...)
-		steps = append(steps, query(historyQuery, int64(1), checksum(), false))
+		steps = append(steps, sqlStep{query: historyQuery, rows: historyRows(int(m.version))})
 	}
 	return append(steps, query("SELECT RELEASE_LOCK(?)", int64(1)))
 }

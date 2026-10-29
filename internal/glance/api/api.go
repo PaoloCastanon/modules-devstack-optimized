@@ -32,9 +32,10 @@ type Handler struct {
 	maxBodyBytes int64
 	logger       *slog.Logger
 	challenge    string
+	binary       BinaryTransfers
 }
 
-func New(service *service.Service, authenticator auth.Authenticator, publicURL, keystoneURL string, maxBodyBytes int64, logger *slog.Logger) (http.Handler, error) {
+func New(service *service.Service, authenticator auth.Authenticator, publicURL, keystoneURL string, maxBodyBytes int64, logger *slog.Logger, options ...Option) (http.Handler, error) {
 	if err := config.ValidateURL(publicURL); err != nil {
 		return nil, err
 	}
@@ -49,14 +50,40 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 	identityURL.Path = strings.TrimSuffix(identityURL.Path, "/v3")
 	identityURL.RawPath = ""
 	h := &Handler{service: service, auth: authenticator, publicURL: base, maxBodyBytes: maxBodyBytes, logger: logger, challenge: "Keystone uri=" + strconv.Quote(identityURL.String())}
+	for _, option := range options {
+		if option == nil {
+			return nil, errors.New("invalid HTTP option")
+		}
+		if err := option(h); err != nil {
+			return nil, err
+		}
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v2/images", h.create)
 	mux.HandleFunc("/v2/images/{id}", h.show)
 	mux.HandleFunc("/v2/schemas/{name}", h.schema)
+	if h.binary != nil {
+		mux.HandleFunc("/v2/images/{id}/file", h.file)
+	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		h.failure(w, model.Fail(model.NotFound, "Route not implemented."))
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Own the input even when middleware rejects authentication. Closing on
+		// cancellation unblocks a cooperative/net/http request Body; no goroutine
+		// is abandoned reading the payload.
+		if h.binary != nil && logRoute(r.URL.Path) == "/v2/images/{id}/file" && r.Body != nil {
+			body := &onceBody{ReadCloser: r.Body}
+			r.Body = body
+			done := make(chan struct{})
+			stop := context.AfterFunc(r.Context(), func() { _ = body.Close(); close(done) })
+			defer func() {
+				if !stop() {
+					<-done
+				}
+				_ = body.Close()
+			}()
+		}
 		id, err := uuid.NewRandom()
 		if err != nil {
 			h.failure(w, err)
@@ -80,26 +107,35 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 			default:
 				method = "OTHER"
 			}
-			h.logger.Log(r.Context(), level, "request completed", "request_id", requestID, "method", method, "route", logRoute(r.URL.Path), "status", observed.status, "duration_ms", time.Since(start).Milliseconds(), "error_kind", observed.kind)
+			h.logger.Log(r.Context(), level, "request completed", "request_id", requestID, "method", method, "route", logRoute(r.URL.Path), "status", observed.status, "duration_ms", time.Since(start).Milliseconds(), "response_bytes", observed.bytes, "error_kind", observed.kind)
 		}()
 		values := r.Header.Values("X-Auth-Token")
 		if len(values) != 1 || strings.TrimSpace(values[0]) == "" {
 			h.failure(w, auth.ErrInvalidToken)
 			return
 		}
-		identity, err := h.auth.Authenticate(r.Context(), values[0])
+		var identity auth.Identity
+		serviceTokens := r.Header.Values("X-Service-Token")
+		if len(serviceTokens) != 0 {
+			if len(serviceTokens) != 1 || strings.TrimSpace(serviceTokens[0]) == "" {
+				h.failure(w, auth.ErrInvalidToken)
+				return
+			}
+			composite, ok := h.auth.(auth.CompositeAuthenticator)
+			if !ok {
+				h.failure(w, auth.ErrForbidden)
+				return
+			}
+			identity, err = composite.AuthenticateComposite(r.Context(), values[0], serviceTokens[0])
+		} else {
+			identity, err = h.auth.Authenticate(r.Context(), values[0])
+		}
 		if err != nil {
 			h.failure(w, err)
 			return
 		}
 		if err := identity.Check(time.Now()); err != nil {
 			h.failure(w, err)
-			return
-		}
-		// Do not silently accept composite service authentication before its
-		// additional semantics have been implemented and verified for Nova.
-		if len(r.Header.Values("X-Service-Token")) != 0 {
-			h.failure(w, model.Fail(model.Forbidden, "Service-token composite authentication is not supported in delivery A."))
 			return
 		}
 		mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), identityKey{}, identity)))
@@ -111,6 +147,12 @@ func logRoute(path string) string {
 	if path == "/v2/images" {
 		return path
 	}
+	if rest, ok := strings.CutPrefix(path, "/v2/images/"); ok && strings.HasSuffix(rest, "/file") {
+		id := strings.TrimSuffix(rest, "/file")
+		if id != "" && !strings.Contains(id, "/") {
+			return "/v2/images/{id}/file"
+		}
+	}
 	if rest, ok := strings.CutPrefix(path, "/v2/images/"); ok && rest != "" && !strings.Contains(rest, "/") {
 		return "/v2/images/{id}"
 	}
@@ -121,6 +163,7 @@ type responseLog struct {
 	http.ResponseWriter
 	status int
 	kind   string
+	bytes  int64
 }
 
 func (w *responseLog) Unwrap() http.ResponseWriter { return w.ResponseWriter }
@@ -139,6 +182,7 @@ func (w *responseLog) Write(data []byte) (int, error) {
 		w.WriteHeader(http.StatusOK)
 	}
 	n, err := w.ResponseWriter.Write(data)
+	w.bytes += int64(n)
 	if err != nil {
 		w.kind = "response_write"
 	}

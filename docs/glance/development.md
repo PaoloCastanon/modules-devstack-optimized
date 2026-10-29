@@ -4,6 +4,11 @@ Esta guía conserva la fundación A y su reproducción. La [Entrega B](b20-catal
 añade LIST/PATCH/DELETE/esquemas y define sus nuevas pruebas y límites. Los
 resultados reales de A no validan automáticamente B.
 
+Actualización B25: [operación, configuración y pruebas opt-in](b25-operations.md).
+Los límites de transferencia/store descritos abajo corresponden a la Entrega A
+histórica; el CLI puede ahora conectar B25 explícitamente. La integración binaria
+real con 002/Keystone sigue pendiente y no se deduce de la evidencia B20.
+
 Alcance original de A: POST `/v2/images` y GET
 `/v2/images/{id}`. A no incluía listado, PATCH, DELETE ni esquemas auxiliares (añadidos en B).
 Siguen pendientes discovery, transferencia, store, integración Nova y sustitución
@@ -317,13 +322,21 @@ HTTP ni crea goroutines propias. Cada solicitud en espera puede cancelar su cont
 Si quien renueva falla o vence, quienes esperaban reciben ese fallo; una petición
 posterior puede renovar de nuevo. Las identidades cliente nunca se comparten.
 No se siguen redirects que puedan reenviar secretos.
-Se rechazan tokens vencidos o malformados, scope sin proyecto y respuestas inválidas.
+En autenticación simple se rechazan tokens vencidos o malformados, scope sin
+proyecto y respuestas inválidas.
 Un 404 de validación significa token inválido; un 401 del validador renueva el token
 del servicio una sola vez. Errores de configuración/red/servidor producen 503 y no
 permiten acceso. No se confía en X-Roles, X-User-Id ni X-Project-Id del cliente.
-X-Service-Token se rechaza explícitamente en A, pendiente de semántica compuesta.
+N2 añade validación independiente de X-Service-Token cuando está presente, sin
+transferir sus roles al usuario. El servicio debe tener rol service, un token
+vigente y el mismo proyecto que la credencial validadora de Go. El usuario puede
+pertenecer a otro proyecto. La excepción para un usuario vencido depende de una
+validación nueva de Keystone con allow_expired=true, nunca de un plazo local ni
+de omitir la revocación. Ver [contrato N2](composite-auth.md), incluidos sus límites
+y las pruebas operativas todavía pendientes.
 
-HTTP sin token/incorrecto/vencido produce 401; identidad sin proyecto o permiso 403;
+HTTP sin token/incorrecto/vencido sin delegación válida produce 401;
+identidad sin proyecto o permiso produce 403;
 imagen privada/shared de otro proyecto produce 404. Crear requiere member o admin;
 publicar requiere admin. Consultar requiere reader o admin y acceso por propietario
 o visibilidad public/community. Se utilizan los roles efectivos del token Keystone,

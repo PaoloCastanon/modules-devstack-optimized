@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -247,6 +248,22 @@ func (h *Handler) patch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
+	if h.binary != nil {
+		// Never fall back to metadata-only deletion when byte storage is enabled.
+		deleter, ok := h.binary.(interface {
+			DeleteImage(context.Context, auth.Identity, string) error
+		})
+		if !ok {
+			h.binaryFailure(w, errors.New("deletion coordinator unavailable"))
+			return
+		}
+		if err := deleter.DeleteImage(r.Context(), r.Context().Value(identityKey{}).(auth.Identity), r.PathValue("id")); err != nil {
+			h.binaryFailure(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	if err := h.service.Delete(r.Context(), r.Context().Value(identityKey{}).(auth.Identity), r.PathValue("id")); err != nil {
 		h.failure(w, err)
 		return

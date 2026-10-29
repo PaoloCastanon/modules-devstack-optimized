@@ -307,10 +307,11 @@ func TestMediaSizeAndScope(t *testing.T) {
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("X-Auth-Token", "fixture")
 	r.Header.Set("X-Service-Token", "unverified-service-token")
+	// A legacy injected authenticator cannot silently ignore a service token.
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Code != 403 || repo.creates != 0 {
-		t.Fatal("composite authentication silently accepted")
+		t.Fatal("authenticator without composite support accepted a service token")
 	}
 	w = request(h, "POST", "/v2/images", `{"description":"`+strings.Repeat("x", 1048576)+`"}`)
 	if w.Code != 413 || repo.creates != 0 {

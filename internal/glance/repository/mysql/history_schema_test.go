@@ -35,7 +35,8 @@ func TestHistoryStructureValid(t *testing.T) {
 				steps[1].rows[0][2] = "bigint(20)"
 				steps[1].rows[2][2] = "tinyint(4)"
 			}
-			steps = append(steps, query(historyQuery, int64(1), checksum(), false))
+			steps = append(steps, sqlStep{query: historyQuery, rows: historyRows(2)})
+			steps = append(steps, transferStructureSteps()...)
 			if err := VerifySchema(context.Background(), scriptDB(t, steps)); err != nil {
 				t.Fatal(err)
 			}

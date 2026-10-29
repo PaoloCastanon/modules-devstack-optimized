@@ -4,7 +4,7 @@ Trabajo de Título: análisis y futura reimplementación acotada de OpenStack Pl
 
 ## Estado y forma de trabajo
 
-El laboratorio y el análisis de Sprint 2 están aceptados. El catálogo Glance Go B20 está implementado; sus límites de validación se detallan en la documentación de cada entrega. Placement B07 está en progreso con el primer recorrido providers/inventories 1.0 y MySQL. La próxima fase de Glance es B25. El [plan por fases](PLANS.md), las [instrucciones para agentes](AGENTS.md) y el [registro de resultados](harness/build-log.md) permiten continuar con contexto y criterios verificables.
+El laboratorio y el análisis de Sprint 2 están aceptados. El catálogo Glance Go B20 (Entregas A y B) está implementado; su alcance y validación se detallan en la documentación de cada entrega. B25 tiene componentes y [arranque operativo](docs/glance/b25-operations.md) implementados con regresiones locales y suites opt-in para comprobar MySQL 8/002 y la integración binaria. Placement B07 está en progreso con el primer recorrido providers/inventories 1.0 y MySQL. El [plan por fases](PLANS.md), las [instrucciones para agentes](AGENTS.md) y el [registro de resultados](harness/build-log.md) permiten continuar con contexto y criterios verificables.
 
 ```bash
 make check           # Verificación local; no inicia la VM ni contacta OpenStack
@@ -31,8 +31,10 @@ JSON Patch, borrado lógico y esquemas de metadatos.
 
 Ambas entregas tienen pruebas locales. La documentación acredita integración real
 para A y mantiene pendiente la validación operativa de las nuevas rutas B.
-La transferencia de imágenes, integración Nova y comparación de
-rendimiento permanecen pendientes.
+La transferencia binaria y su arranque operativo se implementan en B25;
+su guía separa las regresiones locales de las verificaciones reales.
+La integración Nova y la comparación de rendimiento no se acreditan
+mediante los controles locales.
 
 ## Placement Go — primer incremento B07
 

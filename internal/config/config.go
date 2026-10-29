@@ -25,6 +25,7 @@ type Config struct {
 	Credential                                         ServiceCredential
 	RequestTimeout, DependencyTimeout                  time.Duration
 	MaxBodyBytes                                       int64
+	Binary                                             Binary
 }
 
 // ReadSecret rejects group/world-readable files and never returns their contents in errors.
@@ -80,18 +81,21 @@ var dnsLabel = regexp.MustCompile(`^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])
 
 // Load keeps migration mode independent of Keystone. It does not open a DB or run SQL.
 func Load(getenv func(string) string, mode string) (Config, error) {
+	if mode != "serve" && mode != "migrate" && mode != "store-scope" && mode != "store-init" {
+		return Config{}, errors.New("command must be serve, migrate, store-scope or store-init")
+	}
 	return load(getenv, mode, "GLANCE_GO_", "127.0.0.1:9293")
 }
 
 // LoadPlacement uses an independent namespace; Glance settings cannot select its DB.
 func LoadPlacement(getenv func(string) string, mode string) (Config, error) {
+	if mode != "serve" && mode != "migrate" {
+		return Config{}, errors.New("command must be serve or migrate")
+	}
 	return load(getenv, mode, "PLACEMENT_GO_", "127.0.0.1:8779")
 }
 
 func load(getenv func(string) string, mode, prefix, defaultAddress string) (Config, error) {
-	if mode != "serve" && mode != "migrate" {
-		return Config{}, errors.New("command must be serve or migrate")
-	}
 	c := Config{ListenAddress: defaultAddress, PublicURL: "http://" + defaultAddress, RequestTimeout: 15 * time.Second, DependencyTimeout: 5 * time.Second, MaxBodyBytes: 1048576}
 	if value := getenv(prefix + "LISTEN_ADDR"); value != "" {
 		c.ListenAddress = value
@@ -138,7 +142,13 @@ func load(getenv func(string) string, mode, prefix, defaultAddress string) (Conf
 	if c.DatabaseDSN == "" {
 		return Config{}, errors.New("empty database configuration")
 	}
-	if mode == "migrate" {
+	// Binary storage is Glance policy; Placement must not read that namespace.
+	if prefix == "GLANCE_GO_" {
+		if err := loadBinary(&c, getenv, mode); err != nil {
+			return Config{}, err
+		}
+	}
+	if mode != "serve" {
 		return c, nil
 	}
 	c.KeystoneURL = strings.TrimRight(getenv(prefix+"KEYSTONE_AUTH_URL"), "/")

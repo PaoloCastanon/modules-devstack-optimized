@@ -105,3 +105,204 @@ Los estados abiertos indicados en las revisiones anteriores describen ese moment
 - **Documentación:** se corrigió el alcance de versiones fijadas (DevStack y Nova) y se documentó la migración de un `local.conf` anterior al pin, sin cambiar el laboratorio.
 - **Límites:** son pruebas de código y archivos; MySQL usa dobles. No se ejecutó instalación completa, no se recapturó evidencia S2 y no se modificó el backlog. `make go-check` sigue informando `PENDING Go`; B07 continúa sin iniciar.
 - **VM:** `virsh -c qemu:///system domstate tt-openstack-lab` devolvió `shut off` después de la integración.
+
+## 2026-10-28 — B25, Acción 2/8: filesystem store aislado
+
+- **Implementado:** paquete `internal/glance/store` con inicialización explícita de
+  raíz privada, scope UUID y flock; Stage streaming con límite/longitud y MD5/SHA-512;
+  Publish con recibo verificado y linkat sin reemplazo; Open seekable con medición
+  de integridad; Delete de claves exactas, idempotente y con fsync de directorios.
+  No se conectó a cmd/glance ni se implementaron SQL, estados o recuperación global.
+- **Seguridad:** aperturas openat/O_NOFOLLOW y verificación del inode; publicación
+  desde descriptor mediante procfs. Linux, mismo filesystem, 0700/0600; sin nuevas
+  dependencias. El README del paquete documenta garantías, requisitos y límites.
+- **Validación local, Go 1.24.4:** gofmt, `go vet -p 1 ./...`, `go build -p 1 ./...`
+  y `go mod verify` aprobados. `go test -p 1 -count=1 -json ./...` ejecutó 59
+  resultados PASS del store (16 tests y 43 subtests) y 368 PASS de otros paquetes,
+  pero falló en el primer test de internal/auth: httptest no pudo abrir un socket
+  local (`operation not permitted`). El resto de esa suite no llegó a ejecutarse.
+- **Race:** `go test -race -p 1 -count=1 -json ./cmd/glance ./internal/config
+  ./internal/glance/...` aprobó esos mismos 427 resultados. No acredita race de
+  internal/auth. Se usaron GOMAXPROCS=2, GOTOOLCHAIN=local, GOPROXY=off, GOFLAGS=-p=1
+  y GOCACHE privado escribible fuera del repositorio, sin configuración global.
+- **Gate completo:** `make check` avanzó por documentación/evidencia, 13 pruebas del
+  harness, 12 pruebas MySQL con dobles, regresión Nova y sintaxis/formato de infra;
+  falló en go-check por el socket prohibido del mismo test Keystone. No se debilitó
+  el gate ni se modificaron las pruebas B20. No se informa make check como aprobado.
+- **Límites:** filesystem temporal real y fallos de I/O inyectados están separados;
+  ENOSPC es simulado. Reapertura entre instancias no demuestra corte de energía o
+  reinicio MySQL. Sin VM, servicios, contenedores, DB real, benchmarks ni integración
+  Nova. El gate integral B20 queda pendiente de ejecutarse donde httptest pueda
+  abrir sockets; esta acción no cierra B25 ni autoriza la siguiente.
+
+Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make check` en `/home/juanc/Proyectos/modules-devstack-main`, con código de salida 0. Pasaron los controles de documentación y evidencias, pruebas Python, verificación Nova, comprobaciones Terraform/Ansible, análisis estático Go, pruebas Go con race detector y compilación. El bloqueo anterior de `httptest` por permisos de sockets correspondía al entorno restringido de la primera ejecución. Esta revalidación no constituye una prueba de integración MySQL real ni de durabilidad ante pérdida de energía.
+
+## 2026-10-28 — B25, Acción 6/8: HTTP binario autenticado inyectable
+
+- **Implementado:** PUT/GET `/v2/images/{id}/file` mediante opción explícita de
+  construcción del handler, reutilizando Keystone B20 y UploadCoordinator. PUT
+  valida octet-stream, declaraciones y stream real; GET exige active/committed,
+  coteja tamaño/MD5/SHA-512 antes de cabeceras y transmite con buffer fijo.
+  Incluye rangos únicos 206, rechazo 400/416, 204 sin contenido y 503 para blob
+  confirmado perdido/corrupto. Después de cabeceras, aborta errores sin anexar JSON.
+- **Seguridad:** recuperación obligatoria también para download, capacidad
+  compartida y cierre de descriptores antes de liberar propiedad. Se distingue
+  fallo de fuente (400) de fallo filesystem (503) sin exponer diagnósticos.
+  No cambia cmd/glance: scope SQL/store, recuperación al arrancar y deadlines de
+  transferencia siguen pendientes de Acción 8; DELETE coordinado, de Acción 7.
+- **Compatibilidad:** se leyeron image_data.py y wsgi.py del commit Python fijado
+  a3e5f490b7a28b1161714c94acffe5308d24b567. Se confirmó el MD5 completo también
+  para 206, PUT 204, media type 415 y rangos múltiples 400/incorrectos 416.
+  Las diferencias y límites están en `docs/glance/b25-http.md`; no se ejecutó Python.
+- **Validación local Go 1.24.4:** gofmt; pruebas focalizadas API (203 PASS: 32 tests
+  y 171 subtests) y servicio (185 PASS: 33 tests y 152 subtests), sin FAIL/SKIP;
+  `go vet -p 1 ./...`, `go mod verify` y `make check` con código 0. Se usaron
+  GOMAXPROCS=2, GOTOOLCHAIN=local, GOFLAGS=-p=1 y GOPROXY=off. El gate completo
+  incluye documentación/evidencias, 25 pruebas Python, Nova, Terraform/Ansible,
+  pruebas Go con race detector y compilación. No se alteraron gates ni tests previos.
+- **Límites:** httptest y dobles de SQL/identidad; un recorrido local utiliza
+  coordinador y filesystem reales sobre directorios temporales. No acredita
+  integración MySQL 8/002, Keystone binario, reinicio ni durabilidad física. Sin
+  VM, contenedores, servicios originales, DDL real, Git de escritura o Acción 7/8.
+
+## 2026-10-28 — B25, Acción 7/8: DELETE coordinado y recuperación
+
+- **Implementado:** DELETE del recurso imagen mediante el mismo coordinador
+  exclusivo de PUT/GET. TombstoneData bloquea imagen antes de operación, repite
+  política/protected y confirma tombstone + cleanup/deleted en una transacción.
+  Conserva UUID, recibos, propiedades y tags; queued sin operación no inventa
+  intentos. Relee SQL antes de Store.Delete y después de CompleteDataCleanup.
+  Un resultado incierto no acredita rollback ni permite unlink a ciegas.
+- **Concurrencia:** DELETE y uploads se excluyen durante toda su ejecución.
+  Un writer vivo produce 503 controlado sin tombstone ni I/O destructivo; esta
+  opción autorizada en Acción 7 difiere de la cancelación prevista en el diseño.
+  Se comprueban intentos tardíos, dos DELETE, Close ocupado y GET con fd abierto,
+  que puede terminar tras unlink en Linux. No se mantiene SQL durante filesystem.
+- **Recuperación:** bajo arranque exclusivo, cleanup/deleted termina en tombstone
+  cleaned y cleanup/killed confirmado termina en killed. Reintenta Delete/fsync
+  si los nombres ya desaparecieron; no promueve saving ni limpia active válido.
+  Inventario obsoleto, estados contradictorios o dependencias fallidas conservan
+  evidencia y bloquean admisión. No usa TTL, barridos ni reconstrucciones.
+- **Validación local Go 1.24.4:** gofmt; MySQL 280 PASS (32 tests/248 subtests),
+  servicio 257 PASS (43/214), API 227 PASS (38/189): 764 resultados, sin FAIL/SKIP.
+  `go vet -p 1 ./...` y `make check` terminaron con código 0, incluido race ./...,
+  compilación, documentación/evidencias, 25 Python, Nova y Terraform/Ansible.
+  GOMAXPROCS=2, GOTOOLCHAIN=local, GOFLAGS=-p=1, GOPROXY=off.
+- **Desarrollo:** el primer caso terminal falló porque su fixture conservaba
+  campos calculados de active al simular saving/cleanup; se corrigió ese fixture,
+  manteniendo el rechazo de estados contradictorios. La negativa previa se
+  conserva para killed/cleanup incompatible y se añade el caso válido positivo.
+- **Límites:** SQL y auth simulados; HTTP/coordinador con filesystem temporal real.
+  TestMySQLCoordinatedDeletion se preparó y compiló con tag integration y run
+  vacío, pero NO SE EJECUTÓ: requiere esquema nuevo independiente y autorización
+  posterior. No demuestra MySQL/Keystone reales, reinicio de servicios ni pérdida
+  de energía. Se leyó DELETE Python del commit fijado; no se ejecutó el original.
+  000/001/002 y store intactos. Sin VM, contenedores, DDL real, infraestructura,
+  Git de escritura ni Acción 8. Protocolo y divergencias: docs/glance/b25-deletion.md.
+
+## 2026-10-28 — B25, Acción 8/8: arranque operativo y regresiones locales
+
+- **Implementado:** cmd/glance conecta B25 mediante opt-in de configuración;
+  verifica cuenta runtime y esquema sin migrar, vincula server_uuid/esquema con
+  scope/marcador, adquiere flock y completa RecoverUploads antes de escuchar.
+  store-scope es lectura; store-init exige root existente vacío e inicialización
+  explícita. No hay reparación, esquema/root alternativo o bypass de auth.
+- **Lifecycle:** plazos de metadatos, upload/download, SQL, resolución, recovery y
+  shutdown separados. StopAdmission + WaitIdle conservan ownership de writers,
+  readers y DELETE. Shutdown cancela conexiones al vencer la gracia y espera
+  handlers/compensación antes de cerrar filesystem y SQL. Un fsync del kernel
+  no interrumpible puede prolongar esa espera; no se afirma cierre limpio en ese caso.
+- **Regresión encontrada durante esta acción:** limpiar deadlines al retornar
+  el handler dejaba sin plazo el drenaje posterior de un body HTTP incompleto.
+  El test nuevo reprodujo FAIL y pasó al conservar deadlines durante flush/drain.
+  La evidencia externa conserva ambas ejecuciones, sin ocultar la primera.
+- **Validación final local:** Go 1.24.4, GOMAXPROCS=2, GOTOOLCHAIN=local,
+  GOFLAGS=-p=1, GOPROXY=off. 1042 PASS (162 tests principales + 880 subtests),
+  0 FAIL, 0 SKIP; cobertura de sentencias 88,1 %. gofmt, go vet -p 1 ./...,
+  make check (incluye race ./..., build, 25 Python, Nova, Terraform/Ansible y
+  documentación/evidencias), go mod verify y build explícito terminaron en 0.
+  La cobertura no acredita integración real ni durabilidad.
+- **Filesystem real temporal:** reapertura de componentes, .part/.ready/.blob,
+  corrupción/ausencia, tombstones y limpieza idempotente. Test de flock entre
+  procesos propios temporales. Recorrido POST/PUT/GET/PATCH/DELETE usa SQL doble
+  y adaptador Keystone contra un fixture HTTP: no es Keystone real.
+- **Preparado, NO EJECUTADO:** TestB25MySQLVersionedUpgrade,
+  TestB25MySQLConcurrentFences y TestB25MySQLFilesystemHTTP. Compilación con tag
+  integration y run vacío aprobada, sin ejecutar casos. Cada suite requiere su
+  nuevo esquema independiente y autorización posterior; la última exige además
+  runtime separado y root propio. Auth simulada se etiqueta; modo Keystone real
+  exige credencial/token preexistentes autorizados y nunca hace fallback a fake.
+- **Límites:** 000/001/002, store y código MySQL previo intactos. Sin VM,
+  contenedores, servicios reales, DDL/DML de laboratorio, cuentas/grants,
+  benchmarks, Nova o Git de escritura. Sin prueba de proceso terminado durante
+  transferencia, reinicio MySQL B25 o pérdida de energía. No se declara B25
+  completo. Binding no distingue generaciones recreadas del mismo esquema en
+  el mismo server_uuid; requiere gestión humana conjunta SQL/store y primario
+  directo. Guía reproducible: docs/glance/b25-operations.md.
+
+## 2026-10-29 — B26, N2: autenticación compuesta acotada
+
+- **Implementado:** validación independiente del token entrante de servicio y
+  del usuario, preservando la identidad y roles originales del usuario. El
+  servicio requiere rol service, proyecto igual al validador y vigencia normal;
+  su rol admin no se delega. La credencial propia sigue sin admitir admin.
+- **Contrato leído:** Nova fijado 247ea5d y keystonemiddleware del laboratorio;
+  Keystone api/auth.py y token/provider.py confirman allow_expired=true con la
+  ventana del servidor y comprobación de revocaciones. No hay ventana local
+  codificada. Sólo tras validar el servicio se solicita esa validación de usuario.
+- **Seguridad:** duplicados, vacíos y listas de tokens se rechazan; identidades
+  cliente no se cachean. Restricciones bind/access_rules no implementadas fallan
+  cerrado. Sin cambios de observabilidad, SQL, store, endpoints o servicios.
+- **Validación dirigida:** 326 resultados PASS, incluidos 72 de los tests y
+  subtests nuevos; go test -p 1 -count=1 -json ./internal/auth
+  ./internal/glance/api y go vet -p 1 ./... terminaron en 0 con Go local,
+  GOMAXPROCS=2 y GOPROXY=off. Evidencia y códigos de salida fuera del repositorio
+  en b26-n2-composite-20261028a. Ver contrato en docs/glance/composite-auth.md.
+- **Regresión general:** make check terminó en 0; incluye formato, documentación
+  y evidencia histórica, 25 pruebas Python, pin Nova, sintaxis Terraform/Ansible,
+  vet Go, tests de todos los paquetes con race detector y compilación. go mod
+  verify terminó en 0. No se ejecutó ninguna suite opt-in de infraestructura.
+- **Límites:** servidores Keystone de protocolo locales y repositorios dobles;
+  no valida autenticación compuesta contra Keystone real, MySQL real, cliente
+  Nova contra Go ni arranque de Ubuntu. N3–N7 no ejecutados en esta acción.
+
+### 2026-10-29 — Revisión final de las aserciones HTTP N2
+
+- Se sustituye la comparación de referencias compartidas por una instantánea
+  JSON independiente de todos los valores de Image antes de la solicitud. El
+  fixture incluye nombre no nulo, tags y propiedades para ejercitar aliasing.
+- PATCH autorizado exige persistir el nombre y updated_at, conservar los demás
+  metadatos y reflejar el cambio tanto en la respuesta como en un GET posterior.
+  DELETE exige marcar el borrado, respuesta vacía, GET 404 y exclusión del listado.
+- Cinco fallos inyectados sólo en copias externas del doble de repositorio
+  (puntero, mapa, slice, PATCH sin efecto y DELETE sin efecto) fueron detectados
+  por las aserciones esperadas; cada ejecución negativa terminó en 1. No se
+  modificó el doble original ni código productivo para esas inyecciones.
+- Pruebas dirigidas y dirigidas con race terminaron en 0, con paralelismo 1 y
+  GOMAXPROCS=2. Logs y códigos de la revisión en b26-n2-final-review-20261029a,
+  separados de la evidencia N2 previa. Sin cambios de semántica productiva,
+  infraestructura, servicios ni avance a N3. No acredita integración real.
+
+## 2026-10-29 — Resolución local de conflictos PR #5
+
+- **Base:** merge iniciado por el usuario entre `feat/glance-b25` (`aa6e466`)
+  y main de Paolo (`0279987`), con base común `d0d1b32`. No se inició ni se
+  finalizó el merge en esta revisión.
+- **Resolución:** README conserva el estado de Glance B25 y Placement B07.
+  El loader compartido conserva los namespaces y defaults de ambos servicios;
+  Glance mantiene `store-scope`/`store-init` y su política binaria, mientras
+  Placement sólo acepta `serve`/`migrate` y no consulta variables `GLANCE_GO_*`.
+  Se conservaron el código, pruebas, documentación y evidencia entrantes.
+- **Regresiones:** `internal/config/namespace_test.go` comprueba independencia
+  en ambos sentidos y rechazo temprano de comandos de store en Placement.
+  El paquete config aprobó 82 resultados de tests/subtests (9 tests principales).
+  Un overlay externo sin el aislamiento binario terminó en 1, como se esperaba;
+  los archivos productivos no se modificaron para esa ejecución negativa.
+- **Verificación:** `GOMAXPROCS=2 GOTOOLCHAIN=local GOFLAGS=-p=1 MAKEFLAGS=-j1
+  make check` terminó en 0: documentación, evidencia histórica, pruebas Python,
+  pin de Nova, formato/sintaxis de infraestructura, formato/vet Go, pruebas con
+  race detector y compilación de ambos servicios. Sin integración MySQL o
+  Keystone real ni operaciones sobre VM, contenedores o servicios.
+- **Git:** el índice y sus entradas no se modifican; los dos conflictos siguen
+  marcados `UU` hasta que el usuario revise y marque sus resoluciones.
+  No se ejecutaron staging, commits, push ni finalización del merge.
