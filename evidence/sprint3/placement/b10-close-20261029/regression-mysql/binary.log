@@ -1,0 +1,5 @@
+=== RUN   TestBinaryMySQLLifecycle
+    main_integration_test.go:222: PASS executable migrate, authenticated create, SIGTERM, restart and persistence; MySQL real, Keystone fixture
+--- PASS: TestBinaryMySQLLifecycle (0.87s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/cmd/placement	1.880s

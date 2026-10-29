@@ -36,7 +36,7 @@ su guía separa las regresiones locales de las verificaciones reales.
 La integración Nova y la comparación de rendimiento no se acreditan
 mediante los controles locales.
 
-## Placement Go — B07/B08/B09 priorizados
+## Placement Go — B07–B10 priorizados
 
 La [guía B07](docs/placement/b07-development.md) describe CRUD de providers,
 inventories con generation, esquema MySQL aislado y autenticación Keystone.
@@ -48,8 +48,9 @@ comparaciones estrictas, upgrade v3 y persistencia tras reinicio.
 [B09-A](docs/placement/b09-development.md) añade allocations atómicas, usages y
 capacidad restante, con **60/60** comparaciones estrictas. Default 1.0;
 el rango se limita a las rutas seleccionadas. El cierre B09 permite negociar hasta 1.36 en allocations e incorpora consumer generation,
-con **24/24** casos adicionales; el rango alto se limita a esas rutas hasta
-completar perfiles en B10. Candidates y cierre B11/B12 están en ejecución;
+con **24/24** casos adicionales. [B10](docs/placement/b10-development.md) incorpora
+candidates del perfil plano, con **44/44** comparaciones y las versiones del tracker
+verificadas por ruta. El cierre transversal B11/B12 está en ejecución;
 la integración Nova conserva sus tareas posteriores. La asociación positiva de aggregates
 se verificó en MySQL aislado, fuera de la comparación viva.
 [Alcance aceptado y límites](docs/placement/b07-acceptance.md).

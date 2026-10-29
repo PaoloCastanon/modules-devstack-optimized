@@ -95,7 +95,9 @@ func TestB08MySQLCatalogs(t *testing.T) {
 	}
 	r := mysql.New(app, 5*time.Second)
 	after, err := r.Inventories(ctx, p.UUID)
-	if err != nil || !reflect.DeepEqual(before, after) {
+	logicalAfter := after
+	logicalAfter.LastModified = time.Time{}
+	if err != nil || !reflect.DeepEqual(before, logicalAfter) {
 		t.Fatal("upgrade lost inventory or generation", after, err)
 	}
 	var source struct {

@@ -8,6 +8,10 @@ import (
 
 func allocationPermission(r *http.Request) string {
 	switch route(r.URL.Path) {
+	case "/allocation_candidates":
+		if r.Method == "GET" {
+			return "placement:allocation_candidates:list"
+		}
 	case "/allocations/{consumer}":
 		if action := map[string]string{"GET": "list", "PUT": "update", "DELETE": "delete"}[r.Method]; action != "" {
 			return "placement:allocations:" + action

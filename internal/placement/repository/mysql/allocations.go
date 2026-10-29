@@ -389,7 +389,7 @@ func replaceInventoryRows(ctx context.Context, tx *sql.Tx, id string, invs map[s
 	}
 	for _, class := range classes {
 		inv := invs[class]
-		if _, err := tx.ExecContext(ctx, "INSERT INTO inventories(provider_uuid,resource_class,total,reserved,min_unit,max_unit,step_size,allocation_ratio) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE total=VALUES(total),reserved=VALUES(reserved),min_unit=VALUES(min_unit),max_unit=VALUES(max_unit),step_size=VALUES(step_size),allocation_ratio=VALUES(allocation_ratio)", id, class, inv.Total, inv.Reserved, inv.MinUnit, inv.MaxUnit, inv.StepSize, inv.AllocationRatio); err != nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO inventories(provider_uuid,resource_class,total,reserved,min_unit,max_unit,step_size,allocation_ratio) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE total=VALUES(total),reserved=VALUES(reserved),min_unit=VALUES(min_unit),max_unit=VALUES(max_unit),step_size=VALUES(step_size),allocation_ratio=VALUES(allocation_ratio),updated_at=UTC_TIMESTAMP(6)", id, class, inv.Total, inv.Reserved, inv.MinUnit, inv.MaxUnit, inv.StepSize, inv.AllocationRatio); err != nil {
 			return err
 		}
 	}
@@ -400,8 +400,7 @@ func replaceInventoryRows(ctx context.Context, tx *sql.Tx, id string, invs map[s
 // to float would round 2^53+1 down and could admit one extra unit. Python's
 // int/float comparison preserves that distinction.
 func allocationExceedsCapacity(used int64, inv model.Inventory) bool {
-	capacity := float64(inv.Total-inv.Reserved) * inv.AllocationRatio
-	return capacity < math.Exp2(63) && (capacity < 0 || used > int64(capacity))
+	return model.ExceedsCapacity(used, inv)
 }
 
 func lockAllocationConsumer(ctx context.Context, tx *sql.Tx, id string, update model.AllocationUpdate) (int64, bool, error) {

@@ -64,10 +64,13 @@ func TestB09MySQLAllocations(t *testing.T) {
 	must(err)
 	_, err = old.EnsureTrait(ctx, "CUSTOM_B09_UPGRADE")
 	must(err)
-	traits, err := old.ReplaceTraits(ctx, p.UUID, 1, []string{"CUSTOM_B09_UPGRADE", "OWNER_NOVA"})
+	_, err = admin.ExecContext(ctx, "INSERT INTO resource_provider_traits(provider_uuid,trait_name) VALUES (?,'CUSTOM_B09_UPGRADE'),(?,'OWNER_NOVA')", p.UUID, p.UUID)
 	must(err)
-	before, err := old.Inventories(ctx, p.UUID)
+	_, err = admin.ExecContext(ctx, "UPDATE resource_providers SET generation=2 WHERE uuid=?", p.UUID)
 	must(err)
+	traits := model.TraitSet{Generation: 2, Traits: []string{"CUSTOM_B09_UPGRADE", "OWNER_NOVA"}}
+	before := model.Inventories{Generation: 2, Inventories: map[string]model.Inventory{"VCPU": {Total: 8, MinUnit: 1, MaxUnit: 8, StepSize: 1, AllocationRatio: 1}}}
+
 	if mysql.VerifySchema(ctx, admin) == nil {
 		t.Fatal("new runtime accepted v3")
 	}
@@ -81,7 +84,9 @@ func TestB09MySQLAllocations(t *testing.T) {
 	r := mysql.New(db, 5*time.Second)
 	after, err := r.Inventories(ctx, p.UUID)
 	must(err)
-	if !reflect.DeepEqual(before, after) {
+	logicalAfter := after
+	logicalAfter.LastModified = time.Time{}
+	if !reflect.DeepEqual(before, logicalAfter) {
 		t.Fatal("v3 upgrade lost inventory", before, after)
 	}
 	gotTraits, err := r.ProviderTraits(ctx, p.UUID)

@@ -24,3 +24,8 @@ type TraitSet struct {
 	Generation int64    `json:"resource_provider_generation"`
 	Traits     []string `json:"traits"`
 }
+
+type AggregateSet struct {
+	Generation int64    `json:"resource_provider_generation"`
+	Aggregates []string `json:"aggregates"`
+}

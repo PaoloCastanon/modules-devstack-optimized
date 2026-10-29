@@ -1,0 +1,5 @@
+=== RUN   TestB10MySQLCandidates
+    candidates_integration_test.go:144: PASS live MySQL candidates reflect usage/traits, and repeatable-read snapshots preserve generation/usage under concurrent writers
+--- PASS: TestB10MySQLCandidates (0.37s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/repository/mysql	1.391s

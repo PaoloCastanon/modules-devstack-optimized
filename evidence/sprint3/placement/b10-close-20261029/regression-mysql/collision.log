@@ -1,0 +1,5 @@
+=== RUN   TestV1CollisionStopsUpgrade
+    integration_test.go:352: PASS v1 preserved; colliding v2 upgrade remains dirty without deleting either provider
+--- PASS: TestV1CollisionStopsUpgrade (0.04s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/repository/mysql	1.051s

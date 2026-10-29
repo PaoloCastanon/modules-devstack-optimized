@@ -315,21 +315,7 @@ func (r *Repository) ReplaceAggregates(ctx context.Context, id string, names []s
 		if _, err := lockProvider(ctx, tx, id); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, "DELETE FROM resource_provider_aggregates WHERE provider_uuid=?", id); err != nil {
-			return err
-		}
-		seen := map[string]bool{}
-		for _, name := range names {
-			key := strings.ToLower(name)
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			if _, err := tx.ExecContext(ctx, "INSERT INTO resource_provider_aggregates(provider_uuid,aggregate_uuid) VALUES (?,?)", id, name); err != nil {
-				return err
-			}
-		}
-		return nil // 1.1–1.7 aggregates do not change generation.
+		return replaceAggregateRows(ctx, tx, id, names)
 	})
 	return append([]string{}, names...), err
 }
@@ -340,4 +326,56 @@ func (r *Repository) DeleteInventories(ctx context.Context, id string) error {
 	}
 	_, err = r.ReplaceInventories(ctx, id, p.Generation, map[string]model.Inventory{})
 	return err
+}
+
+func replaceAggregateRows(ctx context.Context, tx *sql.Tx, id string, names []string) error {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM resource_provider_aggregates WHERE provider_uuid=?", id); err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	for _, name := range names {
+		key := strings.ToLower(name)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		if _, err := tx.ExecContext(ctx, "INSERT INTO resource_provider_aggregates(provider_uuid,aggregate_uuid) VALUES (?,?)", id, name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (r *Repository) AggregateState(ctx context.Context, id string) (model.AggregateSet, error) {
+	snapshot, err := r.associationSnapshot(ctx, id, "SELECT aggregate_uuid FROM resource_provider_aggregates WHERE provider_uuid=? ORDER BY aggregate_uuid")
+	return model.AggregateSet{Generation: snapshot.Generation, Aggregates: snapshot.Traits}, err
+}
+func (r *Repository) ReplaceAggregatesGeneration(ctx context.Context, id string, generation int64, names []string) (model.AggregateSet, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	defer cancel()
+	out := model.AggregateSet{Aggregates: append([]string{}, names...), Generation: generation + 1}
+	err := r.transaction(ctx, func(tx *sql.Tx) error {
+		provider, err := lockProvider(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if provider.Generation != generation {
+			return repository.ErrConcurrent
+		}
+		if err = replaceAggregateRows(ctx, tx, id, names); err != nil {
+			return err
+		}
+		result, err := tx.ExecContext(ctx, "UPDATE resource_providers SET generation=generation+1 WHERE uuid=? AND generation=?", id, generation)
+		if err != nil {
+			return err
+		}
+		n, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if n != 1 {
+			return repository.ErrConcurrent
+		}
+		return nil
+	})
+	return out, err
 }
