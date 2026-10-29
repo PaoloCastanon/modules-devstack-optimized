@@ -322,13 +322,21 @@ HTTP ni crea goroutines propias. Cada solicitud en espera puede cancelar su cont
 Si quien renueva falla o vence, quienes esperaban reciben ese fallo; una petición
 posterior puede renovar de nuevo. Las identidades cliente nunca se comparten.
 No se siguen redirects que puedan reenviar secretos.
-Se rechazan tokens vencidos o malformados, scope sin proyecto y respuestas inválidas.
+En autenticación simple se rechazan tokens vencidos o malformados, scope sin
+proyecto y respuestas inválidas.
 Un 404 de validación significa token inválido; un 401 del validador renueva el token
 del servicio una sola vez. Errores de configuración/red/servidor producen 503 y no
 permiten acceso. No se confía en X-Roles, X-User-Id ni X-Project-Id del cliente.
-X-Service-Token se rechaza explícitamente en A, pendiente de semántica compuesta.
+N2 añade validación independiente de X-Service-Token cuando está presente, sin
+transferir sus roles al usuario. El servicio debe tener rol service, un token
+vigente y el mismo proyecto que la credencial validadora de Go. El usuario puede
+pertenecer a otro proyecto. La excepción para un usuario vencido depende de una
+validación nueva de Keystone con allow_expired=true, nunca de un plazo local ni
+de omitir la revocación. Ver [contrato N2](composite-auth.md), incluidos sus límites
+y las pruebas operativas todavía pendientes.
 
-HTTP sin token/incorrecto/vencido produce 401; identidad sin proyecto o permiso 403;
+HTTP sin token/incorrecto/vencido sin delegación válida produce 401;
+identidad sin proyecto o permiso produce 403;
 imagen privada/shared de otro proyecto produce 404. Crear requiere member o admin;
 publicar requiere admin. Consultar requiere reader o admin y acceso por propietario
 o visibilidad public/community. Se utilizan los roles efectivos del token Keystone,

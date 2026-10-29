@@ -114,19 +114,28 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 			h.failure(w, auth.ErrInvalidToken)
 			return
 		}
-		identity, err := h.auth.Authenticate(r.Context(), values[0])
+		var identity auth.Identity
+		serviceTokens := r.Header.Values("X-Service-Token")
+		if len(serviceTokens) != 0 {
+			if len(serviceTokens) != 1 || strings.TrimSpace(serviceTokens[0]) == "" {
+				h.failure(w, auth.ErrInvalidToken)
+				return
+			}
+			composite, ok := h.auth.(auth.CompositeAuthenticator)
+			if !ok {
+				h.failure(w, auth.ErrForbidden)
+				return
+			}
+			identity, err = composite.AuthenticateComposite(r.Context(), values[0], serviceTokens[0])
+		} else {
+			identity, err = h.auth.Authenticate(r.Context(), values[0])
+		}
 		if err != nil {
 			h.failure(w, err)
 			return
 		}
 		if err := identity.Check(time.Now()); err != nil {
 			h.failure(w, err)
-			return
-		}
-		// Do not silently accept composite service authentication before its
-		// additional semantics have been implemented and verified for Nova.
-		if len(r.Header.Values("X-Service-Token")) != 0 {
-			h.failure(w, model.Fail(model.Forbidden, "Service-token composite authentication is not supported in delivery A."))
 			return
 		}
 		mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), identityKey{}, identity)))

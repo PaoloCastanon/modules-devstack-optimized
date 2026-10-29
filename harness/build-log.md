@@ -199,3 +199,46 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   completo. Binding no distingue generaciones recreadas del mismo esquema en
   el mismo server_uuid; requiere gestión humana conjunta SQL/store y primario
   directo. Guía reproducible: docs/glance/b25-operations.md.
+
+## 2026-10-29 — B26, N2: autenticación compuesta acotada
+
+- **Implementado:** validación independiente del token entrante de servicio y
+  del usuario, preservando la identidad y roles originales del usuario. El
+  servicio requiere rol service, proyecto igual al validador y vigencia normal;
+  su rol admin no se delega. La credencial propia sigue sin admitir admin.
+- **Contrato leído:** Nova fijado 247ea5d y keystonemiddleware del laboratorio;
+  Keystone api/auth.py y token/provider.py confirman allow_expired=true con la
+  ventana del servidor y comprobación de revocaciones. No hay ventana local
+  codificada. Sólo tras validar el servicio se solicita esa validación de usuario.
+- **Seguridad:** duplicados, vacíos y listas de tokens se rechazan; identidades
+  cliente no se cachean. Restricciones bind/access_rules no implementadas fallan
+  cerrado. Sin cambios de observabilidad, SQL, store, endpoints o servicios.
+- **Validación dirigida:** 326 resultados PASS, incluidos 72 de los tests y
+  subtests nuevos; go test -p 1 -count=1 -json ./internal/auth
+  ./internal/glance/api y go vet -p 1 ./... terminaron en 0 con Go local,
+  GOMAXPROCS=2 y GOPROXY=off. Evidencia y códigos de salida fuera del repositorio
+  en b26-n2-composite-20261028a. Ver contrato en docs/glance/composite-auth.md.
+- **Regresión general:** make check terminó en 0; incluye formato, documentación
+  y evidencia histórica, 25 pruebas Python, pin Nova, sintaxis Terraform/Ansible,
+  vet Go, tests de todos los paquetes con race detector y compilación. go mod
+  verify terminó en 0. No se ejecutó ninguna suite opt-in de infraestructura.
+- **Límites:** servidores Keystone de protocolo locales y repositorios dobles;
+  no valida autenticación compuesta contra Keystone real, MySQL real, cliente
+  Nova contra Go ni arranque de Ubuntu. N3–N7 no ejecutados en esta acción.
+
+### 2026-10-29 — Revisión final de las aserciones HTTP N2
+
+- Se sustituye la comparación de referencias compartidas por una instantánea
+  JSON independiente de todos los valores de Image antes de la solicitud. El
+  fixture incluye nombre no nulo, tags y propiedades para ejercitar aliasing.
+- PATCH autorizado exige persistir el nombre y updated_at, conservar los demás
+  metadatos y reflejar el cambio tanto en la respuesta como en un GET posterior.
+  DELETE exige marcar el borrado, respuesta vacía, GET 404 y exclusión del listado.
+- Cinco fallos inyectados sólo en copias externas del doble de repositorio
+  (puntero, mapa, slice, PATCH sin efecto y DELETE sin efecto) fueron detectados
+  por las aserciones esperadas; cada ejecución negativa terminó en 1. No se
+  modificó el doble original ni código productivo para esas inyecciones.
+- Pruebas dirigidas y dirigidas con race terminaron en 0, con paralelismo 1 y
+  GOMAXPROCS=2. Logs y códigos de la revisión en b26-n2-final-review-20261029a,
+  separados de la evidencia N2 previa. Sin cambios de semántica productiva,
+  infraestructura, servicios ni avance a N3. No acredita integración real.
