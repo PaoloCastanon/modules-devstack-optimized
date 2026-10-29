@@ -1,0 +1,291 @@
+{
+  "allocations_1_0": {
+    "type": "object",
+    "properties": {
+      "allocations": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "resource_provider": {
+              "type": "object",
+              "properties": {
+                "uuid": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "uuid"
+              ]
+            },
+            "resources": {
+              "type": "object",
+              "minProperties": 1,
+              "patternProperties": {
+                "^[A-Z0-9_]+$": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "resource_provider",
+            "resources"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "allocations"
+    ],
+    "additionalProperties": false
+  },
+  "allocations_1_8": {
+    "type": "object",
+    "properties": {
+      "allocations": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "resource_provider": {
+              "type": "object",
+              "properties": {
+                "uuid": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "uuid"
+              ]
+            },
+            "resources": {
+              "type": "object",
+              "minProperties": 1,
+              "patternProperties": {
+                "^[A-Z0-9_]+$": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "resource_provider",
+            "resources"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "project_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "user_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      }
+    },
+    "required": [
+      "allocations",
+      "project_id",
+      "user_id"
+    ],
+    "additionalProperties": false
+  },
+  "allocations_1_12": {
+    "type": "object",
+    "properties": {
+      "allocations": {
+        "type": "object",
+        "minProperties": 1,
+        "patternProperties": {
+          "^[0-9a-fA-F-]{36}$": {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "integer"
+              },
+              "resources": {
+                "type": "object",
+                "minProperties": 1,
+                "patternProperties": {
+                  "^[A-Z0-9_]+$": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "resources"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "project_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "user_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      }
+    },
+    "additionalProperties": false,
+    "required": [
+      "allocations",
+      "project_id",
+      "user_id"
+    ]
+  },
+  "allocations_1_28": {
+    "type": "object",
+    "properties": {
+      "allocations": {
+        "type": "object",
+        "minProperties": 0,
+        "patternProperties": {
+          "^[0-9a-fA-F-]{36}$": {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "integer"
+              },
+              "resources": {
+                "type": "object",
+                "minProperties": 1,
+                "patternProperties": {
+                  "^[A-Z0-9_]+$": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "resources"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "project_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "user_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "consumer_generation": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "additionalProperties": false,
+    "required": [
+      "allocations",
+      "project_id",
+      "user_id",
+      "consumer_generation"
+    ]
+  },
+  "allocations_1_34": {
+    "type": "object",
+    "properties": {
+      "allocations": {
+        "type": "object",
+        "minProperties": 0,
+        "patternProperties": {
+          "^[0-9a-fA-F-]{36}$": {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "integer"
+              },
+              "resources": {
+                "type": "object",
+                "minProperties": 1,
+                "patternProperties": {
+                  "^[A-Z0-9_]+$": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "resources"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "project_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "user_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "consumer_generation": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "additionalProperties": false
+      },
+      "mappings": {
+        "type": "object",
+        "minProperties": 1,
+        "patternProperties": {
+          "[a-zA-Z0-9_-]{1,64}": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      }
+    },
+    "additionalProperties": false,
+    "required": [
+      "allocations",
+      "project_id",
+      "user_id",
+      "consumer_generation"
+    ]
+  }
+}

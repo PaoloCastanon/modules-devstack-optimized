@@ -29,9 +29,18 @@ protegidos y generation. Las rutas seleccionadas incorporan los cambios 1.1–1.
 reinicio y limpieza comprobados. [Evidencia B08](evidence/sprint3/placement/b08-close-20261029/README.md).
 La asociación positiva de aggregates sólo se verificó en MySQL aislado.
 
-**Siguiente:** B09 allocations, después B10 candidates. B11/B12 requieren cierre
+**B09 completado para las rutas priorizadas:** [entrega A](docs/placement/b09-development.md) implementa
+allocations atómicas, consultas por consumer/provider, usages y capacidad restante,
+con migración v4. **60/60** casos vivos, B07 **57/57** y B08 **82/82**; rollback,
+concurrencia y reinicio verificados. El [cierre B09](evidence/sprint3/placement/b09-close-20261029/README.md) añade
+formato 1.12, generación 1.28 y mappings 1.34 para PUT 1.36: **24/24** casos
+modernos estrictos. El rango alto se limita a allocations hasta ampliar los
+perfiles del resource tracker en B10.
+[Evidencia B09-A](evidence/sprint3/placement/b09a-20261029/README.md).
+
+**En ejecución por solicitud del usuario:** B10 candidates y cierre B11/B12. B11/B12 requieren cierre
 transversal. El alcance sigue siendo el subconjunto para Nova; no se acredita
-sustitución Nova, toda la API 1.7 ni se cambia el Excel histórico.
+sustitución Nova, toda la API 1.8 ni se cambia el Excel histórico.
 
 El [plan Placement B07–B15](docs/placement/implementation-plan.md) conserva el
 orden. Los resultados anteriores de 27/38 y ocho diferencias pendientes describen

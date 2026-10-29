@@ -36,7 +36,7 @@ su guía separa las regresiones locales de las verificaciones reales.
 La integración Nova y la comparación de rendimiento no se acreditan
 mediante los controles locales.
 
-## Placement Go — B07 y B08
+## Placement Go — B07/B08/B09 priorizados
 
 La [guía B07](docs/placement/b07-development.md) describe CRUD de providers,
 inventories con generation, esquema MySQL aislado y autenticación Keystone.
@@ -44,9 +44,13 @@ Incluye fixtures S2, suites opt-in con MySQL real y [campaña de cierre](evidenc
 **57/57** respuestas estrictas, status y estados coinciden con Placement Python
 y Keystone reales. [B08](docs/placement/b08-development.md) añade catálogos estándar
 y CUSTOM, traits por provider y cambios seleccionados 1.1–1.7: **82/82**
-comparaciones estrictas, upgrade v3 y persistencia tras reinicio. Default 1.0,
-latest 1.7; el rango se limita a las rutas implementadas. Allocations, candidates
-e integración Nova continúan pendientes. La asociación positiva de aggregates
+comparaciones estrictas, upgrade v3 y persistencia tras reinicio.
+[B09-A](docs/placement/b09-development.md) añade allocations atómicas, usages y
+capacidad restante, con **60/60** comparaciones estrictas. Default 1.0;
+el rango se limita a las rutas seleccionadas. El cierre B09 permite negociar hasta 1.36 en allocations e incorpora consumer generation,
+con **24/24** casos adicionales; el rango alto se limita a esas rutas hasta
+completar perfiles en B10. Candidates y cierre B11/B12 están en ejecución;
+la integración Nova conserva sus tareas posteriores. La asociación positiva de aggregates
 se verificó en MySQL aislado, fuera de la comparación viva.
 [Alcance aceptado y límites](docs/placement/b07-acceptance.md).
 `make placement-build` compila el ejecutable; `make check` verifica ambos módulos

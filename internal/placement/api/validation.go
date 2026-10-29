@@ -23,6 +23,9 @@ var schemaJSON []byte
 //go:embed schemas/b08.json
 var b08SchemaJSON []byte
 
+//go:embed schemas/b09.json
+var b09SchemaJSON []byte
+
 var requestSchemas = func() jsonObject {
 	value, err := orderedJSON(schemaJSON)
 	if err != nil {
@@ -32,7 +35,11 @@ var requestSchemas = func() jsonObject {
 	if err != nil {
 		panic("invalid embedded B08 schemas")
 	}
-	return append(value.(jsonObject), extra.(jsonObject)...)
+	b09, err := orderedJSON(b09SchemaJSON)
+	if err != nil {
+		panic("invalid embedded B09 schemas")
+	}
+	return append(append(value.(jsonObject), extra.(jsonObject)...), b09.(jsonObject)...)
 }()
 
 type schemaViolation struct {
@@ -122,23 +129,39 @@ func schemaViolations(value any, schema jsonObject, sp, ip []any, strictUUID boo
 	for _, rule := range schema {
 		switch rule.key {
 		case "type":
-			typ := rule.value.(string)
+			types := []string{}
+			if typ, ok := rule.value.(string); ok {
+				types = append(types, typ)
+			} else {
+				for _, typ := range rule.value.([]any) {
+					types = append(types, typ.(string))
+				}
+			}
 			valid := false
-			switch typ {
-			case "object":
-				valid = isObject
-			case "array":
-				valid = isArray
-			case "string":
-				valid = isString
-			case "integer":
-				valid = isNumber && mathematicalInteger(number)
-			case "number":
-				valid = isNumber
+			for _, typ := range types {
+				switch typ {
+				case "object":
+					valid = valid || isObject
+				case "array":
+					valid = valid || isArray
+				case "string":
+					valid = valid || isString
+				case "integer":
+					valid = valid || (isNumber && mathematicalInteger(number))
+				case "number":
+					valid = valid || isNumber
+				case "null":
+					valid = valid || value == nil
+				}
 			}
 			if !valid {
-				fail("type", pythonRepr(value)+" is not of type "+pythonString(typ))
+				names := []string{}
+				for _, typ := range types {
+					names = append(names, pythonString(typ))
+				}
+				fail("type", pythonRepr(value)+" is not of type "+strings.Join(names, ", "))
 			}
+
 		case "items":
 			if isArray {
 				for index, item := range array {
@@ -156,6 +179,16 @@ func schemaViolations(value any, schema jsonObject, sp, ip []any, strictUUID boo
 					}
 					seen[string(key)] = true
 				}
+			}
+		case "minItems":
+			limit, _ := strconv.Atoi(string(rule.value.(json.Number)))
+			if isArray && len(array) < limit {
+				fail("minItems", pythonRepr(value)+" should be non-empty")
+			}
+		case "minProperties":
+			limit, _ := strconv.Atoi(string(rule.value.(json.Number)))
+			if isObject && len(object) < limit {
+				fail("minProperties", pythonRepr(value)+" should be non-empty")
 			}
 		case "minLength":
 			limit, _ := strconv.Atoi(string(rule.value.(json.Number)))
@@ -234,6 +267,17 @@ func schemaViolations(value any, schema jsonObject, sp, ip []any, strictUUID boo
 			var extra []string
 			for _, member := range object {
 				if _, exists := properties.get(member.key); !exists {
+					patterns, _ := schema.field("patternProperties").(jsonObject)
+					matches := false
+					for _, pattern := range patterns {
+						if regexp.MustCompile(pattern.key).MatchString(member.key) {
+							matches = true
+							break
+						}
+					}
+					if matches {
+						continue
+					}
 					extra = append(extra, member.key)
 				}
 			}
@@ -241,6 +285,19 @@ func schemaViolations(value any, schema jsonObject, sp, ip []any, strictUUID boo
 				sort.Strings(extra)
 				for i, key := range extra {
 					extra[i] = pythonString(key)
+				}
+				if patterns, ok := schema.field("patternProperties").(jsonObject); ok {
+					names := []string{}
+					for _, p := range patterns {
+						names = append(names, pythonString(p.key))
+					}
+					sort.Strings(names)
+					verb := "does"
+					if len(extra) > 1 {
+						verb = "do"
+					}
+					fail("additionalProperties", strings.Join(extra, ", ")+" "+verb+" not match any of the regexes: "+strings.Join(names, ", "))
+					continue
 				}
 				verb := "was"
 				if len(extra) > 1 {

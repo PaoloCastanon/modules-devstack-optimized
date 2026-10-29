@@ -91,8 +91,8 @@ func (r *Repository) List(ctx context.Context, f model.Filter) ([]model.Provider
 	sort.Strings(classes)
 	for _, name := range classes {
 		amount := f.Resources[name]
-		// B08 has no allocations. B09 must subtract usage before enabling claims.
-		predicates = append(predicates, "EXISTS(SELECT 1 FROM inventories i WHERE i.provider_uuid=resource_providers.uuid AND i.resource_class=? AND (i.total-i.reserved)*i.allocation_ratio>=? AND i.min_unit<=? AND i.max_unit>=? AND MOD(?,i.step_size)=0)")
+		// Reserve only the remaining capacity after all committed allocations.
+		predicates = append(predicates, "EXISTS(SELECT 1 FROM inventories i WHERE i.provider_uuid=resource_providers.uuid AND i.resource_class=? AND (i.total-i.reserved)*i.allocation_ratio-COALESCE((SELECT SUM(u.used) FROM allocations u WHERE u.provider_uuid=i.provider_uuid AND u.resource_class=i.resource_class),0)>=? AND i.min_unit<=? AND i.max_unit>=? AND MOD(?,i.step_size)=0)")
 		args = append(args, name, amount, amount, amount, amount)
 	}
 	if len(predicates) > 0 {
@@ -154,6 +154,13 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 	return r.transaction(ctx, func(tx *sql.Tx) error {
 		if _, err := lockProvider(ctx, tx, id); err != nil {
 			return err
+		}
+		var used bool
+		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM allocations WHERE provider_uuid=?)", id).Scan(&used); err != nil {
+			return err
+		}
+		if used {
+			return repository.ErrProviderInUse
 		}
 		_, err := tx.ExecContext(ctx, "DELETE FROM resource_providers WHERE uuid=?", id)
 		return err
@@ -221,21 +228,10 @@ func (r *Repository) ReplaceInventories(ctx context.Context, id string, generati
 		if n != 1 {
 			return repository.ErrConcurrent
 		}
-		if _, err = tx.ExecContext(ctx, "DELETE FROM inventories WHERE provider_uuid=?", id); err != nil {
+		if err := inventoryRemovalCheck(ctx, tx, id, invs); err != nil {
 			return err
 		}
-		classes := make([]string, 0, len(invs))
-		for class := range invs {
-			classes = append(classes, class)
-		}
-		sort.Strings(classes)
-		for _, class := range classes {
-			inv := invs[class]
-			if _, err = tx.ExecContext(ctx, "INSERT INTO inventories (provider_uuid,resource_class,total,reserved,min_unit,max_unit,step_size,allocation_ratio) VALUES (?,?,?,?,?,?,?,?)", id, class, inv.Total, inv.Reserved, inv.MinUnit, inv.MaxUnit, inv.StepSize, inv.AllocationRatio); err != nil {
-				return err
-			}
-		}
-		return nil
+		return replaceInventoryRows(ctx, tx, id, invs)
 	})
 	if err != nil {
 		return model.Inventories{}, err
