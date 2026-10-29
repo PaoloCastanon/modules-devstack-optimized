@@ -29,6 +29,16 @@ func translate(err error) error {
 	if errors.As(err, &my) {
 		switch my.Number {
 		case 1062:
+			_, key, ok := strings.Cut(my.Message, "for key ")
+			if ok {
+				key = strings.Trim(key, "'` ")
+				if key == "PRIMARY" || strings.HasSuffix(key, ".PRIMARY") {
+					return repository.ErrDuplicateUUID
+				}
+				if key == "name" || strings.HasSuffix(key, ".name") {
+					return repository.ErrDuplicateName
+				}
+			}
 			return repository.ErrDuplicate
 		case 1213, 1205:
 			return repository.ErrConcurrent
@@ -144,7 +154,9 @@ func (r *Repository) Inventories(ctx context.Context, id string) (model.Inventor
 	if err = tx.QueryRowContext(ctx, "SELECT generation FROM resource_providers WHERE uuid=?", id).Scan(&result.Generation); err != nil {
 		return result, translate(err)
 	}
-	rows, err := tx.QueryContext(ctx, "SELECT resource_class,total,reserved,min_unit,max_unit,step_size,allocation_ratio FROM inventories WHERE provider_uuid=? ORDER BY resource_class", id)
+	// Match MySQL's text FLOAT representation used by the original Python driver.
+	// Parameter values remain bound; CAST does not interpolate SQL.
+	rows, err := tx.QueryContext(ctx, "SELECT resource_class,total,reserved,min_unit,max_unit,step_size,CAST(allocation_ratio AS CHAR) FROM inventories WHERE provider_uuid=? ORDER BY resource_class", id)
 	if err != nil {
 		return result, err
 	}

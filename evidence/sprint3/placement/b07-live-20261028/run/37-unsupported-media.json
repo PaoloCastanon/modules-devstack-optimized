@@ -1,0 +1,131 @@
+{
+  "name": "unsupported-media",
+  "provider_uuid": "296c8abd-6b47-4bc6-9cfc-cb103ee4f119",
+  "request": {
+    "method": "POST",
+    "path": "/resource_providers",
+    "body": {
+      "uuid": "296c8abd-6b47-4bc6-9cfc-cb103ee4f119",
+      "name": "tt-b07-diff-296c8abd-6b47-4bc6-9cfc-cb103ee4f119"
+    },
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0",
+      "Content-Type": "text/plain"
+    },
+    "body_text": "{\"uuid\": \"296c8abd-6b47-4bc6-9cfc-cb103ee4f119\", \"name\": \"tt-b07-diff-296c8abd-6b47-4bc6-9cfc-cb103ee4f119\"}",
+    "auth_role": "admin"
+  },
+  "seed": {},
+  "before": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found  \", \"request_id\": \"req-ac42e186-eae6-4ad8-b599-abde75241bdd\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found : No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found  \", \"request_id\": \"req-1001b16d-4e25-4c82-b1bc-23480faa31b7\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found  \",\"request_id\":\"req-be6470d4-8c8e-45db-8e82-88b4636ff44c\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found : No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found  \",\"request_id\":\"req-f0074008-840c-4f7f-8a07-21f8fa50fe16\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 415,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"errors\": [{\"status\": 415, \"title\": \"Unsupported Media Type\", \"detail\": \"The request media type text/plain is not supported by this server. \\n\\n The media type text/plain is not supported, use application/json\", \"request_id\": \"req-58546481-6b55-4895-b42e-dbee8c6217be\"}]}"
+    },
+    "go": {
+      "status": 415,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"errors\":[{\"detail\":\"Expected Content-Type application/json.\",\"request_id\":\"req-79bd763b-4f3b-40b8-9252-ec4919d12777\",\"status\":415,\"title\":\"Unsupported Media Type\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found  \", \"request_id\": \"req-51a34a74-4cd4-4fc2-bf7d-8da1888fbc14\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found : No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found  \", \"request_id\": \"req-426af4ab-9ee3-4988-a741-30443e51ede0\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found  \",\"request_id\":\"req-7908fb39-6c0f-4b47-9cb6-8fbcae5055f5\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found : No resource provider with uuid 296c8abd-6b47-4bc6-9cfc-cb103ee4f119 found  \",\"request_id\":\"req-359949bb-e7c3-4c71-af6a-e8044ef50657\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "differences": [
+    {
+      "path": "$.response.body.errors[0].detail",
+      "reason": "value",
+      "python": "The request media type text/plain is not supported by this server. \n\n The media type text/plain is not supported, use application/json",
+      "go": "Expected Content-Type application/json."
+    }
+  ],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": false
+}

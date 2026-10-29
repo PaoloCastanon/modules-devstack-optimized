@@ -1,0 +1,147 @@
+{
+  "name": "inventories-empty",
+  "provider_uuid": "d9e6872e-62d9-4826-add2-63844ca3d2fd",
+  "request": {
+    "method": "GET",
+    "path": "/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd/inventories",
+    "body": null,
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0"
+    },
+    "body_text": null,
+    "auth_role": "admin"
+  },
+  "seed": {
+    "python": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version",
+          "location": "http://192.168.122.10/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd"
+        },
+        "body_text": ""
+      }
+    ],
+    "go": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version",
+          "location": "http://127.0.0.1:34669/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd"
+        },
+        "body_text": ""
+      }
+    ]
+  },
+  "before": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"d9e6872e-62d9-4826-add2-63844ca3d2fd\", \"name\": \"tt-b07-diff-d9e6872e-62d9-4826-add2-63844ca3d2fd\", \"generation\": 0, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 0, \"inventories\": {}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":0,\"links\":[{\"href\":\"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-d9e6872e-62d9-4826-add2-63844ca3d2fd\",\"uuid\":\"d9e6872e-62d9-4826-add2-63844ca3d2fd\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":0,\"inventories\":{}}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"resource_provider_generation\": 0, \"inventories\": {}}"
+    },
+    "go": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"resource_provider_generation\":0,\"inventories\":{}}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"d9e6872e-62d9-4826-add2-63844ca3d2fd\", \"name\": \"tt-b07-diff-d9e6872e-62d9-4826-add2-63844ca3d2fd\", \"generation\": 0, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 0, \"inventories\": {}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":0,\"links\":[{\"href\":\"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/d9e6872e-62d9-4826-add2-63844ca3d2fd/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-d9e6872e-62d9-4826-add2-63844ca3d2fd\",\"uuid\":\"d9e6872e-62d9-4826-add2-63844ca3d2fd\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":0,\"inventories\":{}}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}

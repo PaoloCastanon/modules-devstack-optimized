@@ -5,8 +5,10 @@ package mysql_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -114,6 +116,17 @@ func TestB07MySQLHTTP(t *testing.T) {
 	if err != nil || renamed.Generation != 2 {
 		t.Fatal("rename generation", renamed, err)
 	}
+	// Match the deployed utf8mb3_general_ci equality, including PAD SPACE.
+	for _, name := range []string{"RENAMED", "renamed "} {
+		values, err := r.List(ctx, model.Filter{Name: &name})
+		if err != nil || len(values) != 1 || values[0].UUID != p.UUID {
+			t.Fatal("name collation", name, err)
+		}
+	}
+	duplicate, _ := model.NewProvider("RENAMED", "")
+	if err = r.Create(ctx, duplicate); !errors.Is(err, repository.ErrDuplicate) {
+		t.Fatal("case-insensitive uniqueness", err)
+	}
 	oldID := p.UUID
 	p, _ = model.NewProvider("other", "")
 	if err = r.Create(ctx, p); err != nil {
@@ -126,6 +139,17 @@ func TestB07MySQLHTTP(t *testing.T) {
 	listed, err := r.List(ctx, model.Filter{Name: &name})
 	if err != nil || len(listed) != 1 || listed[0].UUID != oldID {
 		t.Fatal("list", err)
+	}
+	// The Python driver reads MySQL FLOAT's text representation. Binary FLOAT
+	// retrieval differs; the adapter must preserve the observed API value exactly.
+	precise := inv
+	precise.AllocationRatio = 1.23456789
+	if _, err = r.ReplaceInventories(ctx, p.UUID, 0, map[string]model.Inventory{"VCPU": precise}); err != nil {
+		t.Fatal(err)
+	}
+	roundTrip, err := r.Inventories(ctx, p.UUID)
+	if err != nil || roundTrip.Inventories["VCPU"].AllocationRatio != 1.23457 {
+		t.Fatal("FLOAT text precision", roundTrip, err)
 	}
 	// New pool, same persistent database. This is not a MySQL server restart.
 	if err = db.Close(); err != nil {
@@ -237,4 +261,71 @@ func TestB07MySQLHTTP(t *testing.T) {
 		t.Fatal("dirty schema automatically cleared")
 	}
 	t.Log("PASS real MySQL 8.0.46; Keystone is an HTTP fixture; dirty disposable schema retained")
+}
+
+// A separate NEW EMPTY schema is required. v1 can contain names that collide
+// under the measured collation; upgrading must stop dirty without deleting data.
+func TestV1CollisionStopsUpgrade(t *testing.T) {
+	if os.Getenv("PLACEMENT_GO_MYSQL_TEST") != "1" {
+		t.Fatal("explicit disposable MySQL opt-in required")
+	}
+	db, err := mysql.Open(secret(t, "PLACEMENT_GO_TEST_MIGRATE_DSN_FILE"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if err = mysql.CheckAccount(ctx, db, "migrate"); err != nil {
+		t.Fatal(err)
+	}
+	var tables int
+	if err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()").Scan(&tables); err != nil || tables != 0 {
+		t.Fatal("NEW EMPTY schema required", err)
+	}
+	history, err := os.ReadFile("migrations/000_history.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	v1, err := os.ReadFile("migrations/001_providers.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range []string{string(history), string(v1)} {
+		for _, statement := range strings.Split(source, ";") {
+			if strings.TrimSpace(statement) != "" {
+				if _, err = db.ExecContext(ctx, statement); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+	hash := fmt.Sprintf("%x", sha256.Sum256(v1))
+	if _, err = db.ExecContext(ctx, "INSERT INTO schema_migrations (version,checksum,dirty) VALUES (1,?,FALSE)", hash); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"UpgradeName", "upgradename"} {
+		p, _ := model.NewProvider(name, "")
+		if err = mysql.New(db, time.Second).Create(ctx, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = mysql.VerifySchema(ctx, db); err == nil {
+		t.Fatal("serve accepted schema v1 without required v2")
+	}
+	if err = mysql.Migrate(ctx, db); err == nil {
+		t.Fatal("conflicting names silently migrated")
+	}
+	var count int
+	var dirty bool
+	if err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM resource_providers").Scan(&count); err != nil || count != 2 {
+		t.Fatal("existing data changed", count, err)
+	}
+	if err = db.QueryRowContext(ctx, "SELECT dirty FROM schema_migrations WHERE version=2").Scan(&dirty); err != nil || !dirty {
+		t.Fatal("failed v2 did not remain dirty", err)
+	}
+	if err = mysql.Migrate(ctx, db); err == nil {
+		t.Fatal("dirty migration was automatically repaired")
+	}
+	t.Log("PASS v1 preserved; colliding v2 upgrade remains dirty without deleting either provider")
 }

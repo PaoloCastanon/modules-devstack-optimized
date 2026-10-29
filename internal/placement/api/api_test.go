@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"reflect"
 	"strings"
@@ -31,8 +33,11 @@ func (r *memory) Create(_ context.Context, p model.Provider) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, other := range r.providers {
-		if other.UUID == p.UUID || other.Name == p.Name {
-			return repository.ErrDuplicate
+		if other.UUID == p.UUID {
+			return repository.ErrDuplicateUUID
+		}
+		if other.Name == p.Name {
+			return repository.ErrDuplicateName
 		}
 	}
 	r.providers[p.UUID] = p
@@ -260,7 +265,7 @@ func TestMalformedRequestsAndInventoryRollback(t *testing.T) {
 	}
 	w := request(h, "GET", path+"/inventories", "")
 	sameJSON(t, w.Body.Bytes(), []byte(`{"resource_provider_generation":0,"inventories":{}}`))
-	for _, query := range []string{"resources=VCPU:1", "name=x&name=y", "uuid=bad", "name=%FF"} {
+	for _, query := range []string{"resources=VCPU:1", "uuid=bad", "name=%FF"} {
 		if w := request(h, "GET", "/resource_providers?"+query, ""); w.Code != 400 {
 			t.Fatal(query, w.Code)
 		}
@@ -351,11 +356,127 @@ func TestUUIDLookupAndEmptyNameFollowPinnedSource(t *testing.T) {
 		t.Fatal("path UUID was rewritten", w.Code)
 	}
 	w := request(h, "GET", "/resource_providers?uuid="+compact, "")
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `"resource_providers":[]`) {
-		t.Fatal("query UUID was rewritten", w.Code, w.Body.String())
+	if w.Code != 400 {
+		t.Fatal("compact UUID query must be rejected", w.Code, w.Body.String())
 	}
 	w = request(h, "GET", "/resource_providers?name=", "")
 	if w.Code != 200 || strings.Contains(w.Body.String(), `"resource_providers":[]`) {
 		t.Fatal("empty name should not filter", w.Code, w.Body.String())
+	}
+}
+
+func TestLiveIntegerFormsAndRepeatedQuery(t *testing.T) {
+	h, _, _ := harness(t)
+	body := string(readFixture(t, "provider-create.request.body"))
+	var p model.Provider
+	_ = json.Unmarshal([]byte(body), &p)
+	if w := request(h, "POST", "/resource_providers", body); w.Code != 201 {
+		t.Fatal(w.Code)
+	}
+	path := "/resource_providers/" + p.UUID + "/inventories"
+	for n, total := range []string{"3.0", "3e0", "30e-1"} {
+		payload := fmt.Sprintf(`{"resource_provider_generation":%d,"inventories":{"VCPU":{"total":%s}}}`, n, total)
+		if w := request(h, "PUT", path, payload); w.Code != 200 {
+			t.Fatal(total, w.Code, w.Body.String())
+		}
+	}
+	w := request(h, "GET", "/resource_providers?name=absent&name="+url.QueryEscape(p.Name), "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), p.UUID) {
+		t.Fatal("last query value must win at 1.0", w.Code, w.Body.String())
+	}
+	if w := request(h, "PUT", path, `{"resource_provider_generation":3,"inventories":{"VCPU":{"total":3.1}}}`); w.Code != 400 {
+		t.Fatal("fraction accepted", w.Code)
+	}
+}
+
+func TestLiveKeystone401Shape(t *testing.T) {
+	h, _, _ := harness(t)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/resource_providers", nil))
+	sameJSON(t, w.Body.Bytes(), []byte(`{"error":{"code":401,"title":"Unauthorized","message":"The request you have made requires authentication."}}`))
+	if w.Header().Get("OpenStack-API-Version") != "" || w.Header().Get("Vary") != "" {
+		t.Fatal("auth middleware must reject before microversion headers", w.Header())
+	}
+}
+
+func TestLiveUUIDCaseInsensitiveLookup(t *testing.T) {
+	h, _, _ := harness(t)
+	request(h, "POST", "/resource_providers", string(readFixture(t, "provider-create.request.body")))
+	id := "4446c55f-ee69-4f16-b6c0-b562d5f200ab"
+	if w := request(h, "GET", "/resource_providers/"+strings.ToUpper(id), ""); w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+}
+
+func TestLiveStableErrorContracts(t *testing.T) {
+	data, err := os.ReadFile("../../../tests/compatibility/fixtures/placement-live-errors.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Cases map[string]struct {
+			Status  int               `json:"status"`
+			Headers map[string]string `json:"headers"`
+			Body    map[string]any    `json:"body"`
+		} `json:"cases"`
+	}
+	if json.Unmarshal(data, &fixture) != nil {
+		t.Fatal("invalid fixture")
+	}
+	id := "4446c55f-ee69-4f16-b6c0-b562d5f200ab"
+	path := "/resource_providers/" + id
+	for label, want := range fixture.Cases {
+		t.Run(label, func(t *testing.T) {
+			h, a, _ := harness(t)
+			method, target, body := "GET", path, ""
+			if label != "inventories-provider-missing" && label != "missing-token" {
+				request(h, "POST", "/resource_providers", string(readFixture(t, "provider-create.request.body")))
+			}
+			switch label {
+			case "stale-generation":
+				request(h, "PUT", path+"/inventories", `{"resource_provider_generation":0,"inventories":{"VCPU":{"total":4}}}`)
+				method, target, body = "PUT", path+"/inventories", `{"resource_provider_generation":0,"inventories":{}}`
+			case "unknown-class":
+				method, target, body = "PUT", path+"/inventories", `{"resource_provider_generation":0,"inventories":{"CUSTOM_B07_UNKNOWN":{"total":1}}}`
+			case "reader-forbidden":
+				a.who.Roles = []string{"reader"}
+			case "inventories-provider-missing":
+				target = path + "/inventories"
+			}
+			w := request(h, method, target, body)
+			if label == "missing-token" {
+				r := httptest.NewRequest("GET", target, nil)
+				w = httptest.NewRecorder()
+				h.ServeHTTP(w, r)
+			}
+			if w.Code != want.Status {
+				t.Fatal(w.Code, want.Status)
+			}
+			var got map[string]any
+			if json.Unmarshal(w.Body.Bytes(), &got) != nil {
+				t.Fatal(w.Body.String())
+			}
+			if list, ok := got["errors"].([]any); ok {
+				for _, item := range list {
+					delete(item.(map[string]any), "request_id")
+				}
+			}
+			if !reflect.DeepEqual(got, want.Body) {
+				t.Fatal(got, want.Body)
+			}
+			for _, header := range []string{"content-type", "openstack-api-version", "vary", "www-authenticate"} {
+				expected := want.Headers[header]
+				if header == "www-authenticate" && expected != "" {
+					expected = `Keystone uri="http://localhost/identity"`
+				}
+				equal := w.Header().Get(header) == expected
+				if header == "vary" {
+					equal = strings.EqualFold(w.Header().Get(header), expected)
+				}
+				if !equal {
+					t.Fatal(header, w.Header().Get(header), want.Headers[header])
+				}
+			}
+		})
 	}
 }

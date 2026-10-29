@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
@@ -42,7 +44,7 @@ func pathID(id string) (string, error) {
 	if err != nil {
 		return "", model.Fail(404, "No resource provider with uuid "+id+" found")
 	}
-	return id, nil
+	return strings.ToLower(id), nil
 }
 func (s *Service) Create(ctx context.Context, who auth.Identity, name, id string) (model.Provider, error) {
 	if err := authorize(who); err != nil {
@@ -52,7 +54,14 @@ func (s *Service) Create(ctx context.Context, who auth.Identity, name, id string
 	if err != nil {
 		return p, err
 	}
-	return p, mapped(s.repo.Create(ctx, p), p.UUID)
+	err = s.repo.Create(ctx, p)
+	if errors.Is(err, repository.ErrDuplicateUUID) {
+		return p, model.Fail(409, "Conflicting resource provider uuid: "+p.UUID+" already exists.")
+	}
+	if errors.Is(err, repository.ErrDuplicateName) {
+		return p, model.Fail(409, "Conflicting resource provider name: "+p.Name+" already exists.")
+	}
+	return p, mapped(err, p.UUID)
 }
 func (s *Service) Get(ctx context.Context, who auth.Identity, id string) (model.Provider, error) {
 	if err := authorize(who); err != nil {
@@ -71,9 +80,11 @@ func (s *Service) List(ctx context.Context, who auth.Identity, f model.Filter) (
 	}
 	if f.UUID != nil {
 		_, err := model.NormalizeUUID(*f.UUID)
-		if err != nil {
-			return nil, err
+		if err != nil || len(*f.UUID) != 36 {
+			return nil, model.Fail(400, "Invalid UUID query value.")
 		}
+		value := strings.ToLower(*f.UUID)
+		f.UUID = &value
 	}
 	if f.Name != nil && *f.Name == "" {
 		f.Name = nil
@@ -92,6 +103,9 @@ func (s *Service) Rename(ctx context.Context, who auth.Identity, id, name string
 		return model.Provider{}, err
 	}
 	p, err := s.repo.Rename(ctx, id, name)
+	if errors.Is(err, repository.ErrDuplicate) {
+		return p, model.Fail(409, "Conflicting resource provider "+name+" already exists.")
+	}
 	return p, mapped(err, id)
 }
 func (s *Service) Delete(ctx context.Context, who auth.Identity, id string) error {
@@ -113,6 +127,10 @@ func (s *Service) Inventories(ctx context.Context, who auth.Identity, id string)
 		return model.Inventories{}, err
 	}
 	invs, err := s.repo.Inventories(ctx, id)
+	if errors.Is(err, repository.ErrNotFound) {
+		detail := "No resource provider with uuid " + id + " found"
+		return invs, model.Fail(404, detail+" : "+detail)
+	}
 	return invs, mapped(err, id)
 }
 func (s *Service) ReplaceInventories(ctx context.Context, who auth.Identity, id string, generation int64, input map[string]model.InventoryInput) (model.Inventories, error) {
@@ -126,7 +144,7 @@ func (s *Service) ReplaceInventories(ctx context.Context, who auth.Identity, id 
 	invs := make(map[string]model.Inventory, len(input))
 	for class, raw := range input {
 		if !model.KnownClass(class) {
-			return model.Inventories{}, mapped(repository.ErrUnknownClass, id)
+			return model.Inventories{}, model.Fail(400, fmt.Sprintf("Unknown resource class in inventory for resource provider %s: No such resource class %s.", id, class))
 		}
 		inv, err := raw.Resolve()
 		if err != nil {

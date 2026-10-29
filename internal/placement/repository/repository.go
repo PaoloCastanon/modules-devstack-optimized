@@ -8,10 +8,12 @@ import (
 )
 
 var (
-	ErrNotFound     = errors.New("provider not found")
-	ErrDuplicate    = errors.New("provider name or UUID already exists")
-	ErrConcurrent   = errors.New("resource provider generation conflict")
-	ErrUnknownClass = errors.New("unknown resource class")
+	ErrNotFound      = errors.New("provider not found")
+	ErrDuplicate     = errors.New("provider name or UUID already exists")
+	ErrDuplicateUUID = errors.Join(ErrDuplicate, errors.New("duplicate provider UUID"))
+	ErrDuplicateName = errors.Join(ErrDuplicate, errors.New("duplicate provider name"))
+	ErrConcurrent    = errors.New("resource provider generation conflict")
+	ErrUnknownClass  = errors.New("unknown resource class")
 )
 
 type Repository interface {

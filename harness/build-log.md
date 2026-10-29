@@ -2,6 +2,19 @@
 
 Registrar resultados y límites de cada tarea; los planes y criterios viven en [PLANS.md](../PLANS.md). Las instrucciones persistentes están en [AGENTS.md](../AGENTS.md).
 
+## 2026-10-28 — B07: comparación viva y correcciones de contrato
+
+- **Criterio del incremento:** comparar el subconjunto 1.0 contra el Python fijado con identidad real, observar negativos y efectos, corregir diferencias funcionales y conservar las de representación sin simular un pase.
+- **Runner implementado:** `scripts/placement_differential.py`, con tests de no coerción, normalización limitada, archivos privados y protección de recursos existentes. Cada escenario usa UUID/nombre nuevos; preflight exige ausencia, finally elimina únicamente esos UUID y verifica 404. No sigue redirects ni guarda tokens. El gate local usa dobles; el runner vivo es explícito y mutante.
+- **Primer ensayo sobre `1e95402`:** 34 casos, 32 status y 9 comparaciones estrictas coincidentes; limpieza verificada. Diferencias observadas: enteros `3.0`, query repetida, collation de nombres, precisión FLOAT, UUID de query y errores. Se reprodujeron fallos en tests antes de corregirlos.
+- **Cambios:** parser entero decimal exacto para no redondear generation; último query value en 1.0; UUID de path case-insensitive y query canónico; shape 401 de Keystone y varios errores estables. La migración **v2** cambia igualdad/uniqueness de nombre y FLOAT; v1 y su checksum permanecen intactos. La lectura CAST a CHAR conserva el número textual que devuelve MySQL al driver Python.
+- **Laboratorio real:** se inició la VM existente y se verificó Placement `f4a89d3`, MySQL y Keystone; no hubo reprovisión. Se creó un proyecto/usuario temporal con credenciales de aplicación de roles limitados y expiración. Go validó tokens admin/service/reader mediante Keystone desplegado; MySQL Go corrió en contenedor descartable separado, con cuentas app/migrador de esquema propio. No se cambiaron endpoints de Nova ni la DB/config del original.
+- **Resultado final:** [38 casos](../evidence/sprint3/placement/b07-live-20261028/README.md), **38/38 status**, **38/38 snapshots antes/después**, **27/38 coincidencias estrictas**. Diez diferencias permanecen en detail de validación y una en body/Content-Type de 406. El comparador devolvió **1**, no PASS; todas las limpiezas de providers quedaron verificadas. Las capturas S2 se conservaron.
+- **Persistencia:** upgrade real v1→v2 conservó un canario y generation. La suite de colisión comprobó que dos nombres de v1 que colisionan en v2 dejan dirty y conservan ambas filas; serve rechaza v1 incompleto y no se repara dirty automáticamente. No se probó corte de energía ni reinicio del servidor MySQL.
+- **Verificación:** `make check` PASS (Glance y Placement: formato, vet, race, build; harness y 16 tests Python unit); `make placement-test-mysql` PASS; `make placement-test-binary` PASS; `TestV1CollisionStopsUpgrade` con race PASS; `git diff --check` PASS. Las suites locales de integración siguen usando Keystone fixture, distinto de la matriz real. [Metadatos y evidencia](../evidence/sprint3/placement/b07-live-20261028/provenance.json).
+- **Limpieza:** providers, application credentials, usuario/proyecto temporales, contenedor MySQL y archivos privados retirados. Se comprobó ausencia del usuario/proyecto y que `tt-openstack-lab` volvió a `shut off`.
+- **Pendiente:** cerrar las 11 diferencias estrictas, ampliar microversiones según Nova y sus pruebas. B07 sigue en progreso; B11/B12 parciales. No se modificó el Excel ni se declaró integración/boot Nova.
+
 ## 2026-10-28 — B07: primer recorrido Placement Go persistente
 
 - **Base:** PR #3 integrado por el usuario en `85bae56`. Se conservaron y reaplicaron los dos commits locales de revisión/plan sobre esa base; trabajo funcional en `feat/placement-b07`.

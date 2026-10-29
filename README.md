@@ -38,8 +38,10 @@ rendimiento permanecen pendientes.
 
 La [guía B07](docs/placement/b07-development.md) describe CRUD de providers,
 inventories con generation, esquema MySQL aislado y autenticación Keystone.
-Incluye pruebas contra fixtures S2 y suites opt-in con MySQL real. Solo anuncia
-1.0; falta comparación en vivo y completar el contrato necesario para Nova.
+Incluye fixtures S2, suites opt-in con MySQL real y comparación en vivo con
+Placement Python y Keystone reales: 38/38 status y estados coinciden y 27/38
+comparaciones estrictas coinciden. Solo anuncia 1.0; falta resolver las 11
+representaciones de error pendientes y completar el contrato necesario para Nova.
 `make placement-build` compila el ejecutable; `make check` verifica ambos módulos
 sin iniciar el laboratorio. La guía distingue los resultados reales y los fixtures
 de identidad utilizados en las pruebas.

@@ -18,13 +18,26 @@ var historySQL string
 //go:embed migrations/001_providers.sql
 var providersSQL string
 
-func checksum() string { return fmt.Sprintf("%x", sha256.Sum256([]byte(providersSQL))) }
+//go:embed migrations/002_contract.sql
+var contractSQL string
+
+type migration struct {
+	version int64
+	source  string
+}
+
+func migrations() []migration        { return []migration{{1, providersSQL}, {2, contractSQL}} }
+func (m migration) checksum() string { return fmt.Sprintf("%x", sha256.Sum256([]byte(m.source))) }
+func historyMatches(index int, version int64, hash string, dirty bool) bool {
+	all := migrations()
+	return index >= 0 && index < len(all) && version == all[index].version && hash == all[index].checksum() && !dirty
+}
 
 type querier interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 }
 
-func verifyHistory(ctx context.Context, q querier, allowEmpty bool) error {
+func verifyHistory(ctx context.Context, q querier, allowPrefix bool) error {
 	if err := verifyHistoryStructure(ctx, q); err != nil {
 		return err
 	}
@@ -38,12 +51,12 @@ func verifyHistory(ctx context.Context, q querier, allowEmpty bool) error {
 		var version int64
 		var hash string
 		var dirty bool
-		if rows.Scan(&version, &hash, &dirty) != nil || version != 1 || hash != checksum() || dirty {
+		if rows.Scan(&version, &hash, &dirty) != nil || !historyMatches(count, version, hash, dirty) {
 			return errors.New("unknown, changed or incomplete migration; manual review required")
 		}
 		count++
 	}
-	if rows.Err() != nil || count > 1 || (!allowEmpty && count != 1) {
+	if rows.Err() != nil || count > len(migrations()) || (!allowPrefix && count != len(migrations())) {
 		return errors.New("provider/inventory migration has not been verified")
 	}
 	return nil
@@ -105,28 +118,25 @@ func Migrate(ctx context.Context, db *sql.DB) (result error) {
 	if conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM schema_migrations").Scan(&count) != nil {
 		return errors.New("cannot inspect migration history")
 	}
-	if count == 1 {
-		return nil
-	}
-	if _, err = conn.ExecContext(ctx, "INSERT INTO schema_migrations (version, checksum, dirty) VALUES (1, ?, TRUE)", checksum()); err != nil {
-		return errors.New("cannot record pending migration")
-	}
-	for _, statement := range strings.Split(providersSQL, ";") {
-		if strings.TrimSpace(statement) == "" {
-			continue
+	for _, step := range migrations()[count:] {
+		if _, err = conn.ExecContext(ctx, "INSERT INTO schema_migrations (version, checksum, dirty) VALUES (?, ?, TRUE)", step.version, step.checksum()); err != nil {
+			return errors.New("cannot record pending migration")
 		}
-		if _, err = conn.ExecContext(ctx, statement); err != nil {
-			return errors.New("provider/inventory DDL failed; migration remains dirty for manual review")
+		for _, statement := range strings.Split(step.source, ";") {
+			if strings.TrimSpace(statement) == "" {
+				continue
+			}
+			if _, err = conn.ExecContext(ctx, statement); err != nil {
+				return errors.New("provider/inventory DDL failed; migration remains dirty for manual review")
+			}
+		}
+		completed, err := conn.ExecContext(ctx, "UPDATE schema_migrations SET dirty=FALSE, applied_at=UTC_TIMESTAMP(6) WHERE version=? AND dirty=TRUE AND checksum=?", step.version, step.checksum())
+		if err != nil {
+			return errors.New("cannot complete migration history")
+		}
+		if affected, err := completed.RowsAffected(); err != nil || affected != 1 {
+			return errors.New("migration history completion was not confirmed")
 		}
 	}
-	completed, err := conn.ExecContext(ctx, "UPDATE schema_migrations SET dirty=FALSE, applied_at=UTC_TIMESTAMP(6) WHERE version=1 AND dirty=TRUE AND checksum=?", checksum())
-	if err != nil {
-		return errors.New("cannot complete migration history")
-	}
-	if affected, err := completed.RowsAffected(); err != nil || affected != 1 {
-		return errors.New("migration history completion was not confirmed")
-	}
-	// Autocommit makes the UPDATE durable on successful acknowledgement.
-	// Read it back before reporting success; DDL remains non-transactional.
 	return verifyHistory(ctx, conn, false)
 }

@@ -1,6 +1,9 @@
 package mysql
 
 import (
+	"errors"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/repository"
+	driver "github.com/go-sql-driver/mysql"
 	"testing"
 )
 
@@ -94,5 +97,17 @@ func TestDSNTransportAndAutocommit(t *testing.T) {
 				t.Fatal("autocommit not normalized")
 			}
 		})
+	}
+}
+
+func TestDuplicateKeyIsReadWithoutInspectingUserValue(t *testing.T) {
+	for message, want := range map[string]error{
+		"Duplicate entry 'PRIMARY' for key 'resource_providers.name'": repository.ErrDuplicateName,
+		"Duplicate entry 'name' for key 'resource_providers.PRIMARY'": repository.ErrDuplicateUUID,
+	} {
+		err := translate(&driver.MySQLError{Number: 1062, Message: message})
+		if !errors.Is(err, want) || !errors.Is(err, repository.ErrDuplicate) {
+			t.Fatal(err, want)
+		}
 	}
 }

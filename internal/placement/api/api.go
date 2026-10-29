@@ -110,6 +110,13 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 			h.failure(w, r, model.Fail(406, "Only application/json is available."))
 			return
 		}
+		if r.URL.Path != "/" && permission(r) != "" {
+			who := identity(r)
+			if !who.HasRole("admin") && !who.HasRole("service") {
+				h.failure(w, r, model.Fail(403, "Placement requires the admin or service role."))
+				return
+			}
+		}
 		mux.ServeHTTP(w, r)
 	}), nil
 }
@@ -177,6 +184,46 @@ func acceptsJSON(header string) bool {
 	}
 	return bestSpecificity >= 0 && quality > 0
 }
+func permission(r *http.Request) string {
+	prefix := "placement:resource_providers:"
+	action := ""
+	switch route(r.URL.Path) {
+	case "/resource_providers":
+		if r.Method == "GET" {
+			action = "list"
+		}
+		if r.Method == "POST" {
+			action = "create"
+		}
+	case "/resource_providers/{id}":
+		switch r.Method {
+		case "GET":
+			action = "show"
+		case "PUT":
+			action = "update"
+		case "DELETE":
+			action = "delete"
+		}
+	case "/resource_providers/{id}/inventories":
+		prefix += "inventories:"
+		if r.Method == "GET" {
+			action = "list"
+		}
+		if r.Method == "PUT" {
+			action = "update"
+		}
+	case "/resource_providers/{id}/inventories/{class}":
+		prefix += "inventories:"
+		if r.Method == "GET" {
+			action = "show"
+		}
+	}
+	if action == "" {
+		return ""
+	}
+	return prefix + action
+}
+
 func route(path string) string {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if path == "/" {
@@ -232,18 +279,31 @@ func (h *Handler) failure(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, auth.ErrInvalidToken):
 		status = 401
-		detail = "Authentication required."
+		w.Header().Del("OpenStack-API-Version")
+		w.Header().Del("Vary")
 		w.Header().Set("WWW-Authenticate", h.challenge)
+		h.json(w, 401, map[string]any{"error": map[string]any{"code": 401, "title": "Unauthorized", "message": "The request you have made requires authentication."}})
+		return
 	case errors.Is(err, auth.ErrForbidden):
 		status = 403
 		detail = "Project scope is required."
 	case errors.As(err, &e):
 		detail = e.Detail
 	}
-	body := map[string]any{"status": status, "title": http.StatusText(status), "detail": detail}
-	if status == 404 {
-		body["detail"] = "The resource could not be found.\n\n " + detail + "  "
+	if status == 403 {
+		w.Header().Del("Vary")
+		if detail == "Placement requires the admin or service role." && permission(r) != "" {
+			detail = "Policy does not allow " + permission(r) + " to be performed."
+		}
 	}
+	if status == 404 && route(r.URL.Path) == "/resource_providers/{id}" && r.Method == "GET" {
+		w.Header().Del("Vary")
+	}
+	prefixes := map[int]string{400: "The server could not comply with the request since it is either malformed or otherwise incorrect.", 403: "Access was denied to this resource.", 404: "The resource could not be found.", 409: "There was a conflict when trying to complete your request."}
+	if prefix, ok := prefixes[status]; ok {
+		detail = prefix + "\n\n " + detail + "  "
+	}
+	body := map[string]any{"status": status, "title": http.StatusText(status), "detail": detail}
 	if id := w.Header().Get("X-Openstack-Request-Id"); id != "" {
 		body["request_id"] = id
 	}
@@ -274,8 +334,19 @@ func (h *Handler) decode(w http.ResponseWriter, r *http.Request, target any) err
 		return model.Fail(400, "Expected a JSON object.")
 	}
 	var raw any
-	if json.Unmarshal(data, &raw) != nil || containsNull(raw) || !exactFields(raw, reflect.TypeOf(target)) {
+	rawDecoder := json.NewDecoder(bytes.NewReader(data))
+	rawDecoder.UseNumber()
+	var trailing any
+	if rawDecoder.Decode(&raw) != nil || rawDecoder.Decode(&trailing) != io.EOF || containsNull(raw) || !exactFields(raw, reflect.TypeOf(target)) {
 		return model.Fail(400, "Invalid JSON object or null field.")
+	}
+	normalized, err := schemaIntegers(raw, reflect.TypeOf(target))
+	if err != nil {
+		return model.Fail(400, "Invalid request fields or types.")
+	}
+	data, err = json.Marshal(normalized)
+	if err != nil {
+		return model.Fail(400, "Invalid request fields or types.")
 	}
 	d := json.NewDecoder(bytes.NewReader(data))
 	d.DisallowUnknownFields()
@@ -407,11 +478,11 @@ func (h *Handler) providers(w http.ResponseWriter, r *http.Request) {
 		}
 		f := model.Filter{}
 		for key, values := range query {
-			if len(values) != 1 || !utf8.ValidString(values[0]) {
+			if len(values) == 0 || !utf8.ValidString(values[len(values)-1]) {
 				h.failure(w, r, model.Fail(400, "Invalid query."))
 				return
 			}
-			v := values[0]
+			v := values[len(values)-1]
 			switch key {
 			case "name":
 				f.Name = &v

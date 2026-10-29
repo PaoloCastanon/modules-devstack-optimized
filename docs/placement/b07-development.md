@@ -1,8 +1,10 @@
 # B07 — Primer incremento providers/inventories
 
-Estado al 2026-10-28: implementado y probado localmente con MySQL real.
-**B07 continúa en progreso**: faltan comparación diferencial en vivo, fixtures
-negativos adicionales y la ampliación de microversiones necesaria para Nova.
+Estado al 2026-10-28: implementado, probado con MySQL y Keystone reales y
+comparado en vivo con Python. **B07 continúa en progreso**: la matriz tiene
+38/38 status y estados observables coincidentes, pero solo 27/38 coincidencias
+estrictas. Quedan 11 diferencias de representación de errores y la ampliación
+de microversiones necesaria para Nova. [Evidencia en vivo](../../evidence/sprint3/placement/b07-live-20261028/README.md).
 
 ## Contrato implementado
 
@@ -44,30 +46,35 @@ y [API oficial](https://docs.openstack.org/api-ref/placement/).
 
 - El nombre admite hasta 200 caracteres, incluido vacío según schema upstream.
   Al crear, UUIDs compactos o con guiones se canonizan; los lookups usan el valor
-  recibido sin reescribirlo, como el código fijado. Inválido en create/query da 400 y
-  en consulta de recurso da 404.
+  recibido sin añadir guiones; las mayúsculas sí se resuelven como en la DB original.
+  Query UUID compacta da 400. UUID inválido en create/query da 400 y en consulta
+  de recurso da 404.
 - Inventory requiere total; defaults: reserved=0, min_unit=1,
   max_unit=2147483647, step_size=1, allocation_ratio=1.0. Los enteros son de
   32 bits no negativos, con mínimo 1 salvo reserved. La capacidad truncada debe
   ser positiva en 1.0; reserved=total queda rechazado. No se impone min_unit<=max_unit
   como validación adicional, porque ese schema no lo exige.
 - Los campos JSON son sensibles a mayúsculas. Null, miembros desconocidos y
-  tipos incompatibles dan 400. Los mínimos requieren sintaxis JSON entera: `1.0`
-  en un campo int no se acepta en este incremento. Duplicados JSON conservan el
-  último valor, como el decodificador de referencia; queries repetidas se rechazan
-  aunque versiones tempranas del original puedan elegir un valor.
+  tipos incompatibles dan 400. Los campos enteros aceptan valores matemáticamente
+  enteros como `3.0` o `3e0`; el parser decimal exacto evita redondear generation
+  mediante float64 y exige rango int64. Duplicados JSON y queries repetidas toman
+  el último valor, como el original medido en 1.0. No extrapolar esta regla a
+  microversiones posteriores.
 - Solo admin o service con scope de proyecto pueden usar providers/inventories,
   según las políticas fijadas. No se aplican permisos owner/member de Glance.
   X-Roles/X-Project-Id del cliente no aportan identidad. Sin token/expirado: 401;
   rol insuficiente: 403; validación de identidad indisponible: 503. La credencial
   del validador es independiente del token del cliente. X-Service-Token compuesto
   sigue rechazado hasta verificar su semántica en B12.
-- Los errores conservan el contenedor `errors`, status numérico, title y
-  request_id. El 404 de provider se contrasta con el fixture histórico. Los otros
-  mensajes negativos todavía no tienen equivalencia completa demostrada.
-- Los filtros name y las restricciones únicas usan collation utf8mb4_0900_bin;
-  la equivalencia de mayúsculas/espacios con la DB original queda pendiente.
-  allocation_ratio usa DOUBLE; quedan pendientes casos diferenciales de precisión.
+- Los errores de dominio conservan `errors`, status numérico, title y request_id.
+  El 401 reproduce el objeto `error` del middleware Keystone real, sin headers de
+  microversión. Se conserva el 404 histórico y se añaden fixtures de errores estables;
+  diez mensajes detail y la representación de un 406 aún difieren.
+- La migración v2 cambia nombres a utf8mb4_general_ci (igualdad sin distinguir
+  mayúsculas y con PAD SPACE) y ratio a FLOAT. La DB original usa utf8mb3_general_ci
+  y FLOAT. Leer ratio con CAST a CHAR conserva la representación textual que recibe
+  el driver Python, sin tolerancias en el comparador. La equivalencia de todo Unicode,
+  incluidos caracteres fuera de BMP, sigue pendiente.
 - Los límites de body/query y la negociación Accept tienen regresiones locales;
   no se afirma equivalencia completa de prioridades entre errores y middleware.
 
@@ -92,8 +99,12 @@ deben escapar `_` si partial_revokes está OFF. No cambiar esa variable global.
 Las guardias pertenecen al repositorio Placement; no se importa el paquete MySQL
 Glance, cuyas políticas de esquema y migraciones son distintas.
 
-Migración explícita v1 con checksum, historial InnoDB, dirty persistido antes de
-DDL y lock de sesión. Un fallo deja dirty; no hay reparación destructiva automática.
+Migraciones explícitas v1→v2 con checksums, historial InnoDB, dirty persistido antes
+de DDL y lock de sesión. La versión 1 queda intacta. El historial debe ser un
+prefijo contiguo y conocido para migrar, y estar completo para servir. La versión 2
+alinea collation de nombres y FLOAT. Si datos v1 contienen nombres que colisionan
+bajo la nueva collation, la migración falla dirty sin borrar filas; requiere
+revisión y reconciliación manual. No hay reparación destructiva automática.
 Serve solo verifica el historial; no ejecuta DDL ni inspecciona toda posible
 alteración manual de las tablas de dominio. El esquema v1 queda fijado: futuras
 ampliaciones requieren nuevas migraciones, sin reescribir su checksum.
@@ -127,8 +138,9 @@ make placement-test
 Los tests de API usan un repositorio en memoria exclusivamente de pruebas y
 comparan las respuestas con fixtures archivados de provider-create/show,
 inventory-put/show y provider-not-found. Solo eliminan request_id del 404 para
-comparar su contenido estable. Las capturas S2 no se modificaron. Esto es
-regresión contra capturas; **todavía no es un comparador en vivo Python↔Go**.
+comparar su contenido estable. Las capturas S2 no se modificaron. Estos tests
+siguen siendo regresiones contra capturas; la comparación en vivo se ejecuta
+por separado con el nuevo runner descrito más abajo.
 
 Para integración, preparar fuera del original una instancia MySQL 8.0 y **dos
 esquemas nuevos vacíos**, uno por suite, con sus cuentas migrador/aplicación
@@ -156,9 +168,49 @@ La segunda compila el binario, ejecuta migrate/serve, crea mediante HTTP, envía
 SIGTERM, reinicia y verifica los datos. **Ambas usan un servidor Keystone de
 fixture**: no acreditan integración con Keystone desplegado.
 
-La ejecución de esta tarea usó un contenedor descartable, puerto solo loopback,
+La ejecución del primer incremento usó un contenedor descartable, puerto solo loopback,
 datos tmpfs y MySQL 8.0.46 fijado por digest
 `sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b`.
 Los resultados saneados están en [evidencia B07](../../evidence/sprint3/placement/b07/README.md).
-La VM original permaneció apagada. No se modificó el Excel ni se acreditó boot
-Nova, B11/B12 completos o el cierre formal B07.
+La VM original permaneció apagada durante ese primer incremento. No se modificó
+el Excel ni se acreditó boot Nova, B11/B12 completos o el cierre formal B07.
+La ejecución en vivo posterior se detalla a continuación.
+
+## Comparación en vivo y upgrade
+
+`scripts/placement_differential.py` ejecuta 38 escenarios 1.0 independientes,
+creando los mismos providers en los dos endpoints y guardando request sin token,
+respuesta, snapshots de dominio antes/después y diferencias por ruta JSON. Requiere
+archivos de token privados, endpoints distintos, directorio de salida nuevo y
+`--allow-mutations`. El preflight exige UUID inexistente; finally limpia únicamente
+los recursos temporales y comprueba su ausencia. No sigue redirects con tokens.
+
+```sh
+python3 scripts/placement_differential.py \
+  --python-url http://192.168.122.10/placement \
+  --go-url http://127.0.0.1:8779 \
+  --admin-token-file /absolute/private/admin.token \
+  --service-token-file /absolute/private/service.token \
+  --reader-token-file /absolute/private/reader.token \
+  --allow-mutations --output /absolute/new/comparison-run
+```
+
+Configurar PUBLIC_BASE_URL de Go con el mismo prefijo `/placement` que el original,
+aunque el listener Go recibe las rutas sin ese prefijo. Location se contrasta sin
+el origen configurado; no se eliminan diferencias de error, status ni generation.
+El runner usa Decimal para números JSON exactos y distingue booleanos de números.
+Solo el comparador en vivo muta endpoints; `make check` prueba sus guardias con dobles.
+**Cualquier diferencia o limpieza no verificada devuelve un código distinto de cero.**
+
+Para probar la colisión de nombres al actualizar v1, usar otro esquema nuevo vacío
+con DSN propios y el mismo opt-in de MySQL; ejecutar `make placement-test-upgrade`.
+La suite construye un estado v1 legítimo con nombres distintos que colisionan en v2,
+comprueba rechazo, dirty y conservación de ambas filas. El upgrade exitoso también
+se probó sobre la DB real v1 del primer ensayo, con un canario de provider/inventory.
+
+La [matriz en vivo](../../evidence/sprint3/placement/b07-live-20261028/README.md) usó
+Keystone desplegado, no el fixture de las suites locales. Coincidieron 38/38 status
+y snapshots y 27/38 comparaciones estrictas; el comando devolvió 1 por las 11
+representaciones de error pendientes. Todos los providers temporales se eliminaron,
+las credenciales/usuario/proyecto se retiraron y la VM volvió a apagarse. B07 sigue
+en progreso; estos resultados no acreditan Nova ni amplían el rango anunciado 1.0.

@@ -14,6 +14,9 @@ S2 aporta baseline y arquitectura aceptados. El
 integrado en `85bae56`. El [primer incremento B07](b07-development.md) reutiliza
 su módulo/auth e implementa providers/inventories con MySQL y versión 1.0.
 B07 sigue en progreso; B08–B10 no comenzaron y B11/B12 tienen avance parcial.
+La [comparación en vivo](../../evidence/sprint3/placement/b07-live-20261028/README.md)
+ya se ejecutó con Keystone real: 38 status/estados coinciden, 27 comparaciones
+estrictas coinciden y 11 representaciones de error siguen pendientes.
 
 No cambiar estados, fechas, puntos del Excel ni informes históricos. Este plan
 desglosa B07–B15; B21 documenta las decisiones y resultados durante la ejecución.
@@ -144,7 +147,8 @@ sus tareas posteriores y su metodología; no condicionan el primer B07.
 
 ## Próximo paso concreto
 
-Ampliar los fixtures negativos y el comparador en vivo de B07; contrastar las
-microversiones y llamadas del resource tracker antes de avanzar a B08. El primer
-recorrido autenticado y persistente ya está implementado y su alcance se detalla
-en la guía B07. Mantener un commit por incremento y registrar límites en el build log.
+Resolver las 11 diferencias de representación de error detectadas por el runner
+en vivo de B07, sin eliminar campos del comparador; ampliar luego microversiones
+y llamadas del resource tracker según evidencia. El recorrido autenticado y
+persistente ya está implementado y su alcance se detalla en la guía B07. Mantener
+un commit por incremento y registrar límites en el build log.
