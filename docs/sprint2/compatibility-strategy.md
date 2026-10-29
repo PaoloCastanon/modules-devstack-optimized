@@ -4,4 +4,15 @@ Para cada caso, generar una request canónica (método, ruta, query ordenada, he
 
 Normalizar UUID con mapa estable por rol (`provider-A`, `image-A`), timestamps a marcador, orden de listas sólo si la API no lo garantiza, request IDs y headers volátiles. No normalizar tipos JSON, campos obligatorios, status, errores de dominio ni generation: son parte del contrato. Para binarios comparar hash y longitud; para errores comparar clase/status/código y campos estables. Reportar diferencias con ruta JSON y caso. Verificar efectos tras reinicio. El control end-to-end final es que Nova original cree VM usando Placement Go y Glance Go; se ejecutará en sprints posteriores.
 
-No hay benchmark ni comparación con Go todavía. El baseline original ya mide el comportamiento de referencia. [Placement API](https://docs.openstack.org/api-ref/placement/) y [Glance v2](https://docs.openstack.org/api-ref/image/v2/) complementan el contrato observado.
+En Sprint 2 todavía no había benchmark ni comparación con Go. El baseline original mide el comportamiento de referencia. [Placement API](https://docs.openstack.org/api-ref/placement/) y [Glance v2](https://docs.openstack.org/api-ref/image/v2/) complementan el contrato observado.
+
+## Ejecución B07 posterior a S2 — 2026-10-28
+
+El [runner vivo](../../scripts/placement_differential.py) ejecutó 38 casos contra
+Python fijado y Go, con MySQL aislado y Keystone reales. La
+[evidencia](../../evidence/sprint3/placement/b07-live-20261028/README.md) conserva
+requests, responses, snapshots por API y diferencias estrictas. Coincidieron
+38/38 status y estados antes/después, pero solo 27/38 comparaciones completas;
+el comando devolvió 1 por 11 representaciones de error pendientes. No se
+normalizaron errores, generation ni tipos JSON para ocultarlas. No hay benchmark
+ni boot Nova con Go demostrado por esa ejecución.

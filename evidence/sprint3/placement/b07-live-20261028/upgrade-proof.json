@@ -1,0 +1,40 @@
+{
+  "uuid": "ea7ae49b-ae54-45e4-b211-1512ce8d852b",
+  "before_provider": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json",
+      "openstack-api-version": "placement 1.0",
+      "vary": "OpenStack-API-Version"
+    },
+    "body_text": "{\"generation\":1,\"links\":[{\"href\":\"/placement/resource_providers/ea7ae49b-ae54-45e4-b211-1512ce8d852b\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/ea7ae49b-ae54-45e4-b211-1512ce8d852b/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/ea7ae49b-ae54-45e4-b211-1512ce8d852b/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-migration-ea7ae49b-ae54-45e4-b211-1512ce8d852b\",\"uuid\":\"ea7ae49b-ae54-45e4-b211-1512ce8d852b\"}\n"
+  },
+  "before_inventories": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json",
+      "openstack-api-version": "placement 1.0",
+      "vary": "OpenStack-API-Version"
+    },
+    "body_text": "{\"resource_provider_generation\":1,\"inventories\":{\"VCPU\":{\"total\":8,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+  },
+  "after_provider": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json",
+      "openstack-api-version": "placement 1.0",
+      "vary": "OpenStack-API-Version"
+    },
+    "body_text": "{\"generation\":1,\"links\":[{\"href\":\"/placement/resource_providers/ea7ae49b-ae54-45e4-b211-1512ce8d852b\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/ea7ae49b-ae54-45e4-b211-1512ce8d852b/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/ea7ae49b-ae54-45e4-b211-1512ce8d852b/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-migration-ea7ae49b-ae54-45e4-b211-1512ce8d852b\",\"uuid\":\"ea7ae49b-ae54-45e4-b211-1512ce8d852b\"}\n"
+  },
+  "after_inventories": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json",
+      "openstack-api-version": "placement 1.0",
+      "vary": "OpenStack-API-Version"
+    },
+    "body_text": "{\"resource_provider_generation\":1,\"inventories\":{\"VCPU\":{\"total\":8,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+  },
+  "cleanup_status": 204
+}

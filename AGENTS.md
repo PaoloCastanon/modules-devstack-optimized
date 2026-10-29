@@ -31,6 +31,7 @@ Si una comprobación falla, corregir la causa; no debilitar el gate ni sustituir
 - Preservar status HTTP, tipos JSON, generation y errores de dominio. No normalizarlos para ocultar diferencias. Binarios se comparan por longitud y hash.
 - Añadir pruebas del comportamiento modificado y de errores relevantes. `make go-check` exige formato, vet, pruebas con race detector y compilación cuando exista código Go.
 - Los scripts `tests/compatibility/*_baseline.sh` capturan servicios originales; todavía no son un comparador Python↔Go.
+- `scripts/placement_differential.py` sí compara endpoints vivos para B07: requiere directorio nuevo, tokens privados y opt-in de mutaciones; conserva diferencias y devuelve fallo si las hay. El gate local solo prueba el runner con dobles. Revisar la evidencia en vivo antes de ampliar contratos o declarar B07 aceptado.
 
 ## Laboratorio y evidencia
 

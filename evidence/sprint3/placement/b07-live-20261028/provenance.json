@@ -1,0 +1,39 @@
+{
+  "placement_sha": "f4a89d3803cb23df22b8714569889ab39c918c34",
+  "mysql_version": "8.0.46-0ubuntu0.24.04.4",
+  "columns": [
+    {
+      "TABLE_NAME": "inventories",
+      "COLUMN_NAME": "allocation_ratio",
+      "COLUMN_TYPE": "float",
+      "COLLATION_NAME": null
+    },
+    {
+      "TABLE_NAME": "resource_providers",
+      "COLUMN_NAME": "uuid",
+      "COLUMN_TYPE": "varchar(36)",
+      "COLLATION_NAME": "utf8mb3_general_ci"
+    },
+    {
+      "TABLE_NAME": "resource_providers",
+      "COLUMN_NAME": "name",
+      "COLUMN_TYPE": "varchar(200)",
+      "COLLATION_NAME": "utf8mb3_general_ci"
+    }
+  ],
+  "go_history": "version\tchecksum\tdirty\n1\t6608a960a668840dcd3bc94fa536edb5cb0fe83167b06a1cdc3100ebef28455d\t0\n2\t7eafb891cac6d430240affbaab34007eced9b117801b98e0dc22b134c3da1516\t0\n",
+  "collision_history": "version\tchecksum\tdirty\n1\t6608a960a668840dcd3bc94fa536edb5cb0fe83167b06a1cdc3100ebef28455d\t0\n2\t7eafb891cac6d430240affbaab34007eced9b117801b98e0dc22b134c3da1516\t1\n",
+  "binary_sha256": "2bc623818db60eacc7b10a26af0689703b2cf59e520a8a9eb208c7da79151d42",
+  "go_toolchain": "go version go1.27.3-X:nodwarf5 linux/amd64",
+  "normalization": [
+    "error request_id values",
+    "configured origins in Location",
+    "case-insensitive Vary header tokens"
+  ],
+  "keystone": "deployed Keystone via production authenticator; temporary project/user, service-only validator application credential, admin/service/reader client tokens",
+  "migrations": {
+    "internal/placement/repository/mysql/migrations/000_history.sql": "c5bd265e8f7406a0f2a990472b439c6ed9a67c91931706f23cf6f9cb41a9dd3b",
+    "internal/placement/repository/mysql/migrations/001_providers.sql": "6608a960a668840dcd3bc94fa536edb5cb0fe83167b06a1cdc3100ebef28455d",
+    "internal/placement/repository/mysql/migrations/002_contract.sql": "7eafb891cac6d430240affbaab34007eced9b117801b98e0dc22b134c3da1516"
+  }
+}
