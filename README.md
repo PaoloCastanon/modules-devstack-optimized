@@ -50,7 +50,7 @@ capacidad restante, con **60/60** comparaciones estrictas. Default 1.0;
 el rango se limita a las rutas seleccionadas. El cierre B09 permite negociar hasta 1.36 en allocations e incorpora consumer generation,
 con **24/24** casos adicionales. [B10](docs/placement/b10-development.md) incorpora
 candidates del perfil plano, con **44/44** comparaciones y las versiones del tracker
-verificadas por ruta. El cierre transversal B11/B12 está en ejecución;
+verificadas por ruta. [B11](docs/placement/b11-acceptance.md) valida durabilidad, aislamiento y restore (9/9). B12 está en ejecución;
 la integración Nova conserva sus tareas posteriores. La asociación positiva de aggregates
 se verificó en MySQL aislado, fuera de la comparación viva.
 [Alcance aceptado y límites](docs/placement/b07-acceptance.md).

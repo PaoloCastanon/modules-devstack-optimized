@@ -43,8 +43,8 @@ derivados de inventarios/uso/traits/aggregates persistidos, filtros Nova y perfi
 del tracker. **44/44** casos vivos y ocho seeds sin diferencias; regresiones
 24/60/57/82 completas. [Evidencia B10](evidence/sprint3/placement/b10-close-20261029/README.md).
 
-**En ejecución por solicitud del usuario:** cierre transversal B11/B12. B11/B12 requieren cierre
-transversal. El alcance sigue siendo el subconjunto para Nova; no se acredita
+**B11 completado:** [durabilidad y restore](docs/placement/b11-acceptance.md), nueve verificaciones reales aprobadas.
+**En ejecución por solicitud del usuario:** cierre B12 de autenticación y políticas. El alcance sigue siendo el subconjunto para Nova; no se acredita
 sustitución Nova, toda la API 1.8 ni se cambia el Excel histórico.
 
 El [plan Placement B07–B15](docs/placement/implementation-plan.md) conserva el

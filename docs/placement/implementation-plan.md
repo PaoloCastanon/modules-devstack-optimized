@@ -21,7 +21,7 @@ integrada mediante PR #6 en b4d8300. [B08](b08-development.md) añade catálogos
 asociaciones con 82/82 comparaciones estrictas, regresión B07 57/57 y reinicio
 verificado. [B09-A](b09-development.md) añade la base de allocations con 60/60 casos vivos y
 regresiones B07/B08 aprobadas. El [cierre B09](b09-development.md) añade 24/24 casos modernos y CAS de consumer.
-B10 y cierres B11/B12 están en ejecución por solicitud del usuario; no se cierra el conjunto Placement ni la integración Nova.
+B10 completó 44/44 casos; B11 cerró durabilidad/restore con 9/9 verificaciones. B12 está en ejecución por solicitud del usuario; no se cierra el conjunto Placement ni la integración Nova.
 [Resultados y ensayos previos](../../evidence/sprint3/placement/b07-close-20261029/README.md).
 
 No cambiar estados, fechas, puntos del Excel ni informes históricos. Este plan

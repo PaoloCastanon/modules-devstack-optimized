@@ -1,0 +1,1 @@
+{"time":"2026-10-29T17:04:13.851330046-03:00","level":"ERROR","msg":"placement stopped","reason":"database account has privileges outside the selected mode or schema"}
