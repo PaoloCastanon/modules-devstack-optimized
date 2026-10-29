@@ -1,11 +1,11 @@
-# B09 — allocations: incremento A
+# B09 — allocations: incrementos A y cierre
 
-Base B08 6587805 (PR #7 todavía abierto al iniciar). Estado: entrega A implementada y validada el 2026-10-29; B09 sigue en progreso.
-Este incremento hace posible reservar, reemplazar, consultar y liberar capacidad
-con transacciones MySQL propias. B09 no se considera cerrado: falta el formato
-1.12 y consumer generation 1.28 que utiliza Nova, además de sus dependencias de
-microversión. El máximo sube a 1.8 por el cambio puntual de propietario en allocations;
-default continúa en 1.0. No se aceptan versiones posteriores.
+Base B08 6587805 (PR #7 todavía abierto al iniciar). Estado: B09 completado para las rutas priorizadas del perfil el 2026-10-29.
+El incremento A añadió la base atómica 1.0–1.8. El cierre añade formato por
+provider 1.12, owner en lecturas, consumer generation 1.28 y mappings 1.34,
+contrastados con PUT 1.36. El máximo negociable para allocations es 1.36;
+default sigue siendo 1.0. Las otras rutas conservan el perfil anterior hasta
+B10 y devuelven 406 explícito fuera de él. No se promete toda Placement 1.36.
 
 Contrato fijado a Placement f4a89d3803cb23df22b8714569889ab39c918c34:
 
@@ -72,11 +72,21 @@ La VM quedó apagada y las identidades/secretos del ensayo fueron eliminados.
 No se cambia el Excel, capturas S2 ni endpoints de Nova. Se probó un nuevo proceso
 y un pool nuevo; no se reinició MySQL ni se simuló caída abrupta.
 
-## Siguiente entrega B09-B
+## Cierre B09-B
 
-Añadir formato de escritura indexado por provider (1.12), project/user en lecturas,
-consumer generation requerida (1.28, distinguiendo ausente/null/cero/obsoleta) y
-mappings 1.34 usados por los clientes posteriores. Cubrir las dependencias de las
-rutas seleccionadas antes de anunciar esas versiones. Probar consumidores nuevos,
-sustitución concurrente, liberación y rollback por generación obsoleta. La traza
-Nova usa PUT 1.36: esta entrega A todavía no puede reemplazar ese flujo.
+Formato indexado implementado desde 1.12; owner se devuelve sólo con reservas.
+Desde 1.28 consumer_generation es obligatorio: null exige ausencia del consumer,
+zero y otros enteros comparan exactamente con su generación actual. Un conflicto
+409 conserva reservas y owner e incluye placement.concurrent_update desde 1.23.
+PUT vacío elimina las reservas y el consumer y aumenta los providers anteriores;
+DELETE 1.0 conserva la generación de providers. El provider generation opcional
+del payload 1.12 no es un CAS del cliente, como el original. Mappings 1.34 se
+valida y no se persiste, siguiendo el handler original.
+
+[Cierre B09](../../evidence/sprint3/placement/b09-close-20261029/README.md):
+**24/24** casos modernos estrictos, B09-A **60/60**, B07 **57/57**, B08 **82/82**.
+Tests SQL añaden carrera de creación, CAS y liberación; make check PASS. La
+migración v5 añade created_at a allocations para Last-Modified persistido y
+Cache-Control: no-cache desde 1.15. No se reescriben las migraciones anteriores.
+POST batch y reshaper quedan fuera de estas rutas priorizadas. El flujo Nova
+completo y el boot permanecen en B13–B15; B10 agrega candidates y sus dependencias.

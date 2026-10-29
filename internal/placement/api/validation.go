@@ -129,23 +129,39 @@ func schemaViolations(value any, schema jsonObject, sp, ip []any, strictUUID boo
 	for _, rule := range schema {
 		switch rule.key {
 		case "type":
-			typ := rule.value.(string)
+			types := []string{}
+			if typ, ok := rule.value.(string); ok {
+				types = append(types, typ)
+			} else {
+				for _, typ := range rule.value.([]any) {
+					types = append(types, typ.(string))
+				}
+			}
 			valid := false
-			switch typ {
-			case "object":
-				valid = isObject
-			case "array":
-				valid = isArray
-			case "string":
-				valid = isString
-			case "integer":
-				valid = isNumber && mathematicalInteger(number)
-			case "number":
-				valid = isNumber
+			for _, typ := range types {
+				switch typ {
+				case "object":
+					valid = valid || isObject
+				case "array":
+					valid = valid || isArray
+				case "string":
+					valid = valid || isString
+				case "integer":
+					valid = valid || (isNumber && mathematicalInteger(number))
+				case "number":
+					valid = valid || isNumber
+				case "null":
+					valid = valid || value == nil
+				}
 			}
 			if !valid {
-				fail("type", pythonRepr(value)+" is not of type "+pythonString(typ))
+				names := []string{}
+				for _, typ := range types {
+					names = append(names, pythonString(typ))
+				}
+				fail("type", pythonRepr(value)+" is not of type "+strings.Join(names, ", "))
 			}
+
 		case "items":
 			if isArray {
 				for index, item := range array {
@@ -165,11 +181,13 @@ func schemaViolations(value any, schema jsonObject, sp, ip []any, strictUUID boo
 				}
 			}
 		case "minItems":
-			if isArray && len(array) < 1 {
+			limit, _ := strconv.Atoi(string(rule.value.(json.Number)))
+			if isArray && len(array) < limit {
 				fail("minItems", pythonRepr(value)+" should be non-empty")
 			}
 		case "minProperties":
-			if isObject && len(object) < 1 {
+			limit, _ := strconv.Atoi(string(rule.value.(json.Number)))
+			if isObject && len(object) < limit {
 				fail("minProperties", pythonRepr(value)+" should be non-empty")
 			}
 		case "minLength":

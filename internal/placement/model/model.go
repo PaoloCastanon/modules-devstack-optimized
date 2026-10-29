@@ -11,12 +11,13 @@ import (
 )
 
 type Error struct {
+	Code       string
 	HTTPStatus int
 	Detail     string
 }
 
 func (e *Error) Error() string             { return e.Detail }
-func Fail(status int, detail string) error { return &Error{status, detail} }
+func Fail(status int, detail string) error { return &Error{HTTPStatus: status, Detail: detail} }
 func Status(err error) int {
 	var e *Error
 	if errors.As(err, &e) {
@@ -129,3 +130,7 @@ type Inventories struct {
 
 // B08 will extend the catalogue. These classes are observed in the S2 inventory.
 func KnownClass(name string) bool { return name == "VCPU" || name == "MEMORY_MB" || name == "DISK_GB" }
+
+func FailCode(status int, detail, code string) error {
+	return &Error{HTTPStatus: status, Detail: detail, Code: code}
+}

@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/model"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/repository"
+	driver "github.com/go-sql-driver/mysql"
 	"math"
 	"sort"
 	"strings"
+	"time"
 )
 
 var _ repository.Allocations = (*Repository)(nil)
@@ -18,17 +20,25 @@ func (r *Repository) ConsumerAllocations(ctx context.Context, id string) (model.
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	out := model.ConsumerAllocations{Allocations: map[string]model.ResourceAllocation{}}
-	rows, err := r.db.QueryContext(ctx, "SELECT a.provider_uuid,p.generation,a.resource_class,a.used FROM allocations a JOIN resource_providers p ON p.uuid=a.provider_uuid WHERE a.consumer_uuid=? ORDER BY a.provider_uuid,a.resource_class", id)
+	rows, err := r.db.QueryContext(ctx, "SELECT a.provider_uuid,p.generation,a.resource_class,a.used,c.project_id,c.user_id,c.generation,a.created_at FROM allocations a JOIN resource_providers p ON p.uuid=a.provider_uuid JOIN consumers c ON c.uuid=a.consumer_uuid WHERE a.consumer_uuid=? ORDER BY a.provider_uuid,a.resource_class", id)
 	if err != nil {
 		return out, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var provider, class string
-		var generation, used int64
-		if err := rows.Scan(&provider, &generation, &class, &used); err != nil {
+		var generation, used, consumerGeneration int64
+		var project, user string
+		var created time.Time
+		if err := rows.Scan(&provider, &generation, &class, &used, &project, &user, &consumerGeneration, &created); err != nil {
 			return out, err
 		}
+		if created.After(out.LastModified) {
+			out.LastModified = created
+		}
+		out.ProjectID = &project
+		out.UserID = &user
+		out.Generation = &consumerGeneration
 		item, ok := out.Allocations[provider]
 		if !ok {
 			item = model.ResourceAllocation{Generation: generation, Resources: map[string]int64{}}
@@ -42,7 +52,7 @@ func (r *Repository) ProviderAllocations(ctx context.Context, id string) (model.
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	out := model.ProviderAllocations{Allocations: map[string]model.ConsumerResources{}}
-	rows, err := r.db.QueryContext(ctx, "SELECT p.generation,a.consumer_uuid,a.resource_class,a.used FROM resource_providers p LEFT JOIN allocations a ON a.provider_uuid=p.uuid WHERE p.uuid=? ORDER BY a.consumer_uuid,a.resource_class", id)
+	rows, err := r.db.QueryContext(ctx, "SELECT p.generation,a.consumer_uuid,a.resource_class,a.used,c.generation,a.created_at FROM resource_providers p LEFT JOIN allocations a ON a.provider_uuid=p.uuid LEFT JOIN consumers c ON c.uuid=a.consumer_uuid WHERE p.uuid=? ORDER BY a.consumer_uuid,a.resource_class", id)
 	if err != nil {
 		return out, err
 	}
@@ -50,17 +60,25 @@ func (r *Repository) ProviderAllocations(ctx context.Context, id string) (model.
 	found := false
 	for rows.Next() {
 		var consumer, class sql.NullString
-		var used sql.NullInt64
-		if err := rows.Scan(&out.Generation, &consumer, &class, &used); err != nil {
+		var used, consumerGeneration sql.NullInt64
+		var created sql.NullTime
+		if err := rows.Scan(&out.Generation, &consumer, &class, &used, &consumerGeneration, &created); err != nil {
 			return out, err
 		}
 		found = true
+		if created.Valid && created.Time.After(out.LastModified) {
+			out.LastModified = created.Time
+		}
 		if !consumer.Valid {
 			continue
 		}
 		item, ok := out.Allocations[consumer.String]
 		if !ok {
 			item = model.ConsumerResources{Resources: map[string]int64{}}
+		}
+		if consumerGeneration.Valid {
+			g := consumerGeneration.Int64
+			item.Generation = &g
 		}
 		item.Resources[class.String] = used.Int64
 		out.Allocations[consumer.String] = item
@@ -157,14 +175,27 @@ func (r *Repository) ReplaceAllocations(ctx context.Context, consumer string, up
 	wanted := update.Allocations
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	if len(wanted) == 0 {
+	if len(wanted) == 0 && !update.CheckGeneration {
 		return model.Fail(400, "Empty allocations require DELETE at this microversion.")
 	}
 	return r.allocationTransaction(ctx, func(tx *sql.Tx) error {
-		// An insert collision also obtains the same exclusive consumer row lock.
-		if _, err := tx.ExecContext(ctx, "INSERT INTO consumers(uuid,project_id,user_id) VALUES (?,?,?) ON DUPLICATE KEY UPDATE uuid=uuid", consumer, update.ProjectID, update.UserID); err != nil {
+		generation, created, err := lockAllocationConsumer(ctx, tx, consumer, update)
+		if err != nil {
 			return err
 		}
+		if update.CheckGeneration {
+			got := "None"
+			if update.Generation != nil {
+				got = fmt.Sprint(*update.Generation)
+			}
+			if created && update.Generation != nil {
+				return model.FailCode(409, "consumer generation conflict - expected null but got "+got, "placement.concurrent_update")
+			}
+			if !created && (update.Generation == nil || *update.Generation != generation) {
+				return model.FailCode(409, fmt.Sprintf("consumer generation conflict - expected %d but got %s", generation, got), "placement.concurrent_update")
+			}
+		}
+
 		ids, err := allocationProviders(ctx, tx, consumer, wanted)
 		if err != nil {
 			return err
@@ -245,7 +276,7 @@ func (r *Repository) ReplaceAllocations(ctx context.Context, consumer string, up
 			}
 		}
 		for _, id := range ids {
-			if _, ok := wanted[id]; !ok {
+			if _, ok := wanted[id]; !ok && len(wanted) > 0 {
 				continue
 			}
 			result, err := tx.ExecContext(ctx, "UPDATE resource_providers SET generation=generation+1 WHERE uuid=? AND generation=?", id, generations[id])
@@ -260,7 +291,17 @@ func (r *Repository) ReplaceAllocations(ctx context.Context, consumer string, up
 				return repository.ErrConcurrent
 			}
 		}
+		if len(ids) == 0 {
+			_, err = tx.ExecContext(ctx, "UPDATE consumers SET project_id=?,user_id=? WHERE uuid=?", update.ProjectID, update.UserID, consumer)
+			return err
+		}
 		_, err = tx.ExecContext(ctx, "UPDATE consumers SET generation=generation+1,project_id=?,user_id=? WHERE uuid=?", update.ProjectID, update.UserID, consumer)
+		if err != nil {
+			return err
+		}
+		if len(wanted) == 0 {
+			_, err = tx.ExecContext(ctx, "DELETE FROM consumers WHERE uuid=?", consumer)
+		}
 		return err
 	})
 }
@@ -361,4 +402,25 @@ func replaceInventoryRows(ctx context.Context, tx *sql.Tx, id string, invs map[s
 func allocationExceedsCapacity(used int64, inv model.Inventory) bool {
 	capacity := float64(inv.Total-inv.Reserved) * inv.AllocationRatio
 	return capacity < math.Exp2(63) && (capacity < 0 || used > int64(capacity))
+}
+
+func lockAllocationConsumer(ctx context.Context, tx *sql.Tx, id string, update model.AllocationUpdate) (int64, bool, error) {
+	var generation int64
+	err := tx.QueryRowContext(ctx, "SELECT generation FROM consumers WHERE uuid=? FOR UPDATE", id).Scan(&generation)
+	if err == nil {
+		return generation, false, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, false, err
+	}
+	_, err = tx.ExecContext(ctx, "INSERT INTO consumers(uuid,project_id,user_id) VALUES (?,?,?)", id, update.ProjectID, update.UserID)
+	if err == nil {
+		return 0, true, nil
+	}
+	var conflict *driver.MySQLError
+	if errors.As(err, &conflict) && conflict.Number == 1062 {
+		err = tx.QueryRowContext(ctx, "SELECT generation FROM consumers WHERE uuid=? FOR UPDATE", id).Scan(&generation)
+		return generation, false, err
+	}
+	return 0, false, err
 }

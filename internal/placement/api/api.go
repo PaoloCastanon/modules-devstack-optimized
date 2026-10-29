@@ -25,7 +25,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const Version = "1.8"
+const Version = "1.36"
 const MinVersion = "1.0"
 
 type identityKey struct{}
@@ -120,6 +120,10 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 		}
 		r = r.WithContext(context.WithValue(r.Context(), versionKey{}, version))
 		w.Header().Set("OpenStack-API-Version", fmt.Sprintf("placement 1.%d", version))
+		if version > 8 && r.URL.Path != "/" && route(r.URL.Path) != "/allocations/{consumer}" && route(r.URL.Path) != "/resource_providers/{id}/allocations" {
+			h.failure(w, r, model.Fail(406, "This route currently supports microversions 1.0 - 1.8."))
+			return
+		}
 		if route(r.URL.Path) != "/resource_providers/{id}/aggregates" && version < routeMinimum(r) {
 			h.failure(w, r, model.Fail(404, ""))
 			return
@@ -175,7 +179,7 @@ func negotiate(values []string) (int, error) {
 		return 0, model.Fail(400, "Invalid microversion header.")
 	}
 	if parts[1] == "latest" {
-		return 8, nil
+		return 36, nil
 	}
 	v := strings.Split(parts[1], ".")
 	if len(v) != 2 {
@@ -193,7 +197,7 @@ func negotiate(values []string) (int, error) {
 	}
 	major, e1 := strconv.Atoi(v[0])
 	minor, e2 := strconv.Atoi(v[1])
-	if e1 != nil || e2 != nil || major != 1 || minor > 8 {
+	if e1 != nil || e2 != nil || major != 1 || minor > 36 {
 		return 0, model.Fail(406, "Requested microversion is outside the supported range 1.0 - "+Version+".")
 	}
 	return minor, nil
@@ -384,6 +388,13 @@ func (h *Handler) failure(w http.ResponseWriter, r *http.Request, err error) {
 		}
 	}
 	body := map[string]any{"status": status, "title": http.StatusText(status), "detail": detail}
+	if microversion(r) >= 23 {
+		code := "placement.undefined_code"
+		if e != nil && e.Code != "" {
+			code = e.Code
+		}
+		body["code"] = code
+	}
 	if id := w.Header().Get("X-Openstack-Request-Id"); id != "" {
 		body["request_id"] = id
 	}

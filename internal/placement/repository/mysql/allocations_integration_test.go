@@ -296,6 +296,65 @@ func TestB09MySQLAllocations(t *testing.T) {
 	if renamed.Allocations[p.UUID].Resources["CUSTOM_B09_NEW"] != 2 || renamed.Allocations[p.UUID].Generation != provider.Generation {
 		t.Fatal("class rename lost claim", renamed)
 	}
+	// Modern consumer generation: null means absent, zero is a real expectation.
+	c3 := uuid.NewString()
+	modern := model.AllocationUpdate{Allocations: map[string]map[string]int64{p.UUID: {"CUSTOM_B09_NEW": 2}}, ProjectID: "project", UserID: "user", CheckGeneration: true}
+	must(r.ReplaceAllocations(ctx, c3, modern))
+	current, err := r.ConsumerAllocations(ctx, c3)
+	must(err)
+	if current.Generation == nil || *current.Generation != 1 || current.ProjectID == nil || *current.ProjectID != "project" {
+		t.Fatal("modern metadata", current)
+	}
+	stale := modern
+	stale.ProjectID = "changed-owner"
+	if err = r.ReplaceAllocations(ctx, c3, stale); model.Status(err) != 409 {
+		t.Fatal("null accepted for existing consumer", err)
+	}
+	zero := int64(0)
+	stale.Generation = &zero
+	if err = r.ReplaceAllocations(ctx, c3, stale); model.Status(err) != 409 {
+		t.Fatal("stale zero accepted", err)
+	}
+	unchanged, err := r.ConsumerAllocations(ctx, c3)
+	must(err)
+	if !reflect.DeepEqual(current, unchanged) {
+		t.Fatal("generation conflict changed owner or state", unchanged)
+	}
+	gen := int64(1)
+	modern.Generation = &gen
+	must(r.ReplaceAllocations(ctx, c3, modern))
+	gen = 2
+	clear := modern
+	clear.Allocations = map[string]map[string]int64{}
+	providerBefore, err := r.Get(ctx, p.UUID)
+	must(err)
+	must(r.ReplaceAllocations(ctx, c3, clear))
+	providerAfter, err := r.Get(ctx, p.UUID)
+	must(err)
+	if providerAfter.Generation != providerBefore.Generation+1 {
+		t.Fatal("empty PUT did not increment old provider")
+	}
+	must(admin.QueryRowContext(ctx, "SELECT COUNT(*) FROM consumers WHERE uuid=?", c3).Scan(&count))
+	if count != 0 {
+		t.Fatal("empty PUT left consumer")
+	}
+	modern.Generation = &zero
+	if err = r.ReplaceAllocations(ctx, c3, modern); model.Status(err) != 409 {
+		t.Fatal("zero accepted for absent consumer", err)
+	}
+	modern.Generation = nil
+	start = make(chan struct{})
+	results = make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		go func() { <-start; results <- r.ReplaceAllocations(ctx, c3, modern) }()
+	}
+	close(start)
+	one, two = <-results, <-results
+	if !((one == nil && model.Status(two) == 409) || (two == nil && model.Status(one) == 409)) {
+		t.Fatal("new consumer generation race", one, two)
+	}
+	must(r.DeleteAllocations(ctx, c3))
+
 	must(r.DeleteAllocations(ctx, c1))
 	must(r.Delete(ctx, p.UUID))
 	must(r.Delete(ctx, p2.UUID))

@@ -462,3 +462,34 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   formatos modernos, consumer generation y dependencias antes de anunciar más
   versiones. El rollback binario a B08 requiere restaurar su DB propia previa;
   no se implementa down migration automática.
+
+## 2026-10-29 — Cierre técnico B09 y continuación autorizada hasta B12
+
+- El usuario pidió terminar B09 y amplió el trabajo hasta B12. Se conserva el
+  subconjunto Nova; no se acredita sustitución ni boot de B13–B15.
+- B09-B añade formato por provider 1.12, owner en GET, consumer generation 1.28
+  distinguiendo ausente/null/zero/obsoleta y mappings 1.34. PUT 1.36 y lecturas
+  modernas forman el perfil priorizado. POST batch y reshaper quedan fuera.
+- CAS del consumer dentro de la misma transacción que reservas y propietario;
+  un conflicto no tiene efectos. PUT vacío libera y elimina el consumer, con
+  incremento de los providers anteriores; DELETE sigue sin incrementarlos.
+  El provider generation opcional del payload se ignora como en upstream.
+- Migración v5 append-only añade created_at a allocations. Se conservan v1–v4
+  y hashes; Last-Modified proviene de reservas persistidas y Cache-Control es
+  no-cache desde 1.15. Desde 1.23 los errores incluyen code; conflictos de
+  consumer usan placement.concurrent_update.
+- Comparación real con MySQL/Keystone: **24/24** casos modernos estrictos,
+  regresiones B09-A **60/60**, B07 **57/57**, B08 **82/82**, con cleanup.
+  Se conserva el valor crudo de Last-Modified, se valida HTTP date y sólo se
+  normaliza el timestamp además de request_id/orígenes/Vary permitidos. Sin
+  normalizar códigos, status, generación, owner o tipos.
+- Cinco suites MySQL independientes PASS: B09 añade carrera de creación del
+  mismo consumer, CAS stale/null, owner inmutable y liberación vacía; también
+  pasan B08/B07, lifecycle binario y guard de colisión. make check PASS con
+  race/vet/build de ambos módulos, documentos, Python e infraestructura.
+- El máximo 1.36 se aplica a allocations; otras rutas mantienen 406 explícito
+  fuera de su perfil 1.8 hasta B10. No se afirma compatibilidad íntegra 1.36.
+- Evidencia en evidence/sprint3/placement/b09-close-20261029/, con hashes, raw
+  HTTP, SQL, restart y limpieza. SQL original sólo lectura; metadata global no
+  cambió. Identidad temporal eliminada y VM apagada antes de seguir trabajo
+  local B10. No se modificaron Nova/endpoints, Excel ni capturas S2.

@@ -86,3 +86,24 @@ func (s *Service) Usages(ctx context.Context, who auth.Identity, id string) (mod
 	}
 	return out, err
 }
+
+func (s *Service) ReplaceModernAllocations(ctx context.Context, who auth.Identity, id string, request model.ModernAllocationRequest, check bool) error {
+	r, err := s.allocations(who)
+	if err != nil {
+		return err
+	}
+	values := map[string]map[string]int64{}
+	for provider, item := range request.Allocations {
+		values[strings.ToLower(provider)] = item.Resources
+	}
+	id, err = model.NormalizeUUID(id)
+	if err != nil {
+		return err
+	}
+	update := model.AllocationUpdate{Allocations: values, ProjectID: request.ProjectID, UserID: request.UserID, Generation: request.ConsumerGeneration, CheckGeneration: check}
+	err = r.ReplaceAllocations(ctx, id, update)
+	if errors.Is(err, repository.ErrConcurrent) {
+		return model.FailCode(409, "Inventory and/or allocations changed while attempting to allocate: Another thread concurrently updated the resource provider data. Please retry your update", "placement.concurrent_update")
+	}
+	return err
+}

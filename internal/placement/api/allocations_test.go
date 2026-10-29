@@ -136,3 +136,35 @@ func TestCapturedB09SchemaErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestModernAllocationSchemaAndNullGeneration(t *testing.T) {
+	_, identity, _ := harness(t)
+	repo := &allocationStub{memory: &memory{providers: map[string]model.Provider{}, inventories: map[string]model.Inventories{}}}
+	h, err := New(service.New(repo), identity, "http://localhost/placement", "http://localhost/identity/v3", 8192, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+	provider := "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+	for _, tc := range []struct {
+		version, body string
+		status        int
+	}{
+		{"1.12", `{"project_id":"p","user_id":"u","allocations":{"` + provider + `":{"generation":999,"resources":{"VCPU":2.0}}}}`, 204},
+		{"1.28", `{"project_id":"p","user_id":"u","allocations":{},"consumer_generation":null}`, 204},
+		{"1.28", `{"project_id":"p","user_id":"u","allocations":{}}`, 400},
+		{"1.28", `{"project_id":"p","user_id":"u","allocations":{},"consumer_generation":true}`, 400},
+		{"1.36", `{"project_id":"p","user_id":"u","allocations":{},"consumer_generation":0,"mappings":{"":{"x":1}}}`, 400},
+		{"1.36", `{"project_id":"p","user_id":"u","allocations":{},"consumer_generation":0,"mappings":{"group":["` + provider + `"]}}`, 204},
+	} {
+		req := httptest.NewRequest("PUT", "/allocations/"+id, strings.NewReader(tc.body))
+		req.Header.Set("X-Auth-Token", "fixture-token")
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("OpenStack-API-Version", "placement "+tc.version)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		if w.Code != tc.status {
+			t.Fatal(tc.version, w.Code, w.Body.String())
+		}
+	}
+}
