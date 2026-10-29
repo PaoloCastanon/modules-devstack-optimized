@@ -20,27 +20,39 @@ import (
 //go:embed schemas/v1.json
 var schemaJSON []byte
 
+//go:embed schemas/b08.json
+var b08SchemaJSON []byte
+
 var requestSchemas = func() jsonObject {
 	value, err := orderedJSON(schemaJSON)
 	if err != nil {
 		panic("invalid embedded Placement schemas")
 	}
-	return value.(jsonObject)
+	extra, err := orderedJSON(b08SchemaJSON)
+	if err != nil {
+		panic("invalid embedded B08 schemas")
+	}
+	return append(value.(jsonObject), extra.(jsonObject)...)
 }()
 
 type schemaViolation struct {
 	message, keyword         string
 	schema                   jsonObject
 	instance                 any
-	schemaPath, instancePath []string
+	schemaPath, instancePath []any
 }
 
 func (e *schemaViolation) detail(prefix string) error {
-	index := func(parts []string) string {
+	index := func(parts []any) string {
 		var b strings.Builder
 		for _, key := range parts {
 			b.WriteByte('[')
-			b.WriteString(pythonString(key))
+			switch key := key.(type) {
+			case int:
+				b.WriteString(strconv.Itoa(key))
+			case string:
+				b.WriteString(pythonString(key))
+			}
 			b.WriteByte(']')
 		}
 		return b.String()
@@ -55,7 +67,7 @@ func (e *schemaViolation) detail(prefix string) error {
 
 func validateRequest(value any, name, prefix string) error {
 	schema := requestSchemas.field(name).(jsonObject)
-	violations := schemaViolations(value, schema, nil, nil, name == "query")
+	violations := schemaViolations(value, schema, nil, nil, strings.HasPrefix(name, "query"))
 	if len(violations) == 0 {
 		return nil
 	}
@@ -70,24 +82,40 @@ func validateRequest(value any, name, prefix string) error {
 	return best.detail(prefix)
 }
 
-func comparePath(a, b []string) int {
+func comparePath(a, b []any) int {
 	for i := 0; i < len(a) && i < len(b); i++ {
-		if c := strings.Compare(a[i], b[i]); c != 0 {
+		c := 0
+		switch left := a[i].(type) {
+		case string:
+			if right, ok := b[i].(string); ok {
+				c = strings.Compare(left, right)
+			} else {
+				c = 1
+			}
+		case int:
+			if right, ok := b[i].(int); ok {
+				c = left - right
+			} else {
+				c = -1
+			}
+		}
+		if c != 0 {
 			return c
 		}
 	}
 	return len(a) - len(b)
 }
-func childPath(path []string, keys ...string) []string {
-	out := append([]string(nil), path...)
+func childPath(path []any, keys ...any) []any {
+	out := append([]any(nil), path...)
 	return append(out, keys...)
 }
 
-func schemaViolations(value any, schema jsonObject, sp, ip []string, strictUUID bool) []*schemaViolation {
+func schemaViolations(value any, schema jsonObject, sp, ip []any, strictUUID bool) []*schemaViolation {
 	var out []*schemaViolation
 	fail := func(keyword, message string) {
 		out = append(out, &schemaViolation{message, keyword, schema, value, childPath(sp), childPath(ip)})
 	}
+	array, isArray := value.([]any)
 	object, isObject := value.(jsonObject)
 	text, isString := value.(string)
 	number, isNumber := value.(json.Number)
@@ -99,6 +127,8 @@ func schemaViolations(value any, schema jsonObject, sp, ip []string, strictUUID 
 			switch typ {
 			case "object":
 				valid = isObject
+			case "array":
+				valid = isArray
 			case "string":
 				valid = isString
 			case "integer":
@@ -108,6 +138,37 @@ func schemaViolations(value any, schema jsonObject, sp, ip []string, strictUUID 
 			}
 			if !valid {
 				fail("type", pythonRepr(value)+" is not of type "+pythonString(typ))
+			}
+		case "items":
+			if isArray {
+				for index, item := range array {
+					out = append(out, schemaViolations(item, rule.value.(jsonObject), childPath(sp, "items"), childPath(ip, index), strictUUID)...)
+				}
+			}
+		case "uniqueItems":
+			if isArray && rule.value == true {
+				seen := map[string]bool{}
+				for _, item := range array {
+					key, _ := json.Marshal(plainJSON(item))
+					if seen[string(key)] {
+						fail("uniqueItems", pythonRepr(array)+" has non-unique elements")
+						break
+					}
+					seen[string(key)] = true
+				}
+			}
+		case "minLength":
+			limit, _ := strconv.Atoi(string(rule.value.(json.Number)))
+			if isString && utf8.RuneCountInString(text) < limit {
+				message := "is too short"
+				if limit == 1 {
+					message = "should be non-empty"
+				}
+				fail("minLength", pythonString(text)+" "+message)
+			}
+		case "pattern":
+			if isString && !regexp.MustCompile(rule.value.(string)).MatchString(text) {
+				fail("pattern", pythonString(text)+" does not match "+pythonString(rule.value.(string)))
 			}
 		case "maxLength":
 			limit, _ := strconv.Atoi(string(rule.value.(json.Number)))

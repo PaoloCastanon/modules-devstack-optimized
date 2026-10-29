@@ -31,8 +31,10 @@ type Provider struct {
 	Generation int64  `json:"generation"`
 }
 type Filter struct {
-	Name *string
-	UUID *string
+	Name       *string
+	UUID       *string
+	Aggregates []string
+	Resources  map[string]int64
 }
 
 func NormalizeUUID(value string) (string, error) {

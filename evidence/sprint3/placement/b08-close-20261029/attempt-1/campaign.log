@@ -1,0 +1,15 @@
+b08: PASS
+placement-test-binary: PASS
+placement-test-upgrade: PASS
+Live differential: {'total': 75, 'strict_equal': 0, 'status_equal': 75, 'planned': 75} cleanup: True exit: 1
+B07 live regression exit: 0
+Local processes, MySQL data and private credentials removed.
+Traceback (most recent call last):
+  File "/tmp/b08-live-campaign.py", line 77, in <module>
+    spec=importlib.util.spec_from_file_location('differential',repo/'scripts/placement_catalog_differential.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                                                                                                                                                              ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 763, in exec_module
+  File "<frozen importlib._bootstrap>", line 491, in _call_with_frames_removed
+  File "/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/scripts/placement_catalog_differential.py", line 14, in <module>
+    from placement_differential import Target, canonical, differences, read_token, request_headers
+ModuleNotFoundError: No module named 'placement_differential'

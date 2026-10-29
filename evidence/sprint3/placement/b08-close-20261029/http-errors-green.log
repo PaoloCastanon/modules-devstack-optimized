@@ -1,0 +1,6 @@
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api	0.023s
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/model	0.003s
+?   	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/repository	[no test files]
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/repository/mysql	0.002s
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/service	0.003s
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/cmd/placement	0.003s

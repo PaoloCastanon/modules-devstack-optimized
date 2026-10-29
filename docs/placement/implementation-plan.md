@@ -1,6 +1,6 @@
 # Plan de reimplementación Placement Go
 
-Fecha: 2026-10-28. Responsable Placement: Paolo Castañon Barrera.
+Actualizado: 2026-10-29. Responsable Placement: Paolo Castañon Barrera.
 
 ## Objetivo y punto de partida
 
@@ -17,8 +17,9 @@ su módulo/auth e implementa providers/inventories con MySQL y versión 1.0.
 priorizadas providers/inventories **1.0**. La campaña final del 29 de octubre
 compara 57 casos contra Python y Keystone reales: **57/57 status, respuestas y
 estados coinciden**, con limpieza y reinicio verificados. La implementación está
-publicada en el PR #6, pendiente de merge. B08–B10 no comenzaron y B11/B12 tienen
-avance parcial; no se cierra el conjunto Placement ni la integración Nova.
+integrada mediante PR #6 en b4d8300. [B08](b08-development.md) añade catálogos y
+asociaciones con 82/82 comparaciones estrictas, regresión B07 57/57 y reinicio
+verificado. B09/B10 siguen pendientes y B11/B12 tienen avance parcial; no se cierra el conjunto Placement ni la integración Nova.
 [Resultados y ensayos previos](../../evidence/sprint3/placement/b07-close-20261029/README.md).
 
 No cambiar estados, fechas, puntos del Excel ni informes históricos. Este plan
@@ -150,9 +151,12 @@ sus tareas posteriores y su metodología; no condicionan el primer B07.
 
 ## Próximo paso concreto
 
-Comenzar B08: fijar los catálogos de resource classes y traits y las asociaciones
-que utiliza el resource tracker, incluidos OWNER_NOVA y COMPUTE_STATUS_DISABLED.
-Definir sus pruebas de generación, duplicados y permisos antes de implementarlas.
-Cubrir los cambios de microversión necesarios antes de aumentar el máximo
-anunciado; B07 mantiene 1.0. Allocations/candidates y la sustitución Nova conservan
-sus tareas posteriores. Registrar cada incremento y conservar la evidencia B07.
+Comenzar B09: fijar el contrato de allocations por consumer/provider que usa
+Nova, generaciones de consumer, proyecto/usuario y las microversiones necesarias.
+Implementar reserva/reemplazo/liberación atómica sobre el inventario y restar el
+uso al filtro resources de B08. Probar capacidad agotada, conflicto concurrente,
+rollback y liberación con MySQL antes de habilitar claims. Ampliar versiones sólo
+tras cubrir sus dependencias en las rutas seleccionadas. B10 añade candidates;
+B13–B15 conservan la sustitución reversible y el boot ACTIVE con Nova original.
+B08 queda documentado en su [guía y límites](b08-development.md), sin cambiar
+el Excel ni la evidencia histórica.

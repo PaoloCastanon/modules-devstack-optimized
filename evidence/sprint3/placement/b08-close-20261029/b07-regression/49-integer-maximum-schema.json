@@ -1,0 +1,173 @@
+{
+  "name": "integer-maximum-schema",
+  "provider_uuid": "d8c035b9-1bb4-4b44-a618-e10e4910cfc2",
+  "request": {
+    "method": "PUT",
+    "path": "/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2/inventories",
+    "body": {
+      "resource_provider_generation": 1,
+      "inventories": {
+        "VCPU": {
+          "total": 2147483648
+        }
+      }
+    },
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0",
+      "Content-Type": "application/json"
+    },
+    "body_text": "{\"resource_provider_generation\": 1, \"inventories\": {\"VCPU\": {\"total\": 2147483648}}}",
+    "auth_role": "admin"
+  },
+  "seed": {
+    "python": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version",
+          "location": "http://192.168.122.10/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2"
+        },
+        "body_text": ""
+      },
+      {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 1, \"inventories\": {\"VCPU\": {\"total\": 4, \"reserved\": 0, \"min_unit\": 1, \"max_unit\": 2147483647, \"step_size\": 1, \"allocation_ratio\": 1.0}}}"
+      }
+    ],
+    "go": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version",
+          "location": "http://127.0.0.1:51183/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2"
+        },
+        "body_text": ""
+      },
+      {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":1,\"inventories\":{\"VCPU\":{\"total\":4,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+      }
+    ]
+  },
+  "before": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"d8c035b9-1bb4-4b44-a618-e10e4910cfc2\", \"name\": \"tt-b07-diff-d8c035b9-1bb4-4b44-a618-e10e4910cfc2\", \"generation\": 1, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 1, \"inventories\": {\"VCPU\": {\"total\": 4, \"reserved\": 0, \"min_unit\": 1, \"max_unit\": 2147483647, \"step_size\": 1, \"allocation_ratio\": 1.0}}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":1,\"links\":[{\"href\":\"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-d8c035b9-1bb4-4b44-a618-e10e4910cfc2\",\"uuid\":\"d8c035b9-1bb4-4b44-a618-e10e4910cfc2\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":1,\"inventories\":{\"VCPU\":{\"total\":4,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"errors\": [{\"status\": 400, \"title\": \"Bad Request\", \"detail\": \"The server could not comply with the request since it is either malformed or otherwise incorrect.\\n\\n JSON does not validate: 2147483648 is greater than the maximum of 2147483647  Failed validating 'maximum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['VCPU']['total']:     2147483648  \", \"request_id\": \"req-0714f792-b8be-403a-85f8-d1cfe61ad701\"}]}"
+    },
+    "go": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"errors\":[{\"detail\":\"The server could not comply with the request since it is either malformed or otherwise incorrect.\\n\\n JSON does not validate: 2147483648 is greater than the maximum of 2147483647  Failed validating 'maximum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['VCPU']['total']:     2147483648  \",\"request_id\":\"req-f0f079bc-72ad-4e19-934d-ea922278d6fa\",\"status\":400,\"title\":\"Bad Request\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"d8c035b9-1bb4-4b44-a618-e10e4910cfc2\", \"name\": \"tt-b07-diff-d8c035b9-1bb4-4b44-a618-e10e4910cfc2\", \"generation\": 1, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 1, \"inventories\": {\"VCPU\": {\"total\": 4, \"reserved\": 0, \"min_unit\": 1, \"max_unit\": 2147483647, \"step_size\": 1, \"allocation_ratio\": 1.0}}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":1,\"links\":[{\"href\":\"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/d8c035b9-1bb4-4b44-a618-e10e4910cfc2/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-d8c035b9-1bb4-4b44-a618-e10e4910cfc2\",\"uuid\":\"d8c035b9-1bb4-4b44-a618-e10e4910cfc2\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":1,\"inventories\":{\"VCPU\":{\"total\":4,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}

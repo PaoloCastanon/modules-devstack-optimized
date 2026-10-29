@@ -17,6 +17,7 @@ var (
 )
 
 type Repository interface {
+	ResourceClassExists(context.Context, string) (bool, error)
 	Create(context.Context, model.Provider) error
 	Get(context.Context, string) (model.Provider, error)
 	List(context.Context, model.Filter) ([]model.Provider, error)

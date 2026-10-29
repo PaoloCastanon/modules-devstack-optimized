@@ -130,3 +130,8 @@ placement-test-binary:
 # Another NEW EMPTY schema. Verifies a failed v1→v2 upgrade preserves both rows.
 placement-test-upgrade:
 	go test -race -count=1 -tags=integration ./internal/placement/repository/mysql -run '^TestV1CollisionStopsUpgrade$$' -v
+
+.PHONY: placement-test-catalogs
+# NEW EMPTY schema; creates B07 v2 history and verifies the B08 v3 upgrade.
+placement-test-catalogs:
+	go test -race -count=1 -tags=integration ./internal/placement/repository/mysql -run '^TestB08MySQLCatalogs$$' -v

@@ -1,0 +1,124 @@
+{
+  "name": "reader-media-before-policy",
+  "provider_uuid": "d91219b0-5b85-4723-a211-f22a30f2acd8",
+  "request": {
+    "method": "POST",
+    "path": "/resource_providers",
+    "body": {
+      "uuid": "d91219b0-5b85-4723-a211-f22a30f2acd8",
+      "name": "tt-b07-diff-d91219b0-5b85-4723-a211-f22a30f2acd8"
+    },
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0",
+      "Content-Type": "text/plain"
+    },
+    "body_text": "{\"uuid\": \"d91219b0-5b85-4723-a211-f22a30f2acd8\", \"name\": \"tt-b07-diff-d91219b0-5b85-4723-a211-f22a30f2acd8\"}",
+    "auth_role": "reader"
+  },
+  "seed": {},
+  "before": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found  \", \"request_id\": \"req-32260b01-6c6a-4928-89ae-80c64a576692\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found : No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found  \", \"request_id\": \"req-3528a098-66a4-4144-806a-500941c5c7bb\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found  \",\"request_id\":\"req-81991a76-5fcf-46a6-8860-d6ab641aa168\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found : No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found  \",\"request_id\":\"req-0d25b8bc-1cc1-437d-852a-95399c99823b\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 415,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"errors\": [{\"status\": 415, \"title\": \"Unsupported Media Type\", \"detail\": \"The request media type text/plain is not supported by this server. \\n\\n The media type text/plain is not supported, use application/json\", \"request_id\": \"req-967a2cda-b196-4c60-a55c-b2798b9366c5\"}]}"
+    },
+    "go": {
+      "status": 415,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"errors\":[{\"detail\":\"The request media type text/plain is not supported by this server. \\n\\n The media type text/plain is not supported, use application/json\",\"request_id\":\"req-18066164-f9c8-451e-881f-58a4a7de0079\",\"status\":415,\"title\":\"Unsupported Media Type\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found  \", \"request_id\": \"req-b8516b81-caec-4fa5-8d5b-078af5d2240a\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found : No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found  \", \"request_id\": \"req-9e43d6ea-2977-4ac3-ac8a-b3d3a545d4c5\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found  \",\"request_id\":\"req-045f7889-049a-4d46-a2f5-ea9aea3c5bd5\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found : No resource provider with uuid d91219b0-5b85-4723-a211-f22a30f2acd8 found  \",\"request_id\":\"req-4aabba48-7b58-49e4-813f-8f18a423f9f3\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}
