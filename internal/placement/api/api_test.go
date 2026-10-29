@@ -29,6 +29,10 @@ type memory struct {
 	inventories map[string]model.Inventories
 }
 
+func (r *memory) ResourceClassExists(_ context.Context, name string) (bool, error) {
+	return model.KnownClass(name), nil
+}
+
 func (r *memory) Create(_ context.Context, p model.Provider) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -207,10 +211,10 @@ func TestDiscoveryAuthAndVersions(t *testing.T) {
 	r := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `"max_version":"1.0"`) {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"max_version":"1.7"`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	for _, version := range []string{"placement 1.1", "placement 1.36", "placement 2.0", "placement 0.9"} {
+	for _, version := range []string{"placement 1.8", "placement 1.36", "placement 2.0", "placement 0.9"} {
 		r = httptest.NewRequest("GET", "/", nil)
 		r.Header.Set("OpenStack-API-Version", version)
 		w = httptest.NewRecorder()

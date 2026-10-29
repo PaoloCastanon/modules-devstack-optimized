@@ -1,0 +1,6 @@
+b08: PASS
+placement-test-binary: PASS
+placement-test-upgrade: PASS
+Live differential: {'total': 75, 'strict_equal': 75, 'status_equal': 75, 'planned': 75} cleanup: True exit: 0
+B07 live regression exit: 0
+Local processes, MySQL data and private credentials removed.

@@ -335,3 +335,60 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - **Git:** el índice y sus entradas no se modifican; los dos conflictos siguen
   marcados `UU` hasta que el usuario revise y marque sus resoluciones.
   No se ejecutaron staging, commits, push ni finalización del merge.
+
+## 2026-10-29 — B08: catálogos y asociaciones Placement
+
+- **Base y alcance:** PR #6 integrado en b4d8300; rama feat/placement-b08.
+  Reimplementación parcial para Nova: classes/traits estándar y CUSTOM,
+  asociaciones por provider y cambios seleccionados 1.1–1.7 de sus rutas.
+  Default 1.0, latest 1.7; no se afirma cobertura completa de la API.
+  Nova fijado usa traits 1.6 y ensure resource classes 1.7 según report.py.
+- **Implementación:** catálogo persistido (21 clases y 377 traits fijados a
+  os-resource-classes 1.1.0 y os-traits 3.9.0 del laboratorio); migración v3
+  append-only, v1/v2 intactas. CUSTOM CRUD, protección de estándar/en uso,
+  renombre de clase con cascade sin cambiar generation, traits con CAS y
+  no-op sin incremento, filtros asociados. Aggregates 1.1, member_of 1.3,
+  resources 1.4 y DELETE inventories 1.5 cubren dependencias seleccionadas.
+  API/servicio/repositorio separados, sin importar dominios Glance.
+- **Pruebas previas y correcciones:** nombre CUSTOM y protocolos inicialmente
+  sin implementar; tests antes de código. MySQL real detectó error 1826 al
+  recrear una FK con igual nombre en un ALTER; v3 separa las sentencias.
+  Cada reintento usa DB nueva; el historial dirty sigue bloqueado. La primera
+  campaña dio 75/75 status y 0/75 estricto por Vary en snapshots 404 y textos
+  de errores 404/405. Ocho respuestas Python capturadas se reprodujeron en
+  tests rojos y se corrigió Go sin flexibilizar errores, tipos o generation.
+- **Comparación viva final:** scripts/placement_catalog_differential.py,
+  opt-in --allow-mutations, tokens privados y salida nueva: **82/82** status,
+  respuestas y estados estrictos frente a Python f4a89d3 con MySQL/Keystone
+  reales. Regresión del runner B07 sin modificarlo: **57/57** status, respuestas
+  y estados en 1.0. Los recursos originales eran frescos (GET 404 previo) y
+  quedaron ausentes tras limpiar. Se conservan también intentos 1 y 2.
+- **Normalización explícita:** request_id/orígenes/Vary como B07; ordenar listas
+  de traits/aggregates y catálogo de clases sin deduplicar. Sólo listados
+  globales excluyen CUSTOM ajenos al ensayo; todos los estándar y propios se
+  comparan, con respuestas crudas completas. Las asociaciones positivas de
+  aggregates/member_of se verifican en MySQL aislado; en el original sólo PUT
+  [] porque HTTP no permite borrar filas globales de aggregates. Esta parte
+  no se atribuye a la comparación viva.
+- **MySQL y proceso:** TestB08MySQLCatalogs con race en schema descartable,
+  cuentas migrate/serve distintas: upgrade v2→v3 conserva inventario/generation,
+  idempotencia, estándar/CUSTOM, CAS mixto traits/inventories, rollback tras
+  overflow SQL después de modificar hijos y protección por FK. Pasaron además
+  make placement-test-binary y make placement-test-upgrade en schemas nuevos
+  separados. SIGTERM exit 0 y proceso nuevo conservan clase CUSTOM, inventario,
+  trait y asociación con generation; no se reinició el servidor MySQL.
+- **Gate local:** make check terminó en 0, con documentación/evidencia histórica,
+  13 tests harness y 19 tests unitarios Python, pin Nova, sintaxis/fmt de
+  infraestructura, formato/vet Go, pruebas de ambos módulos con race y build.
+  La VM no se inicia desde este gate. Se verifica además que los 127 digests
+  de fuentes/inputs guardados corresponden a los archivos ensayados.
+- **Limpieza y límites:** proyecto/usuario/credenciales temporales Keystone
+  eliminados, recursos de ambos Placement ausentes, contenedores/datos/procesos
+  locales y secretos descartados; tt-openstack-lab apagada. No se cambió el
+  endpoint original, Excel ni capturas S2. No se acredita Nova contra Go,
+  allocations, candidates, benchmarks ni cierre transversal B11/B12. B09 debe
+  restar usage al filtro resources antes de habilitar claims.
+- **Evidencia y continuación:** evidence/sprint3/placement/b08-close-20261029/
+  conserva reportes, errores iniciales, logs, restart, hashes y limpieza.
+  docs/placement/b08-development.md documenta contrato/operación; PLANS.md y
+  implementation-plan.md dejan B09 allocations como siguiente incremento.

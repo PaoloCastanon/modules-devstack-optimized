@@ -25,7 +25,8 @@ import (
 	"github.com/google/uuid"
 )
 
-const Version = "1.0"
+const Version = "1.7"
+const MinVersion = "1.0"
 
 type identityKey struct{}
 type Handler struct {
@@ -50,6 +51,12 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 	base, _ := url.Parse(strings.TrimRight(publicURL, "/"))
 	h := &Handler{s, a, base, "Keystone uri=" + strconv.Quote(strings.TrimSuffix(strings.TrimRight(keystoneURL, "/"), "/v3")), limit, logger}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/resource_classes", h.classes)
+	mux.HandleFunc("/resource_classes/{name}", h.class)
+	mux.HandleFunc("/traits", h.traits)
+	mux.HandleFunc("/traits/{name}", h.trait)
+	mux.HandleFunc("/resource_providers/{id}/traits", h.providerTraits)
+	mux.HandleFunc("/resource_providers/{id}/aggregates", h.aggregates)
 	mux.HandleFunc("/resource_providers", h.providers)
 	mux.HandleFunc("/resource_providers/{id}", h.provider)
 	mux.HandleFunc("/resource_providers/{id}/inventories", h.inventories)
@@ -70,7 +77,7 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 		}
 		w.Header().Set("X-Openstack-Request-Id", "req-"+id.String())
 		w.Header().Set("Vary", "OpenStack-API-Version")
-		w.Header().Set("OpenStack-API-Version", "placement "+Version)
+		w.Header().Set("OpenStack-API-Version", "placement "+MinVersion)
 		out := &observed{ResponseWriter: w}
 		w = out
 		defer func() {
@@ -103,8 +110,15 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 			}
 			r = r.WithContext(context.WithValue(r.Context(), identityKey{}, who))
 		}
-		if err := negotiate(r.Header.Values("OpenStack-API-Version")); err != nil {
+		version, err := negotiate(r.Header.Values("OpenStack-API-Version"))
+		if err != nil {
 			h.failure(w, r, err)
+			return
+		}
+		r = r.WithContext(context.WithValue(r.Context(), versionKey{}, version))
+		w.Header().Set("OpenStack-API-Version", fmt.Sprintf("placement 1.%d", version))
+		if route(r.URL.Path) != "/resource_providers/{id}/aggregates" && version < routeMinimum(r) {
+			h.failure(w, r, model.Fail(404, ""))
 			return
 		}
 		if r.Method == "GET" && !acceptsJSON(r.Header.Get("Accept")) {
@@ -117,6 +131,10 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 				return
 			}
 		}
+		if version < routeMinimum(r) {
+			h.failure(w, r, model.Fail(404, ""))
+			return
+		}
 		if r.URL.Path != "/" && permission(r) != "" {
 			who := identity(r)
 			if !who.HasRole("admin") && !who.HasRole("service") {
@@ -127,35 +145,55 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 		mux.ServeHTTP(w, r)
 	}), nil
 }
-func negotiate(values []string) error {
+
+type versionKey struct{}
+
+func microversion(r *http.Request) int { v, _ := r.Context().Value(versionKey{}).(int); return v }
+func routeMinimum(r *http.Request) int {
+	switch route(r.URL.Path) {
+	case "/resource_classes", "/resource_classes/{name}":
+		return 2
+	case "/traits", "/traits/{name}", "/resource_providers/{id}/traits":
+		return 6
+	case "/resource_providers/{id}/aggregates":
+		return 1
+	}
+	return 0
+}
+func negotiate(values []string) (int, error) {
 	if len(values) == 0 {
-		return nil
+		return 0, nil
 	}
 	if len(values) != 1 {
-		return model.Fail(400, "Invalid microversion header.")
+		return 0, model.Fail(400, "Invalid microversion header.")
 	}
 	parts := strings.Fields(values[0])
 	if len(parts) != 2 || parts[0] != "placement" {
-		return model.Fail(400, "Invalid microversion header.")
+		return 0, model.Fail(400, "Invalid microversion header.")
 	}
-	if parts[1] == "latest" || parts[1] == Version {
-		return nil
+	if parts[1] == "latest" {
+		return 7, nil
 	}
 	v := strings.Split(parts[1], ".")
 	if len(v) != 2 {
-		return model.Fail(400, "Invalid microversion.")
+		return 0, model.Fail(400, "Invalid microversion.")
 	}
-	for _, p := range v {
-		if p == "" {
-			return model.Fail(400, "Invalid microversion.")
+	for _, part := range v {
+		if part == "" {
+			return 0, model.Fail(400, "Invalid microversion.")
 		}
-		for _, c := range p {
+		for _, c := range part {
 			if c < '0' || c > '9' {
-				return model.Fail(400, "Invalid microversion.")
+				return 0, model.Fail(400, "Invalid microversion.")
 			}
 		}
 	}
-	return model.Fail(406, "Requested microversion is outside the supported range 1.0 - 1.0.")
+	major, e1 := strconv.Atoi(v[0])
+	minor, e2 := strconv.Atoi(v[1])
+	if e1 != nil || e2 != nil || major != 1 || minor > 7 {
+		return 0, model.Fail(406, "Requested microversion is outside the supported range 1.0 - "+Version+".")
+	}
+	return minor, nil
 }
 func acceptsJSON(header string) bool {
 	if header == "" {
@@ -192,6 +230,9 @@ func acceptsJSON(header string) bool {
 	return bestSpecificity >= 0 && quality > 0
 }
 func permission(r *http.Request) string {
+	if p := catalogPermission(r); p != "" {
+		return p
+	}
 	prefix := "placement:resource_providers:"
 	action := ""
 	switch route(r.URL.Path) {
@@ -213,6 +254,9 @@ func permission(r *http.Request) string {
 		}
 	case "/resource_providers/{id}/inventories":
 		prefix += "inventories:"
+		if r.Method == "DELETE" && microversion(r) >= 5 {
+			action = "delete"
+		}
 		if r.Method == "GET" {
 			action = "list"
 		}
@@ -236,6 +280,14 @@ func route(path string) string {
 	if path == "/" {
 		return "/"
 	}
+	if parts[0] == "resource_classes" || parts[0] == "traits" {
+		if len(parts) == 1 {
+			return "/" + parts[0]
+		}
+		if len(parts) == 2 {
+			return "/" + parts[0] + "/{name}"
+		}
+	}
 	if parts[0] != "resource_providers" {
 		return "unmatched"
 	}
@@ -245,6 +297,9 @@ func route(path string) string {
 	case 2:
 		return "/resource_providers/{id}"
 	case 3:
+		if parts[2] == "traits" || parts[2] == "aggregates" {
+			return "/resource_providers/{id}/" + parts[2]
+		}
 		if parts[2] == "inventories" {
 			return "/resource_providers/{id}/inventories"
 		}
@@ -306,9 +361,18 @@ func (h *Handler) failure(w http.ResponseWriter, r *http.Request, err error) {
 	if status == 404 && (route(r.URL.Path) == "/resource_providers/{id}" && (r.Method == "GET" || r.Method == "PUT") || route(r.URL.Path) == "/resource_providers/{id}/inventories" && r.Method == "PUT") {
 		w.Header().Del("Vary")
 	}
+	// These lookups escape the versioned handler as domain NotFound in Python.
+	// A version-floor 404 is raised inside the handler and retains Vary.
+	if status == 404 && detail != "" && (route(r.URL.Path) == "/resource_classes/{name}" || route(r.URL.Path) == "/resource_providers/{id}/aggregates" || route(r.URL.Path) == "/resource_providers/{id}/traits" && r.Method != "GET") {
+		w.Header().Del("Vary")
+	}
 	prefixes := map[int]string{400: "The server could not comply with the request since it is either malformed or otherwise incorrect.", 403: "Access was denied to this resource.", 404: "The resource could not be found.", 409: "There was a conflict when trying to complete your request."}
 	if prefix, ok := prefixes[status]; ok {
-		detail = prefix + "\n\n " + detail + "  "
+		if detail == "" {
+			detail = prefix + "\n\n   "
+		} else {
+			detail = prefix + "\n\n " + detail + "  "
+		}
 	}
 	body := map[string]any{"status": status, "title": http.StatusText(status), "detail": detail}
 	if id := w.Header().Get("X-Openstack-Request-Id"); id != "" {
@@ -331,7 +395,7 @@ func (h *Handler) notAcceptable(w http.ResponseWriter, r *http.Request) {
 
 func requiresJSON(r *http.Request) bool {
 	path := route(r.URL.Path)
-	return r.Method == "POST" && path == "/resource_providers" || r.Method == "PUT" && (path == "/resource_providers/{id}" || path == "/resource_providers/{id}/inventories")
+	return r.Method == "POST" && (path == "/resource_providers" || path == "/resource_classes") || r.Method == "PUT" && (path == "/resource_providers/{id}" || path == "/resource_providers/{id}/inventories" || path == "/resource_providers/{id}/traits" || path == "/resource_providers/{id}/aggregates" || path == "/resource_classes/{name}" && microversion(r) < 7)
 }
 
 func requireJSON(r *http.Request) error {
@@ -383,7 +447,7 @@ func (h *Handler) decode(w http.ResponseWriter, r *http.Request, target any, inv
 	if err != nil {
 		return model.Fail(400, "Invalid JSON object.")
 	}
-	schema := "inventories"
+	schema := bodySchema(r)
 	if route(r.URL.Path) == "/resource_providers" {
 		schema = "create"
 	}
@@ -420,12 +484,19 @@ func (h *Handler) discovery(w http.ResponseWriter, r *http.Request) {
 		h.method(w, r, "GET")
 		return
 	}
-	h.json(w, 200, map[string]any{"versions": []any{map[string]any{"id": "v1.0", "max_version": Version, "min_version": Version, "status": "CURRENT", "links": []any{map[string]string{"rel": "self", "href": ""}}}}})
+	h.json(w, 200, map[string]any{"versions": []any{map[string]any{"id": "v1.0", "max_version": Version, "min_version": MinVersion, "status": "CURRENT", "links": []any{map[string]string{"rel": "self", "href": ""}}}}})
 }
-func (h *Handler) representation(p model.Provider) map[string]any {
+func (h *Handler) representation(r *http.Request, p model.Provider) map[string]any {
 	href := strings.TrimRight(h.base.Path, "/") + "/resource_providers/" + p.UUID
 	links := []map[string]string{}
-	for _, rel := range []string{"self", "inventories", "usages"} {
+	rels := []string{"self", "inventories", "usages"}
+	if microversion(r) >= 1 {
+		rels = append(rels, "aggregates")
+	}
+	if microversion(r) >= 6 {
+		rels = append(rels, "traits")
+	}
+	for _, rel := range rels {
 		link := href
 		if rel != "self" {
 			link += "/" + rel
@@ -490,7 +561,7 @@ func (h *Handler) providers(w http.ResponseWriter, r *http.Request) {
 			}
 			queryObject = append(queryObject, jsonMember{key, value})
 		}
-		if err := validateRequest(queryObject, "query", "Invalid query string parameters: "); err != nil {
+		if err := validateRequest(queryObject, providerQuerySchema(r), "Invalid query string parameters: "); err != nil {
 			h.failure(w, r, err)
 			return
 		}
@@ -506,6 +577,18 @@ func (h *Handler) providers(w http.ResponseWriter, r *http.Request) {
 				f.Name = &v
 			case "uuid":
 				f.UUID = &v
+			case "member_of":
+				f.Aggregates, err = parseMemberOf(values)
+				if err != nil {
+					h.failure(w, r, err)
+					return
+				}
+			case "resources":
+				f.Resources, err = parseResources(v)
+				if err != nil {
+					h.failure(w, r, err)
+					return
+				}
 			default:
 				h.failure(w, r, model.Fail(400, "Unsupported query parameter at microversion 1.0."))
 				return
@@ -518,7 +601,7 @@ func (h *Handler) providers(w http.ResponseWriter, r *http.Request) {
 		}
 		out := []map[string]any{}
 		for _, p := range providers {
-			out = append(out, h.representation(p))
+			out = append(out, h.representation(r, p))
 		}
 		h.json(w, 200, map[string]any{"resource_providers": out})
 	default:
@@ -534,7 +617,7 @@ func (h *Handler) provider(w http.ResponseWriter, r *http.Request) {
 			h.failure(w, r, err)
 			return
 		}
-		h.json(w, 200, h.representation(p))
+		h.json(w, 200, h.representation(r, p))
 	case "PUT":
 		var input struct {
 			Name *string `json:"name"`
@@ -552,7 +635,7 @@ func (h *Handler) provider(w http.ResponseWriter, r *http.Request) {
 			h.failure(w, r, err)
 			return
 		}
-		h.json(w, 200, h.representation(p))
+		h.json(w, 200, h.representation(r, p))
 	case "DELETE":
 		if err := h.service.Delete(r.Context(), identity(r), id); err != nil {
 			h.failure(w, r, err)
@@ -567,6 +650,17 @@ func (h *Handler) inventories(w http.ResponseWriter, r *http.Request) {
 	var result model.Inventories
 	var err error
 	switch r.Method {
+	case "DELETE":
+		if microversion(r) < 5 {
+			h.failure(w, r, model.Fail(405, "The method DELETE is not allowed for this resource. \n\n "))
+			return
+		}
+		if err := h.service.DeleteInventories(r.Context(), identity(r), r.PathValue("id")); err != nil {
+			h.failure(w, r, err)
+			return
+		}
+		w.WriteHeader(204)
+		return
 	case "GET":
 		result, err = h.service.Inventories(r.Context(), identity(r), r.PathValue("id"))
 	case "PUT":

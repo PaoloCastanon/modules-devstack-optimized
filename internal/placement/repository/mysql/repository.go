@@ -78,6 +78,23 @@ func (r *Repository) List(ctx context.Context, f model.Filter) ([]model.Provider
 		predicates = append(predicates, "uuid=?")
 		args = append(args, *f.UUID)
 	}
+	if len(f.Aggregates) > 0 {
+		predicates = append(predicates, "EXISTS(SELECT 1 FROM resource_provider_aggregates a WHERE a.provider_uuid=resource_providers.uuid AND a.aggregate_uuid IN ("+strings.TrimSuffix(strings.Repeat("?,", len(f.Aggregates)), ",")+"))")
+		for _, id := range f.Aggregates {
+			args = append(args, id)
+		}
+	}
+	classes := make([]string, 0, len(f.Resources))
+	for name := range f.Resources {
+		classes = append(classes, name)
+	}
+	sort.Strings(classes)
+	for _, name := range classes {
+		amount := f.Resources[name]
+		// B08 has no allocations. B09 must subtract usage before enabling claims.
+		predicates = append(predicates, "EXISTS(SELECT 1 FROM inventories i WHERE i.provider_uuid=resource_providers.uuid AND i.resource_class=? AND (i.total-i.reserved)*i.allocation_ratio>=? AND i.min_unit<=? AND i.max_unit>=? AND MOD(?,i.step_size)=0)")
+		args = append(args, name, amount, amount, amount, amount)
+	}
 	if len(predicates) > 0 {
 		query += " WHERE " + strings.Join(predicates, " AND ")
 	}

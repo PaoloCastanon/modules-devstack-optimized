@@ -1,0 +1,92 @@
+{
+  "traits_set": {
+    "type": "object",
+    "properties": {
+      "traits": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      "resource_provider_generation": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "traits",
+      "resource_provider_generation"
+    ],
+    "additionalProperties": false
+  },
+  "traits_query": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "associated": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  },
+  "class_body": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "pattern": "^CUSTOM_[A-Z0-9_]+$",
+        "maxLength": 255
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "aggregates_set": {
+    "type": "array",
+    "items": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "uniqueItems": true
+  },
+  "query_1_3": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "uuid": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "member_of": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  },
+  "query_1_4": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "uuid": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "member_of": {
+        "type": "string"
+      },
+      "resources": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  }
+}

@@ -4,7 +4,7 @@ import "testing"
 
 func TestMigrationHistoryMustBeContiguousAndUnchanged(t *testing.T) {
 	all := migrations()
-	if len(all) != 2 {
+	if len(all) != 3 {
 		t.Fatal("unexpected migration chain")
 	}
 	for n, step := range all {
@@ -22,11 +22,14 @@ func TestMigrationHistoryMustBeContiguousAndUnchanged(t *testing.T) {
 		{1, 1, all[0].checksum(), false},
 		{0, 1, "changed", false},
 		{0, 1, all[0].checksum(), true},
-		{2, 3, "future", false},
+		{3, 4, "future", false},
 	} {
 		if historyMatches(tc.index, tc.version, tc.hash, tc.dirty) {
 			t.Fatal("invalid history accepted", tc)
 		}
+	}
+	if all[1].checksum() != "7eafb891cac6d430240affbaab34007eced9b117801b98e0dc22b134c3da1516" {
+		t.Fatal("v2 was changed")
 	}
 	// v1 was already applied in B07. Its SQL/checksum must not be rewritten.
 	if all[0].checksum() != "6608a960a668840dcd3bc94fa536edb5cb0fe83167b06a1cdc3100ebef28455d" {

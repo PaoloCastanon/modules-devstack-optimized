@@ -1,0 +1,176 @@
+{
+  "source": "Placement f4a89d3803cb23df22b8714569889ab39c918c34, live Keystone/MySQL, B08 attempt 1 on 2026-10-29",
+  "cases": [
+    {
+      "name": "class-route-before-1.2",
+      "request": {
+        "method": "GET",
+        "path": "/resource_classes",
+        "body": null,
+        "headers": {
+          "Accept": "application/json",
+          "OpenStack-API-Version": "placement 1.1"
+        },
+        "auth_role": "admin"
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.1",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n   \", \"request_id\": \"req-8168985f-3949-4e8b-a1a0-9352bc89f628\"}]}"
+      }
+    },
+    {
+      "name": "class-old-missing",
+      "request": {
+        "method": "GET",
+        "path": "/resource_classes/CUSTOM_B08_00D396ADD6CC451EA91EF93B92216AE3_OLD",
+        "body": null,
+        "headers": {
+          "Accept": "application/json",
+          "OpenStack-API-Version": "placement 1.7"
+        },
+        "auth_role": "admin"
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.7"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No such resource class CUSTOM_B08_00D396ADD6CC451EA91EF93B92216AE3_OLD.  \", \"request_id\": \"req-e9dda942-135b-448d-93fc-ab156202fdba\"}]}"
+      }
+    },
+    {
+      "name": "class-delete-missing",
+      "request": {
+        "method": "DELETE",
+        "path": "/resource_classes/CUSTOM_B08_00D396ADD6CC451EA91EF93B92216AE3_EXTRA",
+        "body": null,
+        "headers": {
+          "Accept": "application/json",
+          "OpenStack-API-Version": "placement 1.7"
+        },
+        "auth_role": "admin"
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.7"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No such resource class CUSTOM_B08_00D396ADD6CC451EA91EF93B92216AE3_EXTRA.  \", \"request_id\": \"req-9cb50319-6368-465e-96b7-4df27b613f03\"}]}"
+      }
+    },
+    {
+      "name": "traits-before-1.6",
+      "request": {
+        "method": "GET",
+        "path": "/traits",
+        "body": null,
+        "headers": {
+          "Accept": "application/json",
+          "OpenStack-API-Version": "placement 1.5"
+        },
+        "auth_role": "admin"
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.5",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n   \", \"request_id\": \"req-41ba9ddc-67cd-4a5a-8631-66124d4ba4ac\"}]}"
+      }
+    },
+    {
+      "name": "provider-traits-before-1.6",
+      "request": {
+        "method": "GET",
+        "path": "/resource_providers/f756c96d-edba-41e3-a0e5-5db43b342beb/traits",
+        "body": null,
+        "headers": {
+          "Accept": "application/json",
+          "OpenStack-API-Version": "placement 1.5"
+        },
+        "auth_role": "admin"
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.5",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n   \", \"request_id\": \"req-5fcba34d-d415-40f1-8478-b174a5061636\"}]}"
+      }
+    },
+    {
+      "name": "aggregates-before-1.1",
+      "request": {
+        "method": "GET",
+        "path": "/resource_providers/f756c96d-edba-41e3-a0e5-5db43b342beb/aggregates",
+        "body": null,
+        "headers": {
+          "Accept": "application/json",
+          "OpenStack-API-Version": "placement 1.0"
+        },
+        "auth_role": "admin"
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n   \", \"request_id\": \"req-56612173-68c4-43ad-bcdf-166bab542092\"}]}"
+      }
+    },
+    {
+      "name": "inventories-delete-before-1.5",
+      "request": {
+        "method": "DELETE",
+        "path": "/resource_providers/f756c96d-edba-41e3-a0e5-5db43b342beb/inventories",
+        "body": null,
+        "headers": {
+          "Accept": "application/json",
+          "OpenStack-API-Version": "placement 1.4"
+        },
+        "auth_role": "admin"
+      },
+      "response": {
+        "status": 405,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.4",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 405, \"title\": \"Method Not Allowed\", \"detail\": \"The method DELETE is not allowed for this resource. \\n\\n \", \"request_id\": \"req-10f79f3e-8377-433c-b13e-1eb5d01234af\"}]}"
+      }
+    },
+    {
+      "name": "aggregates-provider-missing",
+      "request": {
+        "method": "GET",
+        "path": "/resource_providers/f756c96d-edba-41e3-a0e5-5db43b342beb/aggregates",
+        "headers": {
+          "OpenStack-API-Version": "placement 1.7"
+        },
+        "body": null
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.7"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid f756c96d-edba-41e3-a0e5-5db43b342beb found  \", \"request_id\": \"req-a5c5d0a9-cacf-4f30-a8d9-109ddbd248b0\"}]}"
+      }
+    }
+  ]
+}

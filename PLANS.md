@@ -13,20 +13,25 @@ Este plan organiza el backlog existente; no reemplaza el Excel ni modifica sprin
 
 Las fases son agrupaciones de aceptación, no una prohibición de avanzar en paralelo en los dos módulos. B26 conserva S5. B21 continúa en progreso y B16 pendiente según la última aceptación; preparar estos documentos no los cierra.
 
-## Placement: B07 completado; próxima unidad B08
+## Placement: B07 y B08 completados en el alcance seleccionado
 
 **Cierre técnico al 2026-10-29:** [B07 aceptado para el alcance priorizado
 providers/inventories 1.0](docs/placement/b07-acceptance.md). La campaña final dio
 **57/57** coincidencias estrictas, status y estados iguales contra Python fijado,
 con MySQL/Keystone reales, reinicio de ejecutable, concurrencia y limpieza
 verificados. [Evidencia y ensayos previos](evidence/sprint3/placement/b07-close-20261029/README.md).
-El código se publica en el PR #6; el merge es un estado separado de la validación.
+El PR #6 ya fue integrado en b4d8300.
 
-**Siguiente:** B08, catálogos y asociaciones classes/traits. Antes de anunciar más
-microversiones, fijar sus rutas/cambios con evidencia del resource tracker y
-pruebas. B09/B10 siguen allocations/candidates; B11/B12 tienen avance parcial y
-requieren cierre transversal. No se acredita Nova con Placement Go ni se cambia
-el Excel histórico.
+**B08 al 2026-10-29:** [catálogos y asociaciones classes/traits](docs/placement/b08-development.md)
+implementados con migración v3, 21 clases y 377 traits estándar, CUSTOM, borrados
+protegidos y generation. Las rutas seleccionadas incorporan los cambios 1.1–1.7:
+**82/82** comparaciones estrictas y regresión B07 **57/57**, MySQL/Keystone reales,
+reinicio y limpieza comprobados. [Evidencia B08](evidence/sprint3/placement/b08-close-20261029/README.md).
+La asociación positiva de aggregates sólo se verificó en MySQL aislado.
+
+**Siguiente:** B09 allocations, después B10 candidates. B11/B12 requieren cierre
+transversal. El alcance sigue siendo el subconjunto para Nova; no se acredita
+sustitución Nova, toda la API 1.7 ni se cambia el Excel histórico.
 
 El [plan Placement B07–B15](docs/placement/implementation-plan.md) conserva el
 orden. Los resultados anteriores de 27/38 y ocho diferencias pendientes describen

@@ -90,6 +90,15 @@ func (s *Service) List(ctx context.Context, who auth.Identity, f model.Filter) (
 	if f.Name != nil && *f.Name == "" {
 		f.Name = nil
 	}
+	for name := range f.Resources {
+		known, err := s.repo.ResourceClassExists(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+		if !known {
+			return nil, model.Fail(400, "Invalid resource class in resources parameter: No such resource class "+name+".")
+		}
+	}
 	return s.repo.List(ctx, f)
 }
 func (s *Service) Rename(ctx context.Context, who auth.Identity, id, name string) (model.Provider, error) {
@@ -186,7 +195,11 @@ func (s *Service) ReplaceInventories(ctx context.Context, who auth.Identity, id 
 	// The original validates capacity for every proposed inventory before its
 	// repository resolves class names. Keep the final CAS inside that repository.
 	for _, class := range classes {
-		if !model.KnownClass(class) {
+		known, err := s.repo.ResourceClassExists(ctx, class)
+		if err != nil {
+			return model.Inventories{}, err
+		}
+		if !known {
 			return model.Inventories{}, model.Fail(400, fmt.Sprintf("Unknown resource class in inventory for resource provider %s: No such resource class %s.", id, class))
 		}
 	}
