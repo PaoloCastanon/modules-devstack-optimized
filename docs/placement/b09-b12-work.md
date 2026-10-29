@@ -18,3 +18,7 @@ Cada unidad conserva contrato, make check, pruebas dirigidas y evidencia nueva
 sin alterar S2/Excel. Los errores/generaciones no se normalizan para esconder
 incompatibilidades. La VM se usa sólo para verificaciones necesarias y queda
 apagada al terminar; no se reemplazan endpoints ni se ejecuta DevStack local.
+
+Estado: B09 cerrado (24/24 moderno + regresiones); B10 cerrado en perfil plano
+(44/44). B11 ejecutó nueve verificaciones de durabilidad/aislamiento y restore;
+documentación/commit pendientes. B12 en verificación con Keystone y Nova reales.

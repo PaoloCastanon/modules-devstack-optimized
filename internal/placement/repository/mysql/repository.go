@@ -56,18 +56,18 @@ func (r *Repository) Create(ctx context.Context, p model.Provider) error {
 }
 func scanProvider(row interface{ Scan(...any) error }) (model.Provider, error) {
 	var p model.Provider
-	err := row.Scan(&p.UUID, &p.Name, &p.Generation)
+	err := row.Scan(&p.UUID, &p.Name, &p.Generation, &p.LastModified)
 	return p, translate(err)
 }
 func (r *Repository) Get(ctx context.Context, id string) (model.Provider, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	return scanProvider(r.db.QueryRowContext(ctx, "SELECT uuid,name,generation FROM resource_providers WHERE uuid=?", id))
+	return scanProvider(r.db.QueryRowContext(ctx, "SELECT uuid,name,generation,COALESCE(updated_at,created_at) FROM resource_providers WHERE uuid=?", id))
 }
 func (r *Repository) List(ctx context.Context, f model.Filter) ([]model.Provider, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	query := "SELECT uuid,name,generation FROM resource_providers"
+	query := "SELECT uuid,name,generation,COALESCE(updated_at,created_at) FROM resource_providers"
 	predicates := []string{}
 	args := []any{}
 	if f.Name != nil {
@@ -77,6 +77,18 @@ func (r *Repository) List(ctx context.Context, f model.Filter) ([]model.Provider
 	if f.UUID != nil {
 		predicates = append(predicates, "uuid=?")
 		args = append(args, *f.UUID)
+	}
+	if f.InTree != nil {
+		predicates = append(predicates, "uuid=?")
+		args = append(args, *f.InTree)
+	}
+	for _, trait := range f.Required {
+		predicates = append(predicates, "EXISTS(SELECT 1 FROM resource_provider_traits t WHERE t.provider_uuid=resource_providers.uuid AND t.trait_name=?)")
+		args = append(args, trait)
+	}
+	for _, trait := range f.Forbidden {
+		predicates = append(predicates, "NOT EXISTS(SELECT 1 FROM resource_provider_traits t WHERE t.provider_uuid=resource_providers.uuid AND t.trait_name=?)")
+		args = append(args, trait)
 	}
 	if len(f.Aggregates) > 0 {
 		predicates = append(predicates, "EXISTS(SELECT 1 FROM resource_provider_aggregates a WHERE a.provider_uuid=resource_providers.uuid AND a.aggregate_uuid IN ("+strings.TrimSuffix(strings.Repeat("?,", len(f.Aggregates)), ",")+"))")
@@ -128,7 +140,7 @@ func (r *Repository) transaction(ctx context.Context, f func(*sql.Tx) error) (er
 	return translate(tx.Commit())
 }
 func lockProvider(ctx context.Context, tx *sql.Tx, id string) (model.Provider, error) {
-	return scanProvider(tx.QueryRowContext(ctx, "SELECT uuid,name,generation FROM resource_providers WHERE uuid=? FOR UPDATE", id))
+	return scanProvider(tx.QueryRowContext(ctx, "SELECT uuid,name,generation,COALESCE(updated_at,created_at) FROM resource_providers WHERE uuid=? FOR UPDATE", id))
 }
 func (r *Repository) Rename(ctx context.Context, id, name string) (model.Provider, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
@@ -143,6 +155,7 @@ func (r *Repository) Rename(ctx context.Context, id, name string) (model.Provide
 		_, err = tx.ExecContext(ctx, "UPDATE resource_providers SET name=? WHERE uuid=?", name, id)
 		if err == nil {
 			p.Name = name
+			p, err = scanProvider(tx.QueryRowContext(ctx, "SELECT uuid,name,generation,COALESCE(updated_at,created_at) FROM resource_providers WHERE uuid=?", id))
 		}
 		return err
 	})
@@ -180,15 +193,19 @@ func (r *Repository) Inventories(ctx context.Context, id string) (model.Inventor
 	}
 	// Match MySQL's text FLOAT representation used by the original Python driver.
 	// Parameter values remain bound; CAST does not interpolate SQL.
-	rows, err := tx.QueryContext(ctx, "SELECT resource_class,total,reserved,min_unit,max_unit,step_size,CAST(allocation_ratio AS CHAR) FROM inventories WHERE provider_uuid=? ORDER BY resource_class", id)
+	rows, err := tx.QueryContext(ctx, "SELECT resource_class,total,reserved,min_unit,max_unit,step_size,CAST(allocation_ratio AS CHAR),COALESCE(updated_at,created_at) FROM inventories WHERE provider_uuid=? ORDER BY resource_class", id)
 	if err != nil {
 		return result, err
 	}
 	for rows.Next() {
 		var class string
 		var inv model.Inventory
-		if err = rows.Scan(&class, &inv.Total, &inv.Reserved, &inv.MinUnit, &inv.MaxUnit, &inv.StepSize, &inv.AllocationRatio); err != nil {
+		var modified time.Time
+		if err = rows.Scan(&class, &inv.Total, &inv.Reserved, &inv.MinUnit, &inv.MaxUnit, &inv.StepSize, &inv.AllocationRatio, &modified); err != nil {
 			break
+		}
+		if modified.After(result.LastModified) {
+			result.LastModified = modified
 		}
 		result.Inventories[class] = inv
 	}
@@ -231,7 +248,17 @@ func (r *Repository) ReplaceInventories(ctx context.Context, id string, generati
 		if err := inventoryRemovalCheck(ctx, tx, id, invs); err != nil {
 			return err
 		}
-		return replaceInventoryRows(ctx, tx, id, invs)
+		if err := replaceInventoryRows(ctx, tx, id, invs); err != nil {
+			return err
+		}
+		var modified sql.NullTime
+		if err := tx.QueryRowContext(ctx, "SELECT MAX(COALESCE(updated_at,created_at)) FROM inventories WHERE provider_uuid=?", id).Scan(&modified); err != nil {
+			return err
+		}
+		if modified.Valid {
+			result.LastModified = modified.Time
+		}
+		return nil
 	})
 	if err != nil {
 		return model.Inventories{}, err

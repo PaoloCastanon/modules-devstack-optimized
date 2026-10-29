@@ -38,7 +38,12 @@ modernos estrictos. El rango alto se limita a allocations hasta ampliar los
 perfiles del resource tracker en B10.
 [Evidencia B09-A](evidence/sprint3/placement/b09a-20261029/README.md).
 
-**En ejecución por solicitud del usuario:** B10 candidates y cierre B11/B12. B11/B12 requieren cierre
+**B10 completado para el perfil plano:** [candidates](docs/placement/b10-development.md)
+derivados de inventarios/uso/traits/aggregates persistidos, filtros Nova y perfiles
+del tracker. **44/44** casos vivos y ocho seeds sin diferencias; regresiones
+24/60/57/82 completas. [Evidencia B10](evidence/sprint3/placement/b10-close-20261029/README.md).
+
+**En ejecución por solicitud del usuario:** cierre transversal B11/B12. B11/B12 requieren cierre
 transversal. El alcance sigue siendo el subconjunto para Nova; no se acredita
 sustitución Nova, toda la API 1.8 ni se cambia el Excel histórico.
 

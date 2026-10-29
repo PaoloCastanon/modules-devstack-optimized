@@ -493,3 +493,35 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   HTTP, SQL, restart y limpieza. SQL original sólo lectura; metadata global no
   cambió. Identidad temporal eliminada y VM apagada antes de seguir trabajo
   local B10. No se modificaron Nova/endpoints, Excel ni capturas S2.
+
+## 2026-10-29 — Cierre técnico B10 del perfil plano
+
+- Base cierre B09 0e59cf3; rama feat/placement-b10. Candidates procede de una
+  instantánea RR de MySQL (providers, inventory, usage, traits y aggregates).
+  Evalúa capacidad remanente, min/max/step, traits requeridos/prohibidos,
+  root_required, limit, pertenencia/negación de aggregate, grupos/policy,
+  in_tree y same_subtree para providers planos. No hay respuestas constantes.
+- Representaciones 1.10/1.12/1.17/1.27/1.29/1.34; máximo 1.36 en candidates.
+  No se promete toda API ni árboles/sharing. Parent no nulo y estado compartido
+  se rechazan explícitamente; dos grupos isolate no comparten un root plano.
+- Perfiles Nova contrastados: providers 1.14/1.20 (root/parent, links, required,
+  in_tree y POST 200), aggregates 1.19 con CAS y aumento aun en no-op, inventory
+  1.26 con capacidad cero/reserved=total. Cada ruta tiene máximo explícito y
+  devuelve 406 fuera del perfil. Migración v6 conserva v1–v5 y persiste tiempos
+  de provider/inventory; timestamps históricos desconocidos son de migración.
+- Test inicial de candidates falló con 406; ahora devuelve 200 y resultado vacío
+  al no existir inventario. Suite SQL real prueba uso/traits/aggregate, CAS de
+  aggregate y 40 lecturas concurrentes con relación generation/usage que detecta
+  mezclas de snapshots. Las cinco suites previas también pasan en DB nuevas.
+- Comparación viva MySQL/Keystone: **44/44** estricto, ocho seeds sin diferencias.
+  Regresiones B09 moderno **24/24**, B09-A **60/60**, B07 **57/57**, B08 **82/82**.
+  El CUSTOM resource fresco excluye providers originales ajenos a la prueba.
+  Last-Modified validado y normalizado como timestamp; se ordenan conjuntos sin
+  deduplicar; no se cambian códigos, generaciones, tipos ni capacity/used.
+- make check PASS: vet/race/build ambos módulos, Python, documentos e infra.
+  Sólo [] en aggregates original para no dejar filas globales; asociación
+  positiva se verifica en MySQL propio. Cleanup HTTP y SQL sólo de lectura
+  confirman ausencia de filas propias y metadatos globales intactos.
+- Evidencia: evidence/sprint3/placement/b10-close-20261029/. Identidad/VM quedan
+  temporalmente en uso por B11/B12; su limpieza final se registrará al terminar.
+  No se cambió Nova, endpoints, Excel ni S2; B13–B15 conservan boot/sustitución.

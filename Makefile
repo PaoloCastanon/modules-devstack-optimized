@@ -140,3 +140,8 @@ placement-test-catalogs:
 # NEW EMPTY schema; upgrades B08 v3 and tests atomic claims and release.
 placement-test-allocations:
 	go test -race -count=1 -tags=integration ./internal/placement/repository/mysql -run '^TestB09MySQLAllocations$$' -v
+
+.PHONY: placement-test-candidates
+# NEW EMPTY schema; verifies candidates and repeatable-read snapshot consistency.
+placement-test-candidates:
+	go test -race -count=1 -tags=integration ./internal/placement/repository/mysql -run '^TestB10MySQLCandidates$$' -v

@@ -222,10 +222,38 @@ func (s *Service) DeleteInventories(ctx context.Context, who auth.Identity, id s
 	err = c.DeleteInventories(ctx, id)
 	var inUse *repository.InventoryInUse
 	if errors.As(err, &inUse) {
-		return model.Fail(409, inUse.Error())
+		return model.FailCode(409, inUse.Error(), "placement.inventory.inuse")
 	}
 	if errors.Is(err, repository.ErrConcurrent) {
 		return model.Fail(409, "Unable to delete inventory for resource provider "+id+" because the inventory was updated by another process. Please retry your request.")
 	}
 	return mapped(err, id)
+}
+
+func (s *Service) AggregateState(ctx context.Context, who auth.Identity, id string) (model.AggregateSet, error) {
+	c, err := s.catalog(who)
+	if err != nil {
+		return model.AggregateSet{}, err
+	}
+	id, err = pathID(id)
+	if err != nil {
+		return model.AggregateSet{}, err
+	}
+	out, err := c.AggregateState(ctx, id)
+	return out, mapped(err, id)
+}
+func (s *Service) ReplaceAggregatesGeneration(ctx context.Context, who auth.Identity, id string, generation int64, names []string) (model.AggregateSet, error) {
+	c, err := s.catalog(who)
+	if err != nil {
+		return model.AggregateSet{}, err
+	}
+	id, err = pathID(id)
+	if err != nil {
+		return model.AggregateSet{}, err
+	}
+	out, err := c.ReplaceAggregatesGeneration(ctx, id, generation, names)
+	if errors.Is(err, repository.ErrConcurrent) {
+		return out, model.FailCode(409, "Resource provider's generation already changed. Please update the generation and try again.", "placement.concurrent_update")
+	}
+	return out, mapped(err, id)
 }

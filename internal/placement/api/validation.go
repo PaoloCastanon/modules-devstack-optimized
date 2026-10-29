@@ -26,6 +26,9 @@ var b08SchemaJSON []byte
 //go:embed schemas/b09.json
 var b09SchemaJSON []byte
 
+//go:embed schemas/b10.json
+var b10SchemaJSON []byte
+
 var requestSchemas = func() jsonObject {
 	value, err := orderedJSON(schemaJSON)
 	if err != nil {
@@ -39,7 +42,11 @@ var requestSchemas = func() jsonObject {
 	if err != nil {
 		panic("invalid embedded B09 schemas")
 	}
-	return append(append(value.(jsonObject), extra.(jsonObject)...), b09.(jsonObject)...)
+	b10, err := orderedJSON(b10SchemaJSON)
+	if err != nil {
+		panic("invalid B10 schemas")
+	}
+	return append(append(append(value.(jsonObject), extra.(jsonObject)...), b09.(jsonObject)...), b10.(jsonObject)...)
 }()
 
 type schemaViolation struct {
@@ -128,6 +135,36 @@ func schemaViolations(value any, schema jsonObject, sp, ip []any, strictUUID boo
 	number, isNumber := value.(json.Number)
 	for _, rule := range schema {
 		switch rule.key {
+		case "anyOf":
+			anyValid := false
+			typed := []*schemaViolation{}
+			for index, sub := range rule.value.([]any) {
+				subSchema := sub.(jsonObject)
+				errors := schemaViolations(value, subSchema, childPath(sp, "anyOf", index), ip, strictUUID)
+				if len(errors) == 0 {
+					anyValid = true
+					break
+				}
+				typ, _ := subSchema.field("type").(string)
+				if typ == "string" && isString || typ == "null" && value == nil {
+					typed = append(typed, errors...)
+				}
+			}
+			if !anyValid {
+				if len(typed) > 0 {
+					out = append(out, typed...)
+				} else {
+					fail("anyOf", pythonRepr(value)+" is not valid under any of the given schemas")
+				}
+			}
+		case "enum":
+			valid := false
+			for _, item := range rule.value.([]any) {
+				valid = valid || item == value
+			}
+			if !valid {
+				fail("enum", pythonRepr(value)+" is not one of "+pythonRepr(rule.value))
+			}
 		case "type":
 			types := []string{}
 			if typ, ok := rule.value.(string); ok {

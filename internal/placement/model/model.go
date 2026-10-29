@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -27,15 +28,18 @@ func Status(err error) int {
 }
 
 type Provider struct {
-	UUID       string `json:"uuid"`
-	Name       string `json:"name"`
-	Generation int64  `json:"generation"`
+	LastModified time.Time `json:"-"`
+	UUID         string    `json:"uuid"`
+	Name         string    `json:"name"`
+	Generation   int64     `json:"generation"`
 }
 type Filter struct {
-	Name       *string
-	UUID       *string
-	Aggregates []string
-	Resources  map[string]int64
+	InTree              *string
+	Required, Forbidden []string
+	Name                *string
+	UUID                *string
+	Aggregates          []string
+	Resources           map[string]int64
 }
 
 func NormalizeUUID(value string) (string, error) {
@@ -91,7 +95,8 @@ type InventoryInput struct {
 // fields, so the service can include the actual provider and resource class.
 var ErrInventoryCapacity = Fail(400, "Inventory capacity must be positive at microversion 1.0.")
 
-func (in InventoryInput) Resolve() (Inventory, error) {
+func (in InventoryInput) Resolve() (Inventory, error) { return in.ResolveFor(false) }
+func (in InventoryInput) ResolveFor(allowZero bool) (Inventory, error) {
 	inv := Inventory{MinUnit: 1, MaxUnit: math.MaxInt32, StepSize: 1, AllocationRatio: 1}
 	if in.Total == nil {
 		return inv, Fail(400, "Inventory total is required.")
@@ -117,15 +122,17 @@ func (in InventoryInput) Resolve() (Inventory, error) {
 	if math.IsNaN(ratio) || math.IsInf(ratio, 0) || ratio > math.MaxFloat32 || ratio < 0 {
 		return inv, Fail(400, "Inventory capacity must be positive at microversion 1.0.")
 	}
-	if math.Trunc(float64(inv.Total-inv.Reserved)*ratio) <= 0 {
+	capacity := math.Trunc(float64(inv.Total-inv.Reserved) * ratio)
+	if capacity < 0 || capacity == 0 && !allowZero {
 		return inv, ErrInventoryCapacity
 	}
 	return inv, nil
 }
 
 type Inventories struct {
-	Generation  int64                `json:"resource_provider_generation"`
-	Inventories map[string]Inventory `json:"inventories"`
+	LastModified time.Time            `json:"-"`
+	Generation   int64                `json:"resource_provider_generation"`
+	Inventories  map[string]Inventory `json:"inventories"`
 }
 
 // B08 will extend the catalogue. These classes are observed in the S2 inventory.
@@ -133,4 +140,10 @@ func KnownClass(name string) bool { return name == "VCPU" || name == "MEMORY_MB"
 
 func FailCode(status int, detail, code string) error {
 	return &Error{HTTPStatus: status, Detail: detail, Code: code}
+}
+
+// ExceedsCapacity compares integer usage without rounding it through binary64.
+func ExceedsCapacity(used int64, inv Inventory) bool {
+	capacity := float64(inv.Total-inv.Reserved) * inv.AllocationRatio
+	return capacity < math.Exp2(63) && (capacity < 0 || used > int64(capacity))
 }

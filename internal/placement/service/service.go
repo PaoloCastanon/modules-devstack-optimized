@@ -34,9 +34,9 @@ func mapped(err error, id string) error {
 	case errors.Is(err, repository.ErrDuplicate):
 		return model.Fail(409, "Conflicting resource provider name or UUID already exists.")
 	case errors.Is(err, repository.ErrConcurrent):
-		return model.Fail(409, "resource provider generation conflict")
+		return model.FailCode(409, "resource provider generation conflict", "placement.concurrent_update")
 	case errors.Is(err, repository.ErrProviderInUse):
-		return model.Fail(409, "Unable to delete resource provider "+id+": Resource provider has allocations.")
+		return model.FailCode(409, "Unable to delete resource provider "+id+": Resource provider has allocations.", "placement.resource_provider.inuse")
 	case errors.Is(err, repository.ErrUnknownClass):
 		return model.Fail(400, "Unknown resource class in inventory.")
 	}
@@ -64,7 +64,10 @@ func (s *Service) Create(ctx context.Context, who auth.Identity, name, id string
 	if errors.Is(err, repository.ErrDuplicateName) {
 		return p, model.Fail(409, "Conflicting resource provider name: "+p.Name+" already exists.")
 	}
-	return p, mapped(err, p.UUID)
+	if err != nil {
+		return p, mapped(err, p.UUID)
+	}
+	return s.repo.Get(ctx, p.UUID)
 }
 func (s *Service) Get(ctx context.Context, who auth.Identity, id string) (model.Provider, error) {
 	if err := authorize(who); err != nil {
@@ -92,6 +95,24 @@ func (s *Service) List(ctx context.Context, who auth.Identity, f model.Filter) (
 	if f.Name != nil && *f.Name == "" {
 		f.Name = nil
 	}
+	if f.InTree != nil {
+		v := strings.ToLower(*f.InTree)
+		f.InTree = &v
+	}
+	if len(f.Required)+len(f.Forbidden) > 0 {
+		catalog, err := s.catalog(who)
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range append(append([]string{}, f.Required...), f.Forbidden...) {
+			if _, err := catalog.Trait(ctx, name); errors.Is(err, repository.ErrNotFound) {
+				return nil, model.Fail(400, "No such trait(s): "+name+".")
+			} else if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	for name := range f.Resources {
 		known, err := s.repo.ResourceClassExists(ctx, name)
 		if err != nil {
@@ -146,6 +167,9 @@ func (s *Service) Inventories(ctx context.Context, who auth.Identity, id string)
 	return invs, mapped(err, id)
 }
 func (s *Service) ReplaceInventories(ctx context.Context, who auth.Identity, id string, generation int64, input map[string]model.InventoryInput, classOrder ...string) (model.Inventories, error) {
+	return s.ReplaceInventoriesVersion(ctx, who, id, generation, input, false, classOrder...)
+}
+func (s *Service) ReplaceInventoriesVersion(ctx context.Context, who auth.Identity, id string, generation int64, input map[string]model.InventoryInput, allowZero bool, classOrder ...string) (model.Inventories, error) {
 	if err := authorize(who); err != nil {
 		return model.Inventories{}, err
 	}
@@ -185,9 +209,13 @@ func (s *Service) ReplaceInventories(ctx context.Context, who auth.Identity, id 
 	invs := make(map[string]model.Inventory, len(input))
 	for _, class := range classes {
 		raw := input[class]
-		inv, err := raw.Resolve()
+		inv, err := raw.ResolveFor(allowZero)
 		if errors.Is(err, model.ErrInventoryCapacity) {
-			return model.Inventories{}, model.Fail(400, fmt.Sprintf("Unable to update inventory for resource provider %s: Invalid inventory for '%s' on resource provider '%s'. The reserved value is greater than or equal to total.", id, class, id))
+			comparison := "greater than or equal to"
+			if allowZero {
+				comparison = "greater than"
+			}
+			return model.Inventories{}, model.Fail(400, fmt.Sprintf("Unable to update inventory for resource provider %s: Invalid inventory for '%s' on resource provider '%s'. The reserved value is %s total.", id, class, id, comparison))
 		}
 		if err != nil {
 			return model.Inventories{}, err
@@ -208,7 +236,7 @@ func (s *Service) ReplaceInventories(ctx context.Context, who auth.Identity, id 
 	result, err := s.repo.ReplaceInventories(ctx, id, generation, invs)
 	var inUse *repository.InventoryInUse
 	if errors.As(err, &inUse) {
-		err = model.Fail(409, "update conflict: "+inUse.Error())
+		err = model.FailCode(409, "update conflict: "+inUse.Error(), "placement.inventory.inuse")
 	}
 	return result, mapped(err, id)
 }
