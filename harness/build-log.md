@@ -525,3 +525,17 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - Evidencia: evidence/sprint3/placement/b10-close-20261029/. Identidad/VM quedan
   temporalmente en uso por B11/B12; su limpieza final se registrará al terminar.
   No se cambió Nova, endpoints, Excel ni S2; B13–B15 conservan boot/sustitución.
+
+### 2026-10-29 — B11 cierre de persistencia
+
+- Base B10 b42c273; campaña reproducible scripts/placement_persistence_campaign.py.
+  MySQL 8.0.46, volumen y tres schemas propios, cuentas DDL/DML y Keystone real.
+- Nueve verificaciones PASS: privilegios mínimos, aislamiento, SIGKILL Go/MySQL,
+  rollback InnoDB de owner sin confirmar, dump/restore íntegro en otra cuenta,
+  sentinel intacto y cleanup. Dump de todas las filas idéntico byte a byte.
+- Primer intento falló por binding Docker aleatorio tras restart; evidencia
+  conservada. Segundo intento usa puerto explícito y ownership create/start.
+- make check PASS (vet/race/build ambos dominios y harness). Guards Python
+  rechazan output existente y ausencia de opt-in antes de iniciar Docker.
+- Evidencia: evidence/sprint3/placement/b11-close-20261029/. No DB original,
+  HA ni sustitución Nova; Keystone/VM continúan en uso por B12.
