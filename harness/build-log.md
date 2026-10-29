@@ -573,3 +573,24 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   (sustitución/boot con Nova) pendientes. Sin cambiar Nova/endpoints/Excel/S2
   ni ejecutar SQL de escritura contra DB original. No se acredita API completa,
   árboles/sharing, composite, federación, system scope, HA o policies custom.
+
+### 2026-10-29 — Plan B13–B18
+
+- Solicitado: plan para B13–B18, sin ejecutar todavía esos bloques. Base B12
+  5c682af; rama docs/b13-b18-plan. Se consultó el libro Sprint2 sólo en lectura
+  (Backlog A16:M21 y requisitos RF09/RF12/RNF02/RNF03), conservando su hash.
+- Propuesto en docs/placement/b13-b18-plan.md: definir B16 primero; sustituir
+  Placement de forma reversible (B13), boot ACTIVE y liberación (B14), cerrar
+  runner repetible con negativos/rollback (B15), medir latencia/throughput (B17)
+  y CPU/memoria (B18) con las mismas campañas. Se conservan dependencias formales,
+  puntos, responsables y sprints del libro. Valores de carga/repeticiones son
+  propuesta para piloto, no resultados experimentales ni calendario aprobado.
+- La primera comparación mantiene Glance original como control. B20/B25/B26
+  conservan implementación/aceptación Glance y boot con imágenes del servicio Go;
+  no se declaran cerrados por integrar Placement ni por preparar este plan.
+- Se enlazó desde PLANS.md y el plan Placement; se corrigió el estado corriente
+  del documento de trabajo B09–B12 para reflejar sus cierres ya registrados.
+- Validación: make check PASS (harness/infra y formato/vet/race/build Go de ambos
+  dominios), git diff --check PASS, hash del Excel intacto. Sin código funcional,
+  despliegue, benchmarks, modificación S2 o cambios al estado formal del libro.
+  tt-openstack-lab permanece shut off; no se inició durante esta planificación.
