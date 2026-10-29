@@ -15,6 +15,8 @@ Las fases son agrupaciones de aceptación, no una prohibición de avanzar en par
 
 ## Próxima unidad de implementación: B07
 
+**Plan de ejecución actualizado al 2026-10-28:** [Placement Go B07–B15](docs/placement/implementation-plan.md). El PR #3 de Glance B20 está revisado y aprobado, pero sigue abierto; su módulo y auth Go todavía no están integrados en main. El plan contempla reutilizarlos y comenzar B11/B12 junto al primer recorrido B07. Incluye ajustes del contrato a partir de la traza Nova y criterios por incremento. El estado histórico siguiente describe la revisión del 26 de octubre.
+
 **Estado al revisar el repositorio el 2026-10-26:** sin iniciar. No existe `go.mod` ni fuentes `.go`. La infraestructura sí está implementada y tiene evidencia de Sprint 2; la reimplementación de los servicios aún no comenzó.
 
 ### Entradas
