@@ -180,6 +180,12 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 	})
 }
 func (r *Repository) Inventories(ctx context.Context, id string) (model.Inventories, error) {
+	return r.readInventories(ctx, id, "")
+}
+func (r *Repository) InventorySnapshot(ctx context.Context, id, class string) (model.Inventories, error) {
+	return r.readInventories(ctx, id, class)
+}
+func (r *Repository) readInventories(ctx context.Context, id, classFilter string) (model.Inventories, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	result := model.Inventories{Inventories: map[string]model.Inventory{}}
@@ -193,7 +199,13 @@ func (r *Repository) Inventories(ctx context.Context, id string) (model.Inventor
 	}
 	// Match MySQL's text FLOAT representation used by the original Python driver.
 	// Parameter values remain bound; CAST does not interpolate SQL.
-	rows, err := tx.QueryContext(ctx, "SELECT resource_class,total,reserved,min_unit,max_unit,step_size,CAST(allocation_ratio AS CHAR),COALESCE(updated_at,created_at) FROM inventories WHERE provider_uuid=? ORDER BY resource_class", id)
+	query := "SELECT resource_class,total,reserved,min_unit,max_unit,step_size,CAST(allocation_ratio AS CHAR),COALESCE(updated_at,created_at) FROM inventories WHERE provider_uuid=?"
+	args := []any{id}
+	if classFilter != "" {
+		query += " AND resource_class=?"
+		args = append(args, classFilter)
+	}
+	rows, err := tx.QueryContext(ctx, query+" ORDER BY resource_class", args...)
 	if err != nil {
 		return result, err
 	}

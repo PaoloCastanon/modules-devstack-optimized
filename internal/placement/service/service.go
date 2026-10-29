@@ -151,7 +151,15 @@ func (s *Service) Delete(ctx context.Context, who auth.Identity, id string) erro
 	}
 	return mapped(s.repo.Delete(ctx, id), id)
 }
+
+// InventorySnapshot reads one class and its own persistent modification time.
+func (s *Service) InventorySnapshot(ctx context.Context, who auth.Identity, id, class string) (model.Inventories, error) {
+	return s.readInventories(ctx, who, id, class)
+}
 func (s *Service) Inventories(ctx context.Context, who auth.Identity, id string) (model.Inventories, error) {
+	return s.readInventories(ctx, who, id, "")
+}
+func (s *Service) readInventories(ctx context.Context, who auth.Identity, id, class string) (model.Inventories, error) {
 	if err := authorize(who); err != nil {
 		return model.Inventories{}, err
 	}
@@ -159,7 +167,14 @@ func (s *Service) Inventories(ctx context.Context, who auth.Identity, id string)
 	if err != nil {
 		return model.Inventories{}, err
 	}
-	invs, err := s.repo.Inventories(ctx, id)
+	var invs model.Inventories
+	if reader, ok := s.repo.(interface {
+		InventorySnapshot(context.Context, string, string) (model.Inventories, error)
+	}); ok && class != "" {
+		invs, err = reader.InventorySnapshot(ctx, id, class)
+	} else {
+		invs, err = s.repo.Inventories(ctx, id)
+	}
 	if errors.Is(err, repository.ErrNotFound) {
 		detail := "No resource provider with uuid " + id + " found"
 		return invs, model.Fail(404, detail+" : "+detail)

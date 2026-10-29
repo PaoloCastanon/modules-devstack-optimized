@@ -21,7 +21,7 @@ integrada mediante PR #6 en b4d8300. [B08](b08-development.md) añade catálogos
 asociaciones con 82/82 comparaciones estrictas, regresión B07 57/57 y reinicio
 verificado. [B09-A](b09-development.md) añade la base de allocations con 60/60 casos vivos y
 regresiones B07/B08 aprobadas. El [cierre B09](b09-development.md) añade 24/24 casos modernos y CAS de consumer.
-B10 completó 44/44 casos; B11 cerró durabilidad/restore con 9/9 verificaciones. B12 está en ejecución por solicitud del usuario; no se cierra el conjunto Placement ni la integración Nova.
+B10 completó 44/44 casos; B11 cerró durabilidad/restore con 9/9 verificaciones. B12 cerró Keystone/políticas con 143/143 y regresiones 267/267; no se cierra el conjunto Placement ni la integración Nova.
 [Resultados y ensayos previos](../../evidence/sprint3/placement/b07-close-20261029/README.md).
 
 No cambiar estados, fechas, puntos del Excel ni informes históricos. Este plan
@@ -156,10 +156,15 @@ sus tareas posteriores y su metodología; no condicionan el primer B07.
 
 ## Próximo paso concreto
 
-Completar B10 candidates y los perfiles del resource tracker a partir del cierre
-B09; luego B11 y B12 como pidió el usuario. B09 ya valida PUT 1.36, consumer
-generation y mappings en sus rutas priorizadas. Las otras rutas mantienen un
-rango explícito hasta validar sus dependencias. B10 debe derivar candidates de
-inventarios/uso/traits persistidos y cubrir resources, limit y root_required
-observados en Nova. B11 verifica DB/proceso/recovery y B12 identidad/políticas
-reales. B13–B15 conservan la sustitución y boot ACTIVE. No cambiar Excel ni S2.
+B07–B12 están completados para el subconjunto y perfiles explícitos descritos en
+sus entregas. [B10](b10-development.md) cierra candidates planos y resource tracker;
+[B11](b11-acceptance.md) cierra durabilidad/restore y [B12](b12-acceptance.md)
+identidad/políticas reales. Las regresiones B07–B10 pasan 267/267 sobre el binario
+final; Keystone/políticas 143/143 y durabilidad 9/9. Laboratorio limpio y VM apagada.
+
+El siguiente bloque es B13–B15: preparar sustitución reversible de Placement,
+publicación del compute y boot ACTIVE con Nova original; verificar claims,
+liberación, capacidad agotada y restauración del endpoint. Requiere contrastar
+primero que los perfiles seleccionados cubren las llamadas reales del lab.
+El soporte actual no incluye árboles/sharing, autenticación compuesta ni toda
+la API upstream. No cambiar Excel ni evidencia histórica S2.

@@ -1,0 +1,8 @@
+{
+  "timestamp_utc": "2026-10-29T20:32:37.454153+00:00",
+  "domain": "tt-openstack-lab",
+  "state": "shut off",
+  "owned_containers_remaining": [],
+  "owned_volumes_remaining": [],
+  "private_remote_identity_directory_absent": true
+}

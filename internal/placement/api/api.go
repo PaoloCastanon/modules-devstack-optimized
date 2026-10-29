@@ -101,6 +101,17 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 			}
 			who, err := h.auth.Authenticate(r.Context(), tokens[0])
 			if err != nil {
+				// A validated token without project scope still receives the
+				// versioned policy denial. It never reaches the repository.
+				if errors.Is(err, auth.ErrForbidden) {
+					version, versionErr := negotiate(r.Header.Values("OpenStack-API-Version"))
+					if versionErr != nil {
+						h.failure(w, r, versionErr)
+						return
+					}
+					r = r.WithContext(context.WithValue(r.Context(), versionKey{}, version))
+					w.Header().Set("OpenStack-API-Version", fmt.Sprintf("placement 1.%d", version))
+				}
 				h.failure(w, r, err)
 				return
 			}
@@ -369,6 +380,9 @@ func (h *Handler) failure(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, auth.ErrForbidden):
 		status = 403
 		detail = "Project scope is required."
+		if policy := permission(r); policy != "" {
+			detail = "Policy does not allow " + policy + " to be performed."
+		}
 	case errors.As(err, &e):
 		detail = e.Detail
 	}
@@ -765,7 +779,7 @@ func (h *Handler) inventory(w http.ResponseWriter, r *http.Request) {
 		h.method(w, r, "GET")
 		return
 	}
-	invs, err := h.service.Inventories(r.Context(), identity(r), r.PathValue("id"))
+	invs, err := h.service.InventorySnapshot(r.Context(), identity(r), r.PathValue("id"), r.PathValue("class"))
 	if err != nil {
 		h.failure(w, r, err)
 		return
@@ -781,6 +795,7 @@ func (h *Handler) inventory(w http.ResponseWriter, r *http.Request) {
 	if invs.Generation != 0 {
 		out["resource_provider_generation"] = invs.Generation
 	}
+	h.modified(w, r, invs.LastModified)
 	h.json(w, 200, out)
 }
 
