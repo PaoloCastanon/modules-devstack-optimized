@@ -219,8 +219,8 @@ func TestUnsupportedMediaReportsParsedType(t *testing.T) {
 func TestAcceptFailureIsSeparateFromMicroversionFailure(t *testing.T) {
 	h, _, _ := harness(t)
 	for _, tc := range []struct{ accept, version, media string }{
-		{"application/json", "placement 1.8", "application/json"},
-		{"text/plain", "placement 1.8", "application/json"},
+		{"application/json", "placement 1.9", "application/json"},
+		{"text/plain", "placement 1.9", "application/json"},
 		{"text/plain", "placement 1.0", "text/plain; charset=UTF-8"},
 	} {
 		r := httptest.NewRequest("GET", "/resource_providers", nil)

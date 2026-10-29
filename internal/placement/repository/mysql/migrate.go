@@ -24,13 +24,16 @@ var contractSQL string
 //go:embed migrations/003_catalogs.sql
 var catalogsSQL string
 
+//go:embed migrations/004_allocations.sql
+var allocationsSQL string
+
 type migration struct {
 	version int64
 	source  string
 }
 
 func migrations() []migration {
-	return []migration{{1, providersSQL}, {2, contractSQL}, {3, catalogsSQL}}
+	return []migration{{1, providersSQL}, {2, contractSQL}, {3, catalogsSQL}, {4, allocationsSQL}}
 }
 func (m migration) checksum() string { return fmt.Sprintf("%x", sha256.Sum256([]byte(m.source))) }
 func historyMatches(index int, version int64, hash string, dirty bool) bool {

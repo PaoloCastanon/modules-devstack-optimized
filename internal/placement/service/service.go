@@ -35,6 +35,8 @@ func mapped(err error, id string) error {
 		return model.Fail(409, "Conflicting resource provider name or UUID already exists.")
 	case errors.Is(err, repository.ErrConcurrent):
 		return model.Fail(409, "resource provider generation conflict")
+	case errors.Is(err, repository.ErrProviderInUse):
+		return model.Fail(409, "Unable to delete resource provider "+id+": Resource provider has allocations.")
 	case errors.Is(err, repository.ErrUnknownClass):
 		return model.Fail(400, "Unknown resource class in inventory.")
 	}
@@ -204,5 +206,9 @@ func (s *Service) ReplaceInventories(ctx context.Context, who auth.Identity, id 
 		}
 	}
 	result, err := s.repo.ReplaceInventories(ctx, id, generation, invs)
+	var inUse *repository.InventoryInUse
+	if errors.As(err, &inUse) {
+		err = model.Fail(409, "update conflict: "+inUse.Error())
+	}
 	return result, mapped(err, id)
 }

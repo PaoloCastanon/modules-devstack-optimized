@@ -13,6 +13,11 @@ import (
 
 func bodySchema(r *http.Request) string {
 	switch route(r.URL.Path) {
+	case "/allocations/{consumer}":
+		if microversion(r) >= 8 {
+			return "allocations_1_8"
+		}
+		return "allocations_1_0"
 	case "/resource_classes", "/resource_classes/{name}":
 		return "class_body"
 	case "/resource_providers/{id}/traits":

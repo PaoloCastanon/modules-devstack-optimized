@@ -219,5 +219,13 @@ func (s *Service) DeleteInventories(ctx context.Context, who auth.Identity, id s
 	if err != nil {
 		return err
 	}
-	return mapped(c.DeleteInventories(ctx, id), id)
+	err = c.DeleteInventories(ctx, id)
+	var inUse *repository.InventoryInUse
+	if errors.As(err, &inUse) {
+		return model.Fail(409, inUse.Error())
+	}
+	if errors.Is(err, repository.ErrConcurrent) {
+		return model.Fail(409, "Unable to delete inventory for resource provider "+id+" because the inventory was updated by another process. Please retry your request.")
+	}
+	return mapped(err, id)
 }

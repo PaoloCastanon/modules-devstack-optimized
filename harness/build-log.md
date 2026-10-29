@@ -392,3 +392,73 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   conserva reportes, errores iniciales, logs, restart, hashes y limpieza.
   docs/placement/b08-development.md documenta contrato/operación; PLANS.md y
   implementation-plan.md dejan B09 allocations como siguiente incremento.
+
+## 2026-10-29 — B09-A: allocations atómicas y uso persistido
+
+- **Base:** B08 6587805, PR #7 abierto al comenzar; rama feat/placement-b09.
+  Entrega A implementada; **B09 sigue en progreso**. Incluye GET/PUT/DELETE
+  allocations por consumer, GET allocations/usages por provider, reemplazo
+  atómico y capacidad restante. Default 1.0, máximo seleccionado 1.8; falta
+  formato por provider 1.12 y consumer generation 1.28 que exige Nova (PUT
+  observado en 1.36). No se acredita integración Nova ni candidates.
+- **Contrato y prueba inicial:** se inspeccionó código fijado f4a89d3 de handlers,
+  schemas, objetos, políticas y excepciones. TestB09AllocationProtocols falló
+  inicialmente con 404 para consumer vacío; luego pasa con 200 y allocations {}.
+  Se mantienen diferencias entre GET inválido/vacío, DELETE repetido 404,
+  array legacy, duplicado de provider que conserva la última entrada y roles.
+  Nueve errores Python capturados se reproducen literalmente como regresión.
+- **Microversión 1.8 justificada:** la DB original no tenía registros globales
+  incomplete-project/user. Una escritura legacy los crearía sin limpieza HTTP.
+  Se añadió el cambio puntual 1.8 (project_id/user_id obligatorios y persistidos
+  junto a las reservas) y se usaron IDs preexistentes en Placement para la
+  campaña. GET aún no muestra propietario; ese cambio pertenece a 1.12.
+  Las escrituras 1.0–1.7 tienen pruebas locales, no comparación viva positiva.
+- **Persistencia:** migración v4 append-only, historial v1–v3 y hashes intactos;
+  serve rechaza v3/dirty. Consumers y allocations propios, FK a inventories,
+  cascade para renombre de clase CUSTOM y GC de consumer al liberar. La fixture
+  de upgrade B08 siembra v2 mediante SQL propio antes de migrar, evitando usar
+  el repositorio actual contra un schema histórico sin allocations.
+- **Transacciones:** lock de consumer y unión ordenada de providers anteriores/
+  nuevos; READ COMMITTED permite leer uso actual tras ganar un lock bloqueado.
+  Se descuentan las reservas anteriores del consumer. Fallar en cualquier clase,
+  provider o actualización SQL revierte reservas, generaciones y propietario.
+  Un PUT exitoso aumenta cada provider solicitado una vez; old-only y DELETE
+  no lo aumentan, como el original. La comparación de capacidad evita redondear
+  used a float (caso 2^53+1) y conserva límites fraccionarios/min/max/step.
+- **Corrección al plan:** el original permite reducir inventario por debajo de
+  uso y conserva la reserva en sobrecapacidad. Go reproduce ese comportamiento:
+  no permite empeorar el exceso mediante una nueva reserva, pero admite igualar
+  o reducirlo cumpliendo constraints. Se bloquean borrados de provider/inventario
+  en uso. El filtro resources ahora resta allocations persistidas.
+- **MySQL real:** tres incrementos de suites en schemas nuevos; la ejecución
+  final TestB09MySQLAllocations con race prueba upgrade v3→v4 preservando B08,
+  rollback por overflow final de provider y consumer, propietario sin cambios
+  parciales, carrera entre dos consumers, carrera de varios providers, reemplazo
+  concurrente del mismo consumer, pool nuevo y renombre de clase asignada.
+  También PASS TestB08MySQLCatalogs, TestB07MySQLHTTP, TestBinaryMySQLLifecycle
+  y TestV1CollisionStopsUpgrade, cada una en su propio schema vacío y con cuentas
+  migrate/serve diferentes. MySQL 8.0.46 descartable en tmpfs, sin DB original.
+- **HTTP real:** scripts/placement_allocation_differential.py con opt-in, tokens
+  privados y directorio nuevo: primera campaña **52/52**, ampliación final
+  **60/60** status/respuestas/estados estrictos; regresiones B07 **57/57** y
+  B08 **82/82** con sus runners intactos. Keystone/MySQL reales; sólo recursos
+  propios nuevos. Normalización B07 exclusivamente (request_id, origen Location,
+  tokens Vary); no se cambian errores, generation, tipos o identidades.
+- **Reinicio:** SIGTERM exit 0 y nuevo proceso conserva provider, inventario,
+  allocations, usage y generaciones; DELETE y limpieza comprobados. No se
+  reinició el servidor MySQL ni se simuló una caída abrupta.
+- **Gate local:** make check terminó en 0: formato/vet Go, pruebas de ambos
+  dominios con race y build, 13 tests harness y 21 unitarios Python, documentos/
+  evidencia histórica, pin Nova y sintaxis/fmt de infraestructura. No inicia VM.
+- **Limpieza:** lectura SQL posterior del original confirma 0 providers, 0
+  consumers y 0 allocations del ensayo, mismos registros globales project/user
+  y ausencia de nuevas filas incomplete. No hubo escrituras SQL directas al
+  original. Identidad/credenciales de ensayo eliminadas, procesos/contenedores/
+  datos/archivos privados locales descartados y VM apagada. Sin cambios de
+  endpoints Nova, Excel ni evidencia S2.
+- **Evidencia y siguiente:** evidence/sprint3/placement/b09a-20261029/ conserva
+  60 casos, regresiones, ensayos previos, rollback/concurrencia, hashes, restart
+  y limpieza. docs/placement/b09-development.md documenta operación y B09-B:
+  formatos modernos, consumer generation y dependencias antes de anunciar más
+  versiones. El rollback binario a B08 requiere restaurar su DB propia previa;
+  no se implementa down migration automática.

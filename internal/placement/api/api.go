@@ -25,7 +25,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const Version = "1.7"
+const Version = "1.8"
 const MinVersion = "1.0"
 
 type identityKey struct{}
@@ -51,6 +51,9 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 	base, _ := url.Parse(strings.TrimRight(publicURL, "/"))
 	h := &Handler{s, a, base, "Keystone uri=" + strconv.Quote(strings.TrimSuffix(strings.TrimRight(keystoneURL, "/"), "/v3")), limit, logger}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/allocations/{consumer}", h.consumerAllocations)
+	mux.HandleFunc("/resource_providers/{id}/allocations", h.providerAllocations)
+	mux.HandleFunc("/resource_providers/{id}/usages", h.usages)
 	mux.HandleFunc("/resource_classes", h.classes)
 	mux.HandleFunc("/resource_classes/{name}", h.class)
 	mux.HandleFunc("/traits", h.traits)
@@ -172,7 +175,7 @@ func negotiate(values []string) (int, error) {
 		return 0, model.Fail(400, "Invalid microversion header.")
 	}
 	if parts[1] == "latest" {
-		return 7, nil
+		return 8, nil
 	}
 	v := strings.Split(parts[1], ".")
 	if len(v) != 2 {
@@ -190,7 +193,7 @@ func negotiate(values []string) (int, error) {
 	}
 	major, e1 := strconv.Atoi(v[0])
 	minor, e2 := strconv.Atoi(v[1])
-	if e1 != nil || e2 != nil || major != 1 || minor > 7 {
+	if e1 != nil || e2 != nil || major != 1 || minor > 8 {
 		return 0, model.Fail(406, "Requested microversion is outside the supported range 1.0 - "+Version+".")
 	}
 	return minor, nil
@@ -230,6 +233,9 @@ func acceptsJSON(header string) bool {
 	return bestSpecificity >= 0 && quality > 0
 }
 func permission(r *http.Request) string {
+	if p := allocationPermission(r); p != "" {
+		return p
+	}
 	if p := catalogPermission(r); p != "" {
 		return p
 	}
@@ -288,6 +294,9 @@ func route(path string) string {
 			return "/" + parts[0] + "/{name}"
 		}
 	}
+	if parts[0] == "allocations" && len(parts) == 2 {
+		return "/allocations/{consumer}"
+	}
 	if parts[0] != "resource_providers" {
 		return "unmatched"
 	}
@@ -297,7 +306,7 @@ func route(path string) string {
 	case 2:
 		return "/resource_providers/{id}"
 	case 3:
-		if parts[2] == "traits" || parts[2] == "aggregates" {
+		if parts[2] == "traits" || parts[2] == "aggregates" || parts[2] == "allocations" || parts[2] == "usages" {
 			return "/resource_providers/{id}/" + parts[2]
 		}
 		if parts[2] == "inventories" {
@@ -395,7 +404,7 @@ func (h *Handler) notAcceptable(w http.ResponseWriter, r *http.Request) {
 
 func requiresJSON(r *http.Request) bool {
 	path := route(r.URL.Path)
-	return r.Method == "POST" && (path == "/resource_providers" || path == "/resource_classes") || r.Method == "PUT" && (path == "/resource_providers/{id}" || path == "/resource_providers/{id}/inventories" || path == "/resource_providers/{id}/traits" || path == "/resource_providers/{id}/aggregates" || path == "/resource_classes/{name}" && microversion(r) < 7)
+	return r.Method == "POST" && (path == "/resource_providers" || path == "/resource_classes") || r.Method == "PUT" && (path == "/allocations/{consumer}" || path == "/resource_providers/{id}" || path == "/resource_providers/{id}/inventories" || path == "/resource_providers/{id}/traits" || path == "/resource_providers/{id}/aggregates" || path == "/resource_classes/{name}" && microversion(r) < 7)
 }
 
 func requireJSON(r *http.Request) error {

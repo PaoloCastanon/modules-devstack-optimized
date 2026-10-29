@@ -63,15 +63,21 @@ func TestB08MySQLCatalogs(t *testing.T) {
 		t.Fatal(err)
 	}
 	inv := model.Inventory{Total: 8, MinUnit: 1, MaxUnit: 8, StepSize: 1, AllocationRatio: 1}
-	before, err := r0.ReplaceInventories(ctx, p.UUID, 0, map[string]model.Inventory{"VCPU": inv})
-	if err != nil {
+	// Seed historical v2 with SQL rather than running the current repository
+	// against a schema it correctly refuses to serve.
+	if _, err = admin.ExecContext(ctx, "INSERT INTO inventories(provider_uuid,resource_class,total,reserved,min_unit,max_unit,step_size,allocation_ratio) VALUES (?,'VCPU',8,0,1,8,1,1)", p.UUID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err = admin.ExecContext(ctx, "UPDATE resource_providers SET generation=1 WHERE uuid=?", p.UUID); err != nil {
+		t.Fatal(err)
+	}
+	before := model.Inventories{Generation: 1, Inventories: map[string]model.Inventory{"VCPU": inv}}
+
 	if mysql.VerifySchema(ctx, admin) == nil {
 		t.Fatal("runtime accepted v2 after B08")
 	}
 	if err = mysql.Migrate(ctx, admin); err != nil {
-		t.Fatal("v2 to v3", err)
+		t.Fatal("v2 to current schema", err)
 	}
 	if err = mysql.Migrate(ctx, admin); err != nil {
 		t.Fatal("idempotent migration", err)

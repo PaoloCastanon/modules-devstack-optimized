@@ -1,0 +1,5 @@
+=== RUN   TestB08MySQLCatalogs
+    catalog_integration_test.go:265: PASS v2→v3 preservation, standard/custom catalogues, rename cascade, protected deletes, no-op generation, rollback, mixed CAS and filters; isolated MySQL
+--- PASS: TestB08MySQLCatalogs (0.11s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/repository/mysql	1.117s

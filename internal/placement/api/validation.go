@@ -23,6 +23,9 @@ var schemaJSON []byte
 //go:embed schemas/b08.json
 var b08SchemaJSON []byte
 
+//go:embed schemas/b09.json
+var b09SchemaJSON []byte
+
 var requestSchemas = func() jsonObject {
 	value, err := orderedJSON(schemaJSON)
 	if err != nil {
@@ -32,7 +35,11 @@ var requestSchemas = func() jsonObject {
 	if err != nil {
 		panic("invalid embedded B08 schemas")
 	}
-	return append(value.(jsonObject), extra.(jsonObject)...)
+	b09, err := orderedJSON(b09SchemaJSON)
+	if err != nil {
+		panic("invalid embedded B09 schemas")
+	}
+	return append(append(value.(jsonObject), extra.(jsonObject)...), b09.(jsonObject)...)
 }()
 
 type schemaViolation struct {
@@ -157,6 +164,14 @@ func schemaViolations(value any, schema jsonObject, sp, ip []any, strictUUID boo
 					seen[string(key)] = true
 				}
 			}
+		case "minItems":
+			if isArray && len(array) < 1 {
+				fail("minItems", pythonRepr(value)+" should be non-empty")
+			}
+		case "minProperties":
+			if isObject && len(object) < 1 {
+				fail("minProperties", pythonRepr(value)+" should be non-empty")
+			}
 		case "minLength":
 			limit, _ := strconv.Atoi(string(rule.value.(json.Number)))
 			if isString && utf8.RuneCountInString(text) < limit {
@@ -234,6 +249,17 @@ func schemaViolations(value any, schema jsonObject, sp, ip []any, strictUUID boo
 			var extra []string
 			for _, member := range object {
 				if _, exists := properties.get(member.key); !exists {
+					patterns, _ := schema.field("patternProperties").(jsonObject)
+					matches := false
+					for _, pattern := range patterns {
+						if regexp.MustCompile(pattern.key).MatchString(member.key) {
+							matches = true
+							break
+						}
+					}
+					if matches {
+						continue
+					}
 					extra = append(extra, member.key)
 				}
 			}
@@ -241,6 +267,19 @@ func schemaViolations(value any, schema jsonObject, sp, ip []any, strictUUID boo
 				sort.Strings(extra)
 				for i, key := range extra {
 					extra[i] = pythonString(key)
+				}
+				if patterns, ok := schema.field("patternProperties").(jsonObject); ok {
+					names := []string{}
+					for _, p := range patterns {
+						names = append(names, pythonString(p.key))
+					}
+					sort.Strings(names)
+					verb := "does"
+					if len(extra) > 1 {
+						verb = "do"
+					}
+					fail("additionalProperties", strings.Join(extra, ", ")+" "+verb+" not match any of the regexes: "+strings.Join(names, ", "))
+					continue
 				}
 				verb := "was"
 				if len(extra) > 1 {

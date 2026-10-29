@@ -1,0 +1,5 @@
+=== RUN   TestB09MySQLAllocations
+    allocations_integration_test.go:257: PASS v3→v4 preservation, allocation replacement/rollback, usage filters, protection, capacity race, same-consumer race, pool persistence and allocated-class cascade
+--- PASS: TestB09MySQLAllocations (0.17s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/repository/mysql	1.178s
