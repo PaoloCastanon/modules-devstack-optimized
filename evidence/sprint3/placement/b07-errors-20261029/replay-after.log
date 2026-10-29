@@ -1,0 +1,30 @@
+=== RUN   TestCapturedNegotiationAndCapacityErrors
+=== RUN   TestCapturedNegotiationAndCapacityErrors/20-reserved-total.json
+=== RUN   TestCapturedNegotiationAndCapacityErrors/37-unsupported-media.json
+=== RUN   TestCapturedNegotiationAndCapacityErrors/38-unacceptable.json
+--- PASS: TestCapturedNegotiationAndCapacityErrors (0.00s)
+    --- PASS: TestCapturedNegotiationAndCapacityErrors/20-reserved-total.json (0.00s)
+    --- PASS: TestCapturedNegotiationAndCapacityErrors/37-unsupported-media.json (0.00s)
+    --- PASS: TestCapturedNegotiationAndCapacityErrors/38-unacceptable.json (0.00s)
+=== RUN   TestCapacityErrorsUseRequestedProviderAndClass
+=== RUN   TestCapacityErrorsUseRequestedProviderAndClass/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+=== RUN   TestCapacityErrorsUseRequestedProviderAndClass/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
+=== RUN   TestCapacityErrorsUseRequestedProviderAndClass/cccccccc-cccc-4ccc-8ccc-cccccccccccc
+=== RUN   TestCapacityErrorsUseRequestedProviderAndClass/dddddddd-dddd-4ddd-8ddd-dddddddddddd
+--- PASS: TestCapacityErrorsUseRequestedProviderAndClass (0.00s)
+    --- PASS: TestCapacityErrorsUseRequestedProviderAndClass/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa (0.00s)
+    --- PASS: TestCapacityErrorsUseRequestedProviderAndClass/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb (0.00s)
+    --- PASS: TestCapacityErrorsUseRequestedProviderAndClass/cccccccc-cccc-4ccc-8ccc-cccccccccccc (0.00s)
+    --- PASS: TestCapacityErrorsUseRequestedProviderAndClass/dddddddd-dddd-4ddd-8ddd-dddddddddddd (0.00s)
+=== RUN   TestUnsupportedMediaReportsParsedType
+=== RUN   TestUnsupportedMediaReportsParsedType/#00
+=== RUN   TestUnsupportedMediaReportsParsedType/text/plain;_charset=UTF-8
+=== RUN   TestUnsupportedMediaReportsParsedType/application/xml
+--- PASS: TestUnsupportedMediaReportsParsedType (0.00s)
+    --- PASS: TestUnsupportedMediaReportsParsedType/#00 (0.00s)
+    --- PASS: TestUnsupportedMediaReportsParsedType/text/plain;_charset=UTF-8 (0.00s)
+    --- PASS: TestUnsupportedMediaReportsParsedType/application/xml (0.00s)
+=== RUN   TestAcceptFailureIsSeparateFromMicroversionFailure
+--- PASS: TestAcceptFailureIsSeparateFromMicroversionFailure (0.00s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api	1.019s

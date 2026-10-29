@@ -6,6 +6,11 @@ comparado en vivo con Python. **B07 continúa en progreso**: la matriz tiene
 estrictas. Quedan 11 diferencias de representación de errores y la ampliación
 de microversiones necesaria para Nova. [Evidencia en vivo](../../evidence/sprint3/placement/b07-live-20261028/README.md).
 
+Actualización 2026-10-29: [corregidos tres errores](../../evidence/sprint3/placement/b07-errors-20261029/README.md)
+mediante reproducción de capturas y pruebas MySQL. Quedan ocho diferencias
+históricas de JSON Schema. La campaña en vivo anterior no se reejecutó; B07 sigue
+en progreso y no se atribuye una nueva cifra de equivalencia en vivo.
+
 ## Contrato implementado
 
 El proceso `cmd/placement` usa el módulo Go integrado por el PR #3 y separa API,
@@ -69,7 +74,8 @@ y [API oficial](https://docs.openstack.org/api-ref/placement/).
 - Los errores de dominio conservan `errors`, status numérico, title y request_id.
   El 401 reproduce el objeto `error` del middleware Keystone real, sin headers de
   microversión. Se conserva el 404 histórico y se añaden fixtures de errores estables;
-  diez mensajes detail y la representación de un 406 aún difieren.
+  ocho mensajes JSON Schema siguen pendientes. Los errores de capacidad, media
+  type y Accept: text/plain ya coinciden con las respuestas Python archivadas.
 - La migración v2 cambia nombres a utf8mb4_general_ci (igualdad sin distinguir
   mayúsculas y con PAD SPACE) y ratio a FLOAT. La DB original usa utf8mb3_general_ci
   y FLOAT. Leer ratio con CAST a CHAR conserva la representación textual que recibe

@@ -1,0 +1,19 @@
+--- FAIL: TestCapturedNegotiationAndCapacityErrors (0.00s)
+    --- FAIL: TestCapturedNegotiationAndCapacityErrors/20-reserved-total.json (0.00s)
+        error_contract_test.go:78: JSON differs
+            got: {"errors":[{"detail":"The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n Inventory capacity must be positive at microversion 1.0.  ","request_id":"req-eb9da20e-b616-4650-9225-9966d225b9df","status":400,"title":"Bad Request"}]}
+
+            want: {"errors": [{"status": 400, "title": "Bad Request", "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n Unable to update inventory for resource provider 69110a28-4e61-4aba-b7ef-bddc6664a175: Invalid inventory for 'VCPU' on resource provider '69110a28-4e61-4aba-b7ef-bddc6664a175'. The reserved value is greater than or equal to total.  ", "request_id": "req-dd212329-3378-4cd7-a843-447b2a3b6d74"}]}
+    --- FAIL: TestCapturedNegotiationAndCapacityErrors/37-unsupported-media.json (0.00s)
+        error_contract_test.go:78: JSON differs
+            got: {"errors":[{"detail":"Expected Content-Type application/json.","request_id":"req-0a799ce5-981e-409f-8b0e-5c53928217ee","status":415,"title":"Unsupported Media Type"}]}
+
+            want: {"errors": [{"status": 415, "title": "Unsupported Media Type", "detail": "The request media type text/plain is not supported by this server. \n\n The media type text/plain is not supported, use application/json", "request_id": "req-58546481-6b55-4895-b42e-dbee8c6217be"}]}
+    --- FAIL: TestCapturedNegotiationAndCapacityErrors/38-unacceptable.json (0.00s)
+        error_contract_test.go:74: content-type="application/json" want="text/plain; charset=UTF-8"
+        error_contract_test.go:80: body="{\"errors\":[{\"detail\":\"Only application/json is available.\",\"request_id\":\"req-9c4ae5f3-e064-4945-bf7a-aedd388201a2\",\"status\":406,\"title\":\"Not Acceptable\"}]}\n" want="406 Not Acceptable\n\nThe resource could not be generated that was acceptable to your browser (content of type text/plain. \n\n Only application/json is provided"
+FAIL
+FAIL	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api	0.003s
+FAIL
+
+Exit code: 1

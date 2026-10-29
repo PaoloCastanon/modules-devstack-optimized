@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-29",
+  "base_sha": "dfd7624501b28eedf08938b4b9b6838633d48452",
+  "comparison": "Replay of three archived Python responses; not a new live differential campaign",
+  "original_placement_sha": "f4a89d3803cb23df22b8714569889ab39c918c34",
+  "mysql": "8.0.46 disposable container, fresh schema, separate accounts",
+  "keystone": "local HTTP fixture with production adapter",
+  "go": "go version go1.27.3-X:nodwarf5 linux/amd64",
+  "files_sha256": {
+    "internal/placement/api/api.go": "1b853363d4179fc3ccf9a5ed2f3f32b29fd59e09f7fe6c962000139ac54b17f6",
+    "internal/placement/api/error_contract_test.go": "5959caaa51688bf8eb3bcb712b6b5a5b7f46f29c337a5b227cefe7857723f7fe",
+    "internal/placement/model/model.go": "43d299c68a8770ba0069fede7d5bf4e86994cb5ec73876b708a21f60e3997c78",
+    "internal/placement/service/service.go": "5f466147758664ab20151128f0ffedf23e173887ab976bf20f540e9925bdba82",
+    "internal/placement/repository/mysql/integration_test.go": "7bb40403c2670e8a8534054eca501b5255bd4128c07ad1c9e7a47f5ab7cb8df3"
+  },
+  "captured_cases": [
+    "20-reserved-total.json",
+    "37-unsupported-media.json",
+    "38-unacceptable.json"
+  ],
+  "remaining_historical_differences": [
+    "missing-name",
+    "null-name",
+    "unknown-field",
+    "rename-generation-field",
+    "zero-total",
+    "null-total",
+    "mixed-invalid",
+    "uuid-compact-query"
+  ],
+  "new_live_run": false,
+  "backlog_status": "B07 in progress",
+  "log_sanitization": "Whitespace-only lines in replay-before.log cleared for git diff --check; response payload lines and fixtures unchanged"
+}

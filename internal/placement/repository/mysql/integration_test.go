@@ -244,6 +244,28 @@ func TestB07MySQLHTTP(t *testing.T) {
 	if status, _ := call("GET", path+"/inventories/VCPU", "nova-token", ""); status != 200 {
 		t.Fatal(status)
 	}
+	beforeRejected, err := r.Inventories(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, class := range []string{"VCPU", "MEMORY_MB"} {
+		payload := fmt.Sprintf(`{"resource_provider_generation":1,"inventories":{"%s":{"total":4,"reserved":4}}}`, class)
+		status, body := call("PUT", path+"/inventories", "nova-token", payload)
+		var failure struct {
+			Errors []struct {
+				Status        int
+				Title, Detail string
+			}
+		}
+		want := fmt.Sprintf("The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n Unable to update inventory for resource provider %s: Invalid inventory for '%s' on resource provider '%s'. The reserved value is greater than or equal to total.  ", id, class, id)
+		if status != 400 || json.Unmarshal(body, &failure) != nil || len(failure.Errors) != 1 || failure.Errors[0].Status != 400 || failure.Errors[0].Title != "Bad Request" || failure.Errors[0].Detail != want {
+			t.Fatal("capacity error contract", status, string(body))
+		}
+		afterRejected, err := r.Inventories(ctx, id)
+		if err != nil || !reflect.DeepEqual(beforeRejected, afterRejected) {
+			t.Fatal("capacity rejection changed persisted state", afterRejected, err)
+		}
+	}
 	if status, _ := call("DELETE", path, "nova-token", ""); status != 204 {
 		t.Fatal(status)
 	}

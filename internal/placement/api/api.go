@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"mime"
@@ -107,7 +108,7 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 			return
 		}
 		if !acceptsJSON(r.Header.Get("Accept")) {
-			h.failure(w, r, model.Fail(406, "Only application/json is available."))
+			h.notAcceptable(w, r)
 			return
 		}
 		if r.URL.Path != "/" && permission(r) != "" {
@@ -313,10 +314,25 @@ func (h *Handler) method(w http.ResponseWriter, r *http.Request, allow string) {
 	w.Header().Set("Allow", allow)
 	h.failure(w, r, model.Fail(405, "Method not allowed."))
 }
+
+// Match the captured WebOb text error for an unsatisfied Accept request.
+// Keep this separate from microversion 406 responses.
+func (h *Handler) notAcceptable(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
+	w.WriteHeader(http.StatusNotAcceptable)
+	_, _ = fmt.Fprintf(w, "406 Not Acceptable\n\nThe resource could not be generated that was acceptable to your browser (content of type %s. \n\n Only application/json is provided", r.Header.Get("Accept"))
+}
+
 func (h *Handler) decode(w http.ResponseWriter, r *http.Request, target any) error {
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || media != "application/json" {
-		return model.Fail(415, "Expected Content-Type application/json.")
+		if media == "" {
+			media = strings.TrimSpace(strings.SplitN(r.Header.Get("Content-Type"), ";", 2)[0])
+		}
+		if media == "" {
+			media = "None"
+		}
+		return model.Fail(415, fmt.Sprintf("The request media type %s is not supported by this server. \n\n The media type %s is not supported, use application/json", media, media))
 	}
 	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, h.limit))
 	if err != nil {

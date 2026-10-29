@@ -2,6 +2,15 @@
 
 Registrar resultados y límites de cada tarea; los planes y criterios viven en [PLANS.md](../PLANS.md). Las instrucciones persistentes están en [AGENTS.md](../AGENTS.md).
 
+## 2026-10-29 — B07: errores de negociación y capacidad
+
+- **Base y criterio:** `git pull --ff-only` dejó main al día en `dfd7624`; incremento en `fix/placement-b07-errors`. Reproducir exactamente las tres respuestas Python archivadas reserved-total, unsupported-media y unacceptable, manteniendo estado y headers estables.
+- **Reproducción previa:** la nueva prueba sobre una exportación de main falla en los tres casos con salida 1, antes de modificar el código productivo. [Evidencia antes/después](../evidence/sprint3/placement/b07-errors-20261029/README.md).
+- **Cambios:** 406 por Accept insatisfecho usa texto UTF-8 y cuerpo capturado, separado del 406 de microversión; 415 conserva el media type real; el modelo distingue capacidad inválida y el servicio añade UUID/clase al detalle sin escrituras. Se conserva 1.0, SQL/migraciones, auth y el comparador.
+- **Verificación local:** `make check` PASS (Glance y Placement, formato/vet/race/build); `go test -race ./internal/placement/... -count=1` PASS; regresiones dirigidas PASS con cuerpos/headers originales, invariancia de estado y variantes de UUID/clase/capacidad/media type. `git diff --check` PASS.
+- **MySQL real:** `make placement-test-mysql` PASS, 8.0.46 aislado en tmpfs con puerto loopback, esquema nuevo y migrador/runtime separados; nuevos rechazos HTTP para VCPU/MEMORY_MB conservan inventario/generation por lectura SQL. Keystone fixture. El primer intento de aprovisionamiento falló antes de tests por un readiness prematuro; se conservó el log y el reintento exigió SELECT 1 autenticado por TCP. Se retiraron contenedores/datos/credenciales al terminar.
+- **Límites:** no se repitió la campaña en vivo con Python/Keystone real ni Nova; las cifras 27/38 y 11 diferencias describen el código del 28 de octubre. Tres diferencias se corrigen contra capturas; quedan ocho de JSON Schema. B07 continúa en progreso. Sin cambios a Excel/S2. VM apagada durante toda esta tarea.
+
 ## 2026-10-29 — Revisión e integración del PR #5: Glance B25
 
 - **Revisión:** [PR #5](https://github.com/PaoloCastanon/modules-devstack-optimized/pull/5), HEAD `fbb4a3d24bdd8b102e2e24c1a7b052e1563a41b5` sobre `0279987`. [Informe](../github-pr-5-review.md): auth compuesta, aislamiento de configuración, streaming, filesystem, intentos SQL, recuperación, DELETE y migraciones. Sin defectos bloqueantes detectados.

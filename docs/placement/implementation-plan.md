@@ -18,6 +18,10 @@ La [comparación en vivo](../../evidence/sprint3/placement/b07-live-20261028/REA
 ya se ejecutó con Keystone real: 38 status/estados coinciden, 27 comparaciones
 estrictas coinciden y 11 representaciones de error siguen pendientes.
 
+Actualización 2026-10-29: [tres de esas diferencias](../../evidence/sprint3/placement/b07-errors-20261029/README.md)
+se corrigieron y verificaron reproduciendo las capturas y con MySQL descartable.
+Quedan ocho mensajes JSON Schema; no hay una nueva cifra de comparación en vivo.
+
 No cambiar estados, fechas, puntos del Excel ni informes históricos. Este plan
 desglosa B07–B15; B21 documenta las decisiones y resultados durante la ejecución.
 Los resultados se registran en [build-log](../../harness/build-log.md).
@@ -30,8 +34,8 @@ con esquema/cuentas separados de OpenStack y Glance. API serializa y negocia
 microversiones; service aplica reglas; repository controla SQL/transacciones.
 
 Reutilizar `internal/auth` para validar tokens, con políticas propias Placement.
-`internal/config.Load` actual está ligado a variables `GLANCE_GO_*`: definir
-configuración Placement independiente y reutilizar helpers neutrales. No importar
+`internal/config.LoadPlacement` ya usa un namespace independiente; conservarlo
+y reutilizar sólo helpers neutrales. No importar
 `internal/glance` desde Placement ni copiar su política de owner/reader/member.
 Las migraciones MySQL de Glance también son específicas de su dominio.
 
@@ -147,8 +151,10 @@ sus tareas posteriores y su metodología; no condicionan el primer B07.
 
 ## Próximo paso concreto
 
-Resolver las 11 diferencias de representación de error detectadas por el runner
-en vivo de B07, sin eliminar campos del comparador; ampliar luego microversiones
+Resolver las ocho diferencias de JSON Schema restantes de la campaña B07,
+sin eliminar campos del comparador, y repetir la comparación en vivo antes de
+actualizar sus cifras. Tres errores de transporte/capacidad ya tienen reproducción
+exacta contra capturas. Ampliar luego microversiones
 y llamadas del resource tracker según evidencia. El recorrido autenticado y
 persistente ya está implementado y su alcance se detalla en la guía B07. Mantener
 un commit por incremento y registrar límites en el build log.

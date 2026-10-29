@@ -147,6 +147,9 @@ func (s *Service) ReplaceInventories(ctx context.Context, who auth.Identity, id 
 			return model.Inventories{}, model.Fail(400, fmt.Sprintf("Unknown resource class in inventory for resource provider %s: No such resource class %s.", id, class))
 		}
 		inv, err := raw.Resolve()
+		if errors.Is(err, model.ErrInventoryCapacity) {
+			return model.Inventories{}, model.Fail(400, fmt.Sprintf("Unable to update inventory for resource provider %s: Invalid inventory for '%s' on resource provider '%s'. The reserved value is greater than or equal to total.", id, class, id))
+		}
 		if err != nil {
 			return model.Inventories{}, err
 		}

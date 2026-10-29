@@ -15,6 +15,12 @@ Las fases son agrupaciones de aceptación, no una prohibición de avanzar en par
 
 ## Próxima unidad de implementación: B07
 
+**Incremento al 2026-10-29:** corregidos y reproducidos contra capturas los errores
+reserved-total, unsupported-media y unacceptable; [verificación](evidence/sprint3/placement/b07-errors-20261029/README.md)
+local y MySQL real aprobadas. Quedan ocho diferencias históricas de JSON Schema
+sin resolver. No se repitió la campaña Python↔Go/Keystone real; sus cifras del
+28 de octubre se conservan como resultado histórico, no como pase del código nuevo.
+
 **Ejecución actualizada al 2026-10-28:** [Placement Go B07–B15](docs/placement/implementation-plan.md). El PR #3 ya está integrado en `85bae56`; se reutilizan módulo y auth Go. [B07](docs/placement/b07-development.md) implementa providers/inventories 1.0, persistencia y auth. La comparación con Python y Keystone reales dio 38/38 status y estados observables iguales, pero 27/38 coincidencias estrictas: quedan 11 representaciones de error por resolver. B07 sigue en progreso; falta cerrar esas diferencias y completar el contrato necesario para Nova. B11/B12 tienen avance parcial, sin cierre transversal. El estado histórico siguiente describe la revisión del 26 de octubre.
 
 **Estado al revisar el repositorio el 2026-10-26:** sin iniciar. No existe `go.mod` ni fuentes `.go`. La infraestructura sí está implementada y tiene evidencia de Sprint 2; la reimplementación de los servicios aún no comenzó.
