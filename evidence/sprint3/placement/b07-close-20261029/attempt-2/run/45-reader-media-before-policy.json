@@ -1,0 +1,154 @@
+{
+  "name": "reader-media-before-policy",
+  "provider_uuid": "a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7",
+  "request": {
+    "method": "POST",
+    "path": "/resource_providers",
+    "body": {
+      "uuid": "a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7",
+      "name": "tt-b07-diff-a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7"
+    },
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0",
+      "Content-Type": "text/plain"
+    },
+    "body_text": "{\"uuid\": \"a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7\", \"name\": \"tt-b07-diff-a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7\"}",
+    "auth_role": "reader"
+  },
+  "seed": {},
+  "before": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found  \", \"request_id\": \"req-3241a709-c2c1-46e6-96ea-84ed375a9fce\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found : No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found  \", \"request_id\": \"req-fcb60e9f-28a8-4453-af3f-e381efa6573f\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found  \",\"request_id\":\"req-5ccc7447-2121-45d6-b2a5-3db16f41ad1b\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found : No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found  \",\"request_id\":\"req-85ca79d1-0c4c-4c2f-83ca-9c81eee0f2f5\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 415,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"errors\": [{\"status\": 415, \"title\": \"Unsupported Media Type\", \"detail\": \"The request media type text/plain is not supported by this server. \\n\\n The media type text/plain is not supported, use application/json\", \"request_id\": \"req-d01828a6-dd0e-4bf8-846e-46991d350bb6\"}]}"
+    },
+    "go": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0"
+      },
+      "body_text": "{\"errors\":[{\"detail\":\"Access was denied to this resource.\\n\\n Policy does not allow placement:resource_providers:create to be performed.  \",\"request_id\":\"req-ce23db97-23c1-4ba4-b269-6df421f8f5d7\",\"status\":403,\"title\":\"Forbidden\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found  \", \"request_id\": \"req-ec472846-4f11-4010-a038-57cdb2c19c3f\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found : No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found  \", \"request_id\": \"req-c3c71427-7ca1-4e66-a1ce-0894b18d8401\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found  \",\"request_id\":\"req-90ff061d-0823-4e0c-ba5a-a8777f5c15e4\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found : No resource provider with uuid a89ee0c3-a2d3-4b4d-8bd4-e2fcc52bc9e7 found  \",\"request_id\":\"req-81182a1b-67ad-4cfb-b8da-7722c218a773\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "differences": [
+    {
+      "path": "$.response.body.errors[0].detail",
+      "reason": "value",
+      "python": "The request media type text/plain is not supported by this server. \n\n The media type text/plain is not supported, use application/json",
+      "go": "Access was denied to this resource.\n\n Policy does not allow placement:resource_providers:create to be performed.  "
+    },
+    {
+      "path": "$.response.body.errors[0].status",
+      "reason": "value",
+      "python": "415",
+      "go": "403"
+    },
+    {
+      "path": "$.response.body.errors[0].title",
+      "reason": "value",
+      "python": "Unsupported Media Type",
+      "go": "Forbidden"
+    },
+    {
+      "path": "$.response.headers.vary",
+      "reason": "missing",
+      "python_present": true,
+      "go_present": false
+    },
+    {
+      "path": "$.response.status",
+      "reason": "value",
+      "python": "415",
+      "go": "403"
+    }
+  ],
+  "same_status": false,
+  "same_state": true,
+  "strict_match": false
+}

@@ -107,9 +107,15 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 			h.failure(w, r, err)
 			return
 		}
-		if !acceptsJSON(r.Header.Get("Accept")) {
+		if r.Method == "GET" && !acceptsJSON(r.Header.Get("Accept")) {
 			h.notAcceptable(w, r)
 			return
+		}
+		if requiresJSON(r) {
+			if err := requireJSON(r); err != nil {
+				h.failure(w, r, err)
+				return
+			}
 		}
 		if r.URL.Path != "/" && permission(r) != "" {
 			who := identity(r)
@@ -297,7 +303,7 @@ func (h *Handler) failure(w http.ResponseWriter, r *http.Request, err error) {
 			detail = "Policy does not allow " + permission(r) + " to be performed."
 		}
 	}
-	if status == 404 && route(r.URL.Path) == "/resource_providers/{id}" && r.Method == "GET" {
+	if status == 404 && (route(r.URL.Path) == "/resource_providers/{id}" && (r.Method == "GET" || r.Method == "PUT") || route(r.URL.Path) == "/resource_providers/{id}/inventories" && r.Method == "PUT") {
 		w.Header().Del("Vary")
 	}
 	prefixes := map[int]string{400: "The server could not comply with the request since it is either malformed or otherwise incorrect.", 403: "Access was denied to this resource.", 404: "The resource could not be found.", 409: "There was a conflict when trying to complete your request."}
@@ -323,7 +329,12 @@ func (h *Handler) notAcceptable(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, "406 Not Acceptable\n\nThe resource could not be generated that was acceptable to your browser (content of type %s. \n\n Only application/json is provided", r.Header.Get("Accept"))
 }
 
-func (h *Handler) decode(w http.ResponseWriter, r *http.Request, target any) error {
+func requiresJSON(r *http.Request) bool {
+	path := route(r.URL.Path)
+	return r.Method == "POST" && path == "/resource_providers" || r.Method == "PUT" && (path == "/resource_providers/{id}" || path == "/resource_providers/{id}/inventories")
+}
+
+func requireJSON(r *http.Request) error {
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || media != "application/json" {
 		if media == "" {
@@ -333,6 +344,25 @@ func (h *Handler) decode(w http.ResponseWriter, r *http.Request, target any) err
 			media = "None"
 		}
 		return model.Fail(415, fmt.Sprintf("The request media type %s is not supported by this server. \n\n The media type %s is not supported, use application/json", media, media))
+	}
+	return nil
+}
+
+// Upstream checks media type, then provider existence, before reading/validating
+// a PUT body. The repository still locks and checks generation at commit time.
+func (h *Handler) decodeExisting(w http.ResponseWriter, r *http.Request, target any, order ...*[]string) error {
+	if err := requireJSON(r); err != nil {
+		return err
+	}
+	if _, err := h.service.Get(r.Context(), identity(r), r.PathValue("id")); err != nil {
+		return err
+	}
+	return h.decode(w, r, target, order...)
+}
+
+func (h *Handler) decode(w http.ResponseWriter, r *http.Request, target any, inventoryOrder ...*[]string) error {
+	if err := requireJSON(r); err != nil {
+		return err
 	}
 	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, h.limit))
 	if err != nil {
@@ -346,17 +376,24 @@ func (h *Handler) decode(w http.ResponseWriter, r *http.Request, target any) err
 		return model.Fail(400, "Request body must be UTF-8.")
 	}
 	data = bytes.TrimSpace(data)
-	if len(data) == 0 || data[0] != '{' {
+	if len(data) == 0 {
 		return model.Fail(400, "Expected a JSON object.")
 	}
-	var raw any
-	rawDecoder := json.NewDecoder(bytes.NewReader(data))
-	rawDecoder.UseNumber()
-	var trailing any
-	if rawDecoder.Decode(&raw) != nil || rawDecoder.Decode(&trailing) != io.EOF || containsNull(raw) || !exactFields(raw, reflect.TypeOf(target)) {
-		return model.Fail(400, "Invalid JSON object or null field.")
+	raw, err := orderedJSON(data)
+	if err != nil {
+		return model.Fail(400, "Invalid JSON object.")
 	}
-	normalized, err := schemaIntegers(raw, reflect.TypeOf(target))
+	schema := "inventories"
+	if route(r.URL.Path) == "/resource_providers" {
+		schema = "create"
+	}
+	if route(r.URL.Path) == "/resource_providers/{id}" {
+		schema = "rename"
+	}
+	if err := validateRequest(raw, schema, "JSON does not validate: "); err != nil {
+		return err
+	}
+	normalized, err := schemaIntegers(plainJSON(raw), reflect.TypeOf(target))
 	if err != nil {
 		return model.Fail(400, "Invalid request fields or types.")
 	}
@@ -369,69 +406,14 @@ func (h *Handler) decode(w http.ResponseWriter, r *http.Request, target any) err
 	if d.Decode(target) != nil {
 		return model.Fail(400, "Invalid request fields or types.")
 	}
+	if schema == "inventories" && len(inventoryOrder) > 0 {
+		for _, member := range raw.(jsonObject).field("inventories").(jsonObject) {
+			*inventoryOrder[0] = append(*inventoryOrder[0], member.key)
+		}
+	}
 	return nil
 }
 
-// encoding/json matches struct fields without case sensitivity. Placement's
-// schema names are exact; validate names before decoding typed values.
-func exactFields(value any, target reflect.Type) bool {
-	for target.Kind() == reflect.Pointer {
-		target = target.Elem()
-	}
-	switch target.Kind() {
-	case reflect.Struct:
-		object, ok := value.(map[string]any)
-		if !ok {
-			return false
-		}
-		fields := map[string]reflect.Type{}
-		for n := 0; n < target.NumField(); n++ {
-			field := target.Field(n)
-			name := strings.Split(field.Tag.Get("json"), ",")[0]
-			if name != "" && name != "-" {
-				fields[name] = field.Type
-			}
-		}
-		for key, item := range object {
-			field, ok := fields[key]
-			if !ok || !exactFields(item, field) {
-				return false
-			}
-		}
-	case reflect.Map:
-		object, ok := value.(map[string]any)
-		if !ok {
-			return false
-		}
-		for _, item := range object {
-			if !exactFields(item, target.Elem()) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func containsNull(value any) bool {
-	if value == nil {
-		return true
-	}
-	switch v := value.(type) {
-	case map[string]any:
-		for _, item := range v {
-			if containsNull(item) {
-				return true
-			}
-		}
-	case []any:
-		for _, item := range v {
-			if containsNull(item) {
-				return true
-			}
-		}
-	}
-	return false
-}
 func identity(r *http.Request) auth.Identity { return r.Context().Value(identityKey{}).(auth.Identity) }
 func (h *Handler) discovery(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
@@ -492,6 +474,26 @@ func (h *Handler) providers(w http.ResponseWriter, r *http.Request) {
 			h.failure(w, r, model.Fail(400, "Invalid query."))
 			return
 		}
+		queryObject := jsonObject{}
+		seen := map[string]bool{}
+		for _, part := range strings.Split(r.URL.RawQuery, "&") {
+			key, _ := url.QueryUnescape(strings.SplitN(part, "=", 2)[0])
+			values, exists := query[key]
+			if !exists || seen[key] {
+				continue
+			}
+			seen[key] = true
+			value := values[len(values)-1]
+			if !utf8.ValidString(value) || !utf8.ValidString(key) {
+				h.failure(w, r, model.Fail(400, "Invalid query."))
+				return
+			}
+			queryObject = append(queryObject, jsonMember{key, value})
+		}
+		if err := validateRequest(queryObject, "query", "Invalid query string parameters: "); err != nil {
+			h.failure(w, r, err)
+			return
+		}
 		f := model.Filter{}
 		for key, values := range query {
 			if len(values) == 0 || !utf8.ValidString(values[len(values)-1]) {
@@ -537,7 +539,7 @@ func (h *Handler) provider(w http.ResponseWriter, r *http.Request) {
 		var input struct {
 			Name *string `json:"name"`
 		}
-		if err := h.decode(w, r, &input); err != nil {
+		if err := h.decodeExisting(w, r, &input); err != nil {
 			h.failure(w, r, err)
 			return
 		}
@@ -572,11 +574,12 @@ func (h *Handler) inventories(w http.ResponseWriter, r *http.Request) {
 			Generation  *int64                          `json:"resource_provider_generation"`
 			Inventories map[string]model.InventoryInput `json:"inventories"`
 		}
-		if err = h.decode(w, r, &input); err == nil {
+		var classOrder []string
+		if err = h.decodeExisting(w, r, &input, &classOrder); err == nil {
 			if input.Generation == nil || input.Inventories == nil {
 				err = model.Fail(400, "Generation and inventories are required.")
 			} else {
-				result, err = h.service.ReplaceInventories(r.Context(), identity(r), r.PathValue("id"), *input.Generation, input.Inventories)
+				result, err = h.service.ReplaceInventories(r.Context(), identity(r), r.PathValue("id"), *input.Generation, input.Inventories, classOrder...)
 			}
 		}
 	default:

@@ -1,0 +1,147 @@
+{
+  "name": "uuid-compact-query",
+  "provider_uuid": "a4586d5e-4bce-4c2d-a972-5b4b9c1711a1",
+  "request": {
+    "method": "GET",
+    "path": "/resource_providers?uuid=a4586d5e4bce4c2da9725b4b9c1711a1",
+    "body": null,
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0"
+    },
+    "body_text": null,
+    "auth_role": "admin"
+  },
+  "seed": {
+    "python": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version",
+          "location": "http://192.168.122.10/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1"
+        },
+        "body_text": ""
+      }
+    ],
+    "go": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version",
+          "location": "http://127.0.0.1:43979/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1"
+        },
+        "body_text": ""
+      }
+    ]
+  },
+  "before": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\", \"name\": \"tt-b07-diff-a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\", \"generation\": 0, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 0, \"inventories\": {}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":0,\"links\":[{\"href\":\"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\",\"uuid\":\"a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":0,\"inventories\":{}}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"errors\": [{\"status\": 400, \"title\": \"Bad Request\", \"detail\": \"The server could not comply with the request since it is either malformed or otherwise incorrect.\\n\\n Invalid query string parameters: 'a4586d5e4bce4c2da9725b4b9c1711a1' is not a 'uuid'  Failed validating 'format' in schema['properties']['uuid']:     {'type': 'string', 'format': 'uuid'}  On instance['uuid']:     'a4586d5e4bce4c2da9725b4b9c1711a1'  \", \"request_id\": \"req-eded7625-273b-43ad-8dec-87981ec881b4\"}]}"
+    },
+    "go": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"errors\":[{\"detail\":\"The server could not comply with the request since it is either malformed or otherwise incorrect.\\n\\n Invalid query string parameters: 'a4586d5e4bce4c2da9725b4b9c1711a1' is not a 'uuid'  Failed validating 'format' in schema['properties']['uuid']:     {'type': 'string', 'format': 'uuid'}  On instance['uuid']:     'a4586d5e4bce4c2da9725b4b9c1711a1'  \",\"request_id\":\"req-c045a486-9943-4a47-ad99-3f6ed409a420\",\"status\":400,\"title\":\"Bad Request\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\", \"name\": \"tt-b07-diff-a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\", \"generation\": 0, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 0, \"inventories\": {}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":0,\"links\":[{\"href\":\"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/a4586d5e-4bce-4c2d-a972-5b4b9c1711a1/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\",\"uuid\":\"a4586d5e-4bce-4c2d-a972-5b4b9c1711a1\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":0,\"inventories\":{}}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}

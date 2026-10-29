@@ -1,15 +1,13 @@
 # B07 — Primer incremento providers/inventories
 
-Estado al 2026-10-28: implementado, probado con MySQL y Keystone reales y
-comparado en vivo con Python. **B07 continúa en progreso**: la matriz tiene
-38/38 status y estados observables coincidentes, pero solo 27/38 coincidencias
-estrictas. Quedan 11 diferencias de representación de errores y la ampliación
-de microversiones necesaria para Nova. [Evidencia en vivo](../../evidence/sprint3/placement/b07-live-20261028/README.md).
-
-Actualización 2026-10-29: [corregidos tres errores](../../evidence/sprint3/placement/b07-errors-20261029/README.md)
-mediante reproducción de capturas y pruebas MySQL. Quedan ocho diferencias
-históricas de JSON Schema. La campaña en vivo anterior no se reejecutó; B07 sigue
-en progreso y no se atribuye una nueva cifra de equivalencia en vivo.
+**Estado al 2026-10-29: B07 completado técnicamente para el alcance priorizado
+providers/inventories 1.0**, publicado en el PR #6 y pendiente de merge.
+[Acta de aceptación](b07-acceptance.md). La campaña final contra Python fijado y
+Keystone reales obtuvo **57/57** status, estados y respuestas estrictas iguales;
+MySQL real, concurrencia y reinicio del ejecutable quedaron verificados.
+[Evidencia de cierre](../../evidence/sprint3/placement/b07-close-20261029/README.md).
+B08–B12 y Nova conservan sus cierres propios. Las cifras de las secciones
+históricas inferiores corresponden a las ejecuciones del 28 de octubre.
 
 ## Contrato implementado
 
@@ -74,15 +72,18 @@ y [API oficial](https://docs.openstack.org/api-ref/placement/).
 - Los errores de dominio conservan `errors`, status numérico, title y request_id.
   El 401 reproduce el objeto `error` del middleware Keystone real, sin headers de
   microversión. Se conserva el 404 histórico y se añaden fixtures de errores estables;
-  ocho mensajes JSON Schema siguen pendientes. Los errores de capacidad, media
-  type y Accept: text/plain ya coinciden con las respuestas Python archivadas.
+  los mensajes JSON Schema, capacidad, media type y Accept: text/plain coinciden
+  en la matriz final. Los esquemas embebidos se validan en Go; 61 casos adicionales
+  del oráculo fijado comprueban tipos, límites, orden y formato de diagnósticos.
 - La migración v2 cambia nombres a utf8mb4_general_ci (igualdad sin distinguir
   mayúsculas y con PAD SPACE) y ratio a FLOAT. La DB original usa utf8mb3_general_ci
   y FLOAT. Leer ratio con CAST a CHAR conserva la representación textual que recibe
   el driver Python, sin tolerancias en el comparador. La equivalencia de todo Unicode,
   incluidos caracteres fuera de BMP, sigue pendiente.
-- Los límites de body/query y la negociación Accept tienen regresiones locales;
-  no se afirma equivalencia completa de prioridades entre errores y middleware.
+- Los límites de body/query y la negociación Accept tienen regresiones locales.
+  La campaña final cubre prioridades de existencia/generation/capacidad/clase/media
+  type/política, y las escrituras no rechazan Accept como un GET. No se afirma
+  equivalencia de todas las combinaciones fuera del alcance priorizado.
 
 La DB actual no contiene allocations ni las acepta por HTTP. Por tanto, aún no
 se puede probar el rechazo de borrar/reducir inventario en uso; B09 debe agregar

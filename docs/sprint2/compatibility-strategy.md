@@ -16,3 +16,12 @@ requests, responses, snapshots por API y diferencias estrictas. Coincidieron
 el comando devolvió 1 por 11 representaciones de error pendientes. No se
 normalizaron errores, generation ni tipos JSON para ocultarlas. No hay benchmark
 ni boot Nova con Go demostrado por esa ejecución.
+
+## Cierre del alcance B07 — 2026-10-29
+
+La [campaña final](../../evidence/sprint3/placement/b07-close-20261029/README.md)
+amplía a 57 casos, con **57/57** status, snapshots y comparaciones estrictas
+coincidentes, salida 0 y limpieza verificada. Se conservan el resultado anterior
+y el ensayo intermedio que detectó seis diferencias adicionales de prioridad.
+No se modificaron las normalizaciones para ocultar errores. [Aceptación B07](../placement/b07-acceptance.md)
+limitada a providers/inventories 1.0; el cierre no acredita Nova ni API íntegra.

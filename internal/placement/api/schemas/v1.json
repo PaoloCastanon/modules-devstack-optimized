@@ -1,0 +1,104 @@
+{
+  "create": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "uuid": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "rename": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 200
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "inventories": {
+    "type": "object",
+    "properties": {
+      "resource_provider_generation": {
+        "type": "integer"
+      },
+      "inventories": {
+        "type": "object",
+        "patternProperties": {
+          "^[A-Z0-9_]+$": {
+            "type": "object",
+            "properties": {
+              "resource_provider_generation": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer",
+                "maximum": 2147483647,
+                "minimum": 1
+              },
+              "reserved": {
+                "type": "integer",
+                "maximum": 2147483647,
+                "minimum": 0
+              },
+              "min_unit": {
+                "type": "integer",
+                "maximum": 2147483647,
+                "minimum": 1
+              },
+              "max_unit": {
+                "type": "integer",
+                "maximum": 2147483647,
+                "minimum": 1
+              },
+              "step_size": {
+                "type": "integer",
+                "maximum": 2147483647,
+                "minimum": 1
+              },
+              "allocation_ratio": {
+                "type": "number",
+                "maximum": 3.40282e+38
+              }
+            },
+            "required": [
+              "total"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    "required": [
+      "resource_provider_generation",
+      "inventories"
+    ],
+    "additionalProperties": false
+  },
+  "query": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "uuid": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "additionalProperties": false
+  }
+}

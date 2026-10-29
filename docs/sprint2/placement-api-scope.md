@@ -1,5 +1,11 @@
 # Contrato Placement propuesto
 
+**Cierre B07 posterior a S2 (2026-10-29):** las operaciones priorizadas de
+providers/inventories 1.0 están implementadas y tienen [aceptación técnica](../placement/b07-acceptance.md)
+con 57/57 comparaciones estrictas contra Python/Keystone reales. La tabla siguiente
+conserva el alcance y las capturas históricas S2; no indica que Go soporte 1.36,
+traits, allocations o candidates. B08 y tareas posteriores completan ese conjunto.
+
 **Aclaraciones B07 (2026-10-28):** la tabla es alcance de diseño S2. El código
 fijado confirma POST provider 201 sin cuerpo hasta 1.19 y 200 con representación
 desde 1.20; PUT provider recibe name y no generation, y renombrar no incrementa

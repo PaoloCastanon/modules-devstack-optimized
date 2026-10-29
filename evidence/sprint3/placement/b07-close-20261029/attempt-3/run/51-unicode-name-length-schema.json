@@ -1,0 +1,124 @@
+{
+  "name": "unicode-name-length-schema",
+  "provider_uuid": "90394f05-7d4b-4f75-aea4-53d8aff342df",
+  "request": {
+    "method": "POST",
+    "path": "/resource_providers",
+    "body": {
+      "uuid": "90394f05-7d4b-4f75-aea4-53d8aff342df",
+      "name": "\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c"
+    },
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0",
+      "Content-Type": "application/json"
+    },
+    "body_text": "{\"uuid\": \"90394f05-7d4b-4f75-aea4-53d8aff342df\", \"name\": \"\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\"}",
+    "auth_role": "admin"
+  },
+  "seed": {},
+  "before": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found  \", \"request_id\": \"req-5d2432f9-90bd-4766-aa38-29d3fb27d327\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found : No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found  \", \"request_id\": \"req-064c2b69-a7a6-4970-a90e-274dc57beb70\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found  \",\"request_id\":\"req-3a70dd28-9856-4abe-82a2-1d1708594a99\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found : No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found  \",\"request_id\":\"req-a778f956-4e60-42a5-8213-1ac695acb011\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"errors\": [{\"status\": 400, \"title\": \"Bad Request\", \"detail\": \"The server could not comply with the request since it is either malformed or otherwise incorrect.\\n\\n JSON does not validate: '\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c' is too long  Failed validating 'maxLength' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     '\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c'  \", \"request_id\": \"req-86d50d15-4894-4f35-9a52-50e0845c3b40\"}]}"
+    },
+    "go": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"errors\":[{\"detail\":\"The server could not comply with the request since it is either malformed or otherwise incorrect.\\n\\n JSON does not validate: '\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c' is too long  Failed validating 'maxLength' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     '\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c'  \",\"request_id\":\"req-f5d71811-4061-45f3-a0c1-04e3327a25b4\",\"status\":400,\"title\":\"Bad Request\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found  \", \"request_id\": \"req-44e6bce9-3bfc-4c6c-90fa-6a6fee84e9d0\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found : No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found  \", \"request_id\": \"req-8c684c3b-876b-4bf7-af69-d24b1b3349c5\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found  \",\"request_id\":\"req-0ebcb113-d9d3-4793-877b-1fac69438eaa\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found : No resource provider with uuid 90394f05-7d4b-4f75-aea4-53d8aff342df found  \",\"request_id\":\"req-344aea6c-5ae4-4364-910b-a7a15ecee80e\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}
