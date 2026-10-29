@@ -2,6 +2,15 @@
 
 Registrar resultados y límites de cada tarea; los planes y criterios viven en [PLANS.md](../PLANS.md). Las instrucciones persistentes están en [AGENTS.md](../AGENTS.md).
 
+## 2026-10-29 — Revisión e integración del PR #5: Glance B25
+
+- **Revisión:** [PR #5](https://github.com/PaoloCastanon/modules-devstack-optimized/pull/5), HEAD `fbb4a3d24bdd8b102e2e24c1a7b052e1563a41b5` sobre `0279987`. [Informe](../github-pr-5-review.md): auth compuesta, aislamiento de configuración, streaming, filesystem, intentos SQL, recuperación, DELETE y migraciones. Sin defectos bloqueantes detectados.
+- **Verificación del HEAD aislado:** `make check` PASS (vet/race/build incluidos); `go test -coverprofile=/tmp/pr5-coverage.out ./...` PASS, 79,6% global; `git diff --check origin/main...origin/pr-5` PASS. [CI 40876937535](https://github.com/PaoloCastanon/modules-devstack-optimized/actions/runs/40876937535) success en el mismo SHA.
+- **MySQL real:** 8.0.46 descartable, tmpfs y puerto loopback; tres esquemas nuevos separados. `TestB25MySQLVersionedUpgrade`, `TestB25MySQLConcurrentFences` y `TestB25MySQLFilesystemHTTP` con `-tags=integration -race -count=1`: PASS. El pipeline verifica bytes, recibo persistido, reapertura y borrado físico con migrador/runtime separados; auth usa doble. Se retiraron contenedor, datos y credenciales privadas al terminar.
+- **Remoto:** [APPROVED](https://github.com/PaoloCastanon/modules-devstack-optimized/pull/5#pullrequestreview-5698455549) ligado al HEAD. Con autorización del usuario, merge `4c07cb5fcc1b023b3f607ffc9f3788f40176f41f`, confirmado merged. Se usó `gh` autenticado para escritura ante la limitación de permisos conocida del conector. main local actualizado por fast-forward; su árbol coincide exactamente con el HEAD probado.
+- **Verificación posterior:** `make check` PASS sobre main integrado con el informe y este registro; `git diff --check` PASS. No se modificó código funcional durante la revisión.
+- **Límites:** no se repitió Keystone real ni boot Nova. Los resultados CLI/Nova del cuerpo del PR pertenecen al autor; falta incorporar/enlazar evidencia N3–N7 y alinear documentación operativa. Siguen pendientes los casos compuestos reales de expiración/revocación, instalación independiente y fallos físicos. No se cambió Excel, backlog formal ni S2. VM `tt-openstack-lab`: `shut off`.
+
 ## 2026-10-28 — B07: comparación viva y correcciones de contrato
 
 - **Criterio del incremento:** comparar el subconjunto 1.0 contra el Python fijado con identidad real, observar negativos y efectos, corregir diferencias funcionales y conservar las de representación sin simular un pase.
