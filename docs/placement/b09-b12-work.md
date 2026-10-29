@@ -19,6 +19,8 @@ sin alterar S2/Excel. Los errores/generaciones no se normalizan para esconder
 incompatibilidades. La VM se usa sólo para verificaciones necesarias y queda
 apagada al terminar; no se reemplazan endpoints ni se ejecuta DevStack local.
 
-Estado: B09 cerrado (24/24 moderno + regresiones); B10 cerrado en perfil plano
-(44/44). B11 ejecutó nueve verificaciones de durabilidad/aislamiento y restore;
-documentación/commit pendientes. B12 en verificación con Keystone y Nova reales.
+Estado al cierre: B09 cerrado (24/24 moderno + regresiones); B10 cerrado en
+perfil plano (44/44). B11 cerrado con 9/9 verificaciones; B12 cerrado con 143/143
+comparaciones, 267/267 regresiones y B11 final 9/9. Ver b11-acceptance.md y
+b12-acceptance.md. Identidades temporales retiradas y VM apagada. El siguiente
+bloque se propone en b13-b18-plan.md; no está ejecutado por preparar ese plan.

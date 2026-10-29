@@ -168,3 +168,6 @@ liberación, capacidad agotada y restauración del endpoint. Requiere contrastar
 primero que los perfiles seleccionados cubren las llamadas reales del lab.
 El soporte actual no incluye árboles/sharing, autenticación compuesta ni toda
 la API upstream. No cambiar Excel ni evidencia histórica S2.
+
+El [plan B13–B18](b13-b18-plan.md) detalla sustitución, boot, suite y metodología/
+mediciones. Su orden operativo comienza por B16 y prepara B15 durante B13/B14.

@@ -47,6 +47,11 @@ del tracker. **44/44** casos vivos y ocho seeds sin diferencias; regresiones
 **B12 completado:** [Keystone y políticas](docs/placement/b12-acceptance.md), 143/143 casos vivos, tres verificaciones fail-closed, 267/267 regresiones y B11 final 9/9. VM apagada y limpieza comprobada. El alcance sigue siendo el subconjunto para Nova; no se acredita
 sustitución Nova, toda la API 1.8 ni se cambia el Excel histórico.
 
+El [plan B13–B18](docs/placement/b13-b18-plan.md) propone sustituir Placement,
+validar boot/suite Nova y medir latencia, throughput, CPU y memoria. B16 se define
+antes de medir; B13–B15 acreditan integración y B17/B18 usan campañas controladas.
+Es planificación, sin cambios al estado formal del libro ni ejecución de laboratorio.
+
 El [plan Placement B07–B15](docs/placement/implementation-plan.md) conserva el
 orden. Los resultados anteriores de 27/38 y ocho diferencias pendientes describen
 etapas intermedias; el build log conserva esa historia sin sustituir capturas.
