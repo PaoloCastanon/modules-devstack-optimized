@@ -9,12 +9,11 @@ publicar recursos, obtener candidatos, reservar capacidad y liberarla al borrar
 la instancia. La aceptación final exige un boot ACTIVE con Nova original y
 Placement Go, allocations correctas y restauración comprobada del original.
 
-S2 aporta baseline y arquitectura aceptados. B07–B12 no están implementados en
-main. El [PR #3](https://github.com/PaoloCastanon/modules-devstack-optimized/pull/3)
-está aprobado sobre `d0d1b32`, pero todavía abierto: auth, configuración y módulo
-Go existen en ese HEAD, no en main al preparar este plan. Incorporarlos al punto
-de partida mediante la integración del PR es una operación distinta de aprobarlo.
-La reutilización que sigue presupone disponer de ese código.
+S2 aporta baseline y arquitectura aceptados. El
+[PR #3](https://github.com/PaoloCastanon/modules-devstack-optimized/pull/3) ya está
+integrado en `85bae56`. El [primer incremento B07](b07-development.md) reutiliza
+su módulo/auth e implementa providers/inventories con MySQL y versión 1.0.
+B07 sigue en progreso; B08–B10 no comenzaron y B11/B12 tienen avance parcial.
 
 No cambiar estados, fechas, puntos del Excel ni informes históricos. Este plan
 desglosa B07–B15; B21 documenta las decisiones y resultados durante la ejecución.
@@ -145,7 +144,7 @@ sus tareas posteriores y su metodología; no condicionan el primer B07.
 
 ## Próximo paso concreto
 
-Iniciar B07 por la matriz de contratos y las pruebas providers/inventories;
-continuar con el recorrido autenticado y persistente sobre la base Go revisada.
-Hacer un commit por tarea/incremento verificable y registrar límites en el build
-log. Este documento constituye planificación; todavía no hay código Placement.
+Ampliar los fixtures negativos y el comparador en vivo de B07; contrastar las
+microversiones y llamadas del resource tracker antes de avanzar a B08. El primer
+recorrido autenticado y persistente ya está implementado y su alcance se detalla
+en la guía B07. Mantener un commit por incremento y registrar límites en el build log.

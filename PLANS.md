@@ -15,7 +15,7 @@ Las fases son agrupaciones de aceptación, no una prohibición de avanzar en par
 
 ## Próxima unidad de implementación: B07
 
-**Plan de ejecución actualizado al 2026-10-28:** [Placement Go B07–B15](docs/placement/implementation-plan.md). El PR #3 de Glance B20 está revisado y aprobado, pero sigue abierto; su módulo y auth Go todavía no están integrados en main. El plan contempla reutilizarlos y comenzar B11/B12 junto al primer recorrido B07. Incluye ajustes del contrato a partir de la traza Nova y criterios por incremento. El estado histórico siguiente describe la revisión del 26 de octubre.
+**Ejecución actualizada al 2026-10-28:** [Placement Go B07–B15](docs/placement/implementation-plan.md). El PR #3 ya está integrado en `85bae56`; se reutilizan módulo y auth Go. El [primer incremento B07](docs/placement/b07-development.md) implementa providers/inventories 1.0, persistencia y base de autenticación, con pruebas locales y MySQL real. B07 sigue en progreso: falta comparación en vivo y completar el contrato necesario para Nova. B11/B12 tienen avance parcial, sin cierre transversal. El estado histórico siguiente describe la revisión del 26 de octubre.
 
 **Estado al revisar el repositorio el 2026-10-26:** sin iniciar. No existe `go.mod` ni fuentes `.go`. La infraestructura sí está implementada y tiene evidencia de Sprint 2; la reimplementación de los servicios aún no comenzó.
 
@@ -27,7 +27,7 @@ Las fases son agrupaciones de aceptación, no una prohibición de avanzar en par
 
 ### Alcance de B07
 
-Crear el módulo Go y el primer recorrido API→servicio→repositorio de providers/inventories, con descubrimiento y negociación de las microversiones necesarias. Fijar versión Go y dependencias al crear el módulo. El almacenamiento sigue ADR-01; no escribir en la DB original. Auth de producción pertenece a B12: cualquier identidad de prueba debe quedar restringida a tests, sin un bypass desplegable.
+Reutilizar el módulo Go integrado y completar el recorrido API→servicio→repositorio de providers/inventories, con descubrimiento y negociación de las microversiones necesarias. El almacenamiento sigue ADR-01; no escribir en la DB original. Auth de producción se verifica transversalmente en B12: cualquier identidad de prueba debe quedar restringida a tests, sin un bypass desplegable.
 
 ### Verificación y aceptación
 

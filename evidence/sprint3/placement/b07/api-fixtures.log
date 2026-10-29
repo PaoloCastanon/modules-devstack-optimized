@@ -1,0 +1,8 @@
+=== RUN   TestHistoricalProviderInventorySequence
+--- PASS: TestHistoricalProviderInventorySequence (0.00s)
+=== RUN   TestHistoricalNotFound
+--- PASS: TestHistoricalNotFound (0.00s)
+=== RUN   TestUUIDLookupAndEmptyNameFollowPinnedSource
+--- PASS: TestUUIDLookupAndEmptyNameFollowPinnedSource (0.00s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api	1.016s

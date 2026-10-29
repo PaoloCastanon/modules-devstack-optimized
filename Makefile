@@ -97,3 +97,19 @@ docs-check:
 sprint2-verify: docs-check
 	@if [ -n "$${OS_AUTH_URL:-}" ] || [ -f /opt/stack/devstack/openrc ]; then ./infra/devstack/verify-devstack.sh; fi
 	@python3 scripts/verify_sprint2.py
+
+.PHONY: placement-build placement-test placement-test-mysql placement-test-binary
+placement-build:
+	@mkdir -p bin
+	go build -trimpath -o bin/placement ./cmd/placement
+
+placement-test:
+	go test -race -count=1 ./cmd/placement ./internal/placement/...
+
+# Each integration suite requires its own NEW EMPTY independently prepared schema.
+# DSN files and explicit PLACEMENT_GO_MYSQL_TEST=1 are required by the tests.
+placement-test-mysql:
+	go test -race -count=1 -tags=integration ./internal/placement/repository/mysql -run '^TestB07MySQLHTTP$$' -v
+
+placement-test-binary:
+	go test -race -count=1 -tags=integration ./cmd/placement -run '^TestBinaryMySQLLifecycle$$' -v

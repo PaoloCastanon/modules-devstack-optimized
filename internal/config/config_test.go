@@ -110,3 +110,26 @@ func TestURLSeparatorsAndBasePaths(t *testing.T) {
 		})
 	}
 }
+
+func TestPlacementNamespaceIsIndependent(t *testing.T) {
+	dir := t.TempDir()
+	dsn := filepath.Join(dir, "placement.dsn")
+	if err := os.WriteFile(dsn, []byte("placement_go_app:fixture@tcp(127.0.0.1:1)/placement_go"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	env := map[string]string{"PLACEMENT_GO_DATABASE_DSN_FILE": dsn, "GLANCE_GO_LISTEN_ADDR": "0.0.0.0:9292", "GLANCE_GO_DATABASE_DSN_FILE": "/not-used"}
+	c, err := LoadPlacement(func(k string) string { return env[k] }, "migrate")
+	if err != nil || c.ListenAddress != "127.0.0.1:8779" || c.PublicURL != "http://127.0.0.1:8779" {
+		t.Fatal(c.ListenAddress, err)
+	}
+	env["PLACEMENT_GO_LISTEN_ADDR"] = "127.0.0.1:18779"
+	env["PLACEMENT_GO_PUBLIC_BASE_URL"] = "http://localhost/placement"
+	c, err = LoadPlacement(func(k string) string { return env[k] }, "migrate")
+	if err != nil || c.ListenAddress != "127.0.0.1:18779" || c.PublicURL != "http://localhost/placement" {
+		t.Fatal(err)
+	}
+	delete(env, "PLACEMENT_GO_DATABASE_DSN_FILE")
+	if _, err = LoadPlacement(func(k string) string { return env[k] }, "migrate"); err == nil {
+		t.Fatal("Glance secret used for Placement")
+	}
+}
