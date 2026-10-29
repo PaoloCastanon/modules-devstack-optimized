@@ -1,0 +1,18 @@
+{
+  "base_sha": "4d1976c94add83c9e680010d83d87620dfca071b",
+  "go_binary_sha256": "4992756027957df7ac87de41128d95f0e66feaa26dde052b8dd7f8a41a0786a0",
+  "go_toolchain": "go version go1.27.3-X:nodwarf5 linux/amd64",
+  "upstream_sha": "f4a89d3803cb23df22b8714569889ab39c918c34",
+  "mysql": "8.0.46 disposable isolated tmpfs",
+  "keystone": "deployed; temporary identity and project; per-role expiring application credentials",
+  "comparison_exit": 1,
+  "summary": {
+    "cases": 53,
+    "same_status": 48,
+    "strict_match": 47,
+    "same_state": 53
+  },
+  "cleanup_ok": true,
+  "reverse_proxy": "temporary loopback /placement strip-prefix bridge; no response/body normalization",
+  "timestamp_utc": "2026-10-29T14:12:25.219608+00:00"
+}

@@ -13,10 +13,13 @@ S2 aporta baseline y arquitectura aceptados. El
 [PR #3](https://github.com/PaoloCastanon/modules-devstack-optimized/pull/3) ya está
 integrado en `85bae56`. El [primer incremento B07](b07-development.md) reutiliza
 su módulo/auth e implementa providers/inventories con MySQL y versión 1.0.
-B07 sigue en progreso; B08–B10 no comenzaron y B11/B12 tienen avance parcial.
-La [comparación en vivo](../../evidence/sprint3/placement/b07-live-20261028/README.md)
-ya se ejecutó con Keystone real: 38 status/estados coinciden, 27 comparaciones
-estrictas coinciden y 11 representaciones de error siguen pendientes.
+[B07 está completado técnicamente](b07-acceptance.md) para las operaciones
+priorizadas providers/inventories **1.0**. La campaña final del 29 de octubre
+compara 57 casos contra Python y Keystone reales: **57/57 status, respuestas y
+estados coinciden**, con limpieza y reinicio verificados. La implementación está
+publicada en el PR #6, pendiente de merge. B08–B10 no comenzaron y B11/B12 tienen
+avance parcial; no se cierra el conjunto Placement ni la integración Nova.
+[Resultados y ensayos previos](../../evidence/sprint3/placement/b07-close-20261029/README.md).
 
 No cambiar estados, fechas, puntos del Excel ni informes históricos. Este plan
 desglosa B07–B15; B21 documenta las decisiones y resultados durante la ejecución.
@@ -30,8 +33,8 @@ con esquema/cuentas separados de OpenStack y Glance. API serializa y negocia
 microversiones; service aplica reglas; repository controla SQL/transacciones.
 
 Reutilizar `internal/auth` para validar tokens, con políticas propias Placement.
-`internal/config.Load` actual está ligado a variables `GLANCE_GO_*`: definir
-configuración Placement independiente y reutilizar helpers neutrales. No importar
+`internal/config.LoadPlacement` ya usa un namespace independiente; conservarlo
+y reutilizar sólo helpers neutrales. No importar
 `internal/glance` desde Placement ni copiar su política de owner/reader/member.
 Las migraciones MySQL de Glance también son específicas de su dominio.
 
@@ -69,7 +72,7 @@ una implementación parcial en B07 no los da por terminados.
 7. Crear el comparador original↔Go y ejecutar los casos B07. Conservar request,
    status, headers estables, respuesta y efectos de estado de cada lado.
 
-**B07 aceptado:** recorrido real persistente, pruebas unitarias/API/concurrencia,
+**B07 aceptado al 2026-10-29 para 1.0:** recorrido real persistente, pruebas unitarias/API/concurrencia,
 `make check` PASS con Go ejecutado y comparación diferencial documentada.
 Si faltan fixtures o acceso al original, registrar aceptación parcial y diferencias
 pendientes; no declarar equivalencia ni cerrar la tarea por el scaffold.
@@ -147,8 +150,9 @@ sus tareas posteriores y su metodología; no condicionan el primer B07.
 
 ## Próximo paso concreto
 
-Resolver las 11 diferencias de representación de error detectadas por el runner
-en vivo de B07, sin eliminar campos del comparador; ampliar luego microversiones
-y llamadas del resource tracker según evidencia. El recorrido autenticado y
-persistente ya está implementado y su alcance se detalla en la guía B07. Mantener
-un commit por incremento y registrar límites en el build log.
+Comenzar B08: fijar los catálogos de resource classes y traits y las asociaciones
+que utiliza el resource tracker, incluidos OWNER_NOVA y COMPUTE_STATUS_DISABLED.
+Definir sus pruebas de generación, duplicados y permisos antes de implementarlas.
+Cubrir los cambios de microversión necesarios antes de aumentar el máximo
+anunciado; B07 mantiene 1.0. Allocations/candidates y la sustitución Nova conservan
+sus tareas posteriores. Registrar cada incremento y conservar la evidencia B07.

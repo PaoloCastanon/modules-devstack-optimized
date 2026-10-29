@@ -13,13 +13,30 @@ Este plan organiza el backlog existente; no reemplaza el Excel ni modifica sprin
 
 Las fases son agrupaciones de aceptación, no una prohibición de avanzar en paralelo en los dos módulos. B26 conserva S5. B21 continúa en progreso y B16 pendiente según la última aceptación; preparar estos documentos no los cierra.
 
-## Próxima unidad de implementación: B07
+## Placement: B07 completado; próxima unidad B08
 
-**Ejecución actualizada al 2026-10-28:** [Placement Go B07–B15](docs/placement/implementation-plan.md). El PR #3 ya está integrado en `85bae56`; se reutilizan módulo y auth Go. [B07](docs/placement/b07-development.md) implementa providers/inventories 1.0, persistencia y auth. La comparación con Python y Keystone reales dio 38/38 status y estados observables iguales, pero 27/38 coincidencias estrictas: quedan 11 representaciones de error por resolver. B07 sigue en progreso; falta cerrar esas diferencias y completar el contrato necesario para Nova. B11/B12 tienen avance parcial, sin cierre transversal. El estado histórico siguiente describe la revisión del 26 de octubre.
+**Cierre técnico al 2026-10-29:** [B07 aceptado para el alcance priorizado
+providers/inventories 1.0](docs/placement/b07-acceptance.md). La campaña final dio
+**57/57** coincidencias estrictas, status y estados iguales contra Python fijado,
+con MySQL/Keystone reales, reinicio de ejecutable, concurrencia y limpieza
+verificados. [Evidencia y ensayos previos](evidence/sprint3/placement/b07-close-20261029/README.md).
+El código se publica en el PR #6; el merge es un estado separado de la validación.
+
+**Siguiente:** B08, catálogos y asociaciones classes/traits. Antes de anunciar más
+microversiones, fijar sus rutas/cambios con evidencia del resource tracker y
+pruebas. B09/B10 siguen allocations/candidates; B11/B12 tienen avance parcial y
+requieren cierre transversal. No se acredita Nova con Placement Go ni se cambia
+el Excel histórico.
+
+El [plan Placement B07–B15](docs/placement/implementation-plan.md) conserva el
+orden. Los resultados anteriores de 27/38 y ocho diferencias pendientes describen
+etapas intermedias; el build log conserva esa historia sin sustituir capturas.
+
+### Estado histórico previo a implementar B07
 
 **Estado al revisar el repositorio el 2026-10-26:** sin iniciar. No existe `go.mod` ni fuentes `.go`. La infraestructura sí está implementada y tiene evidencia de Sprint 2; la reimplementación de los servicios aún no comenzó.
 
-### Entradas
+### Entradas de B07
 
 - [Arquitectura](docs/sprint2/go-target-architecture.md), [modelo Placement](docs/sprint2/placement-data-model.md), [ADR-01 y ADR-03](docs/sprint2/design-decisions.md).
 - [Contrato de rutas y microversiones](docs/sprint2/placement-api-scope.md) y [estrategia de pruebas](docs/sprint2/test-strategy.md).
@@ -29,7 +46,7 @@ Las fases son agrupaciones de aceptación, no una prohibición de avanzar en par
 
 Reutilizar el módulo Go integrado y completar el recorrido API→servicio→repositorio de providers/inventories, con descubrimiento y negociación de las microversiones necesarias. El almacenamiento sigue ADR-01; no escribir en la DB original. Auth de producción se verifica transversalmente en B12: cualquier identidad de prueba debe quedar restringida a tests, sin un bypass desplegable.
 
-### Verificación y aceptación
+### Verificación y aceptación de B07
 
 1. **Prueba inicial:** definir casos de create/list/show/update/delete, validación, duplicados y errores de generation según el contrato original. Registrar el comportamiento que falta antes de implementarlo.
 2. **Implementación:** hacer pasar esos casos con la separación de capas prevista y persistencia consistente; B11 completa y verifica los requisitos transversales de persistencia y reinicio.
@@ -37,7 +54,7 @@ Reutilizar el módulo Go integrado y completar el recorrido API→servicio→rep
 4. **Verificación local:** `make check`; los tests Go deberán ejecutarse, sin salida de pendiente.
 5. **Compatibilidad:** ejecutar casos equivalentes sobre original y Go, conservando estado inicial, request, status, campos estables y efectos. Las pruebas locales aisladas no cierran la integración Nova de B13–B15.
 
-Para aceptar B07, registrar los resultados, la ruta de los tests, los casos diferenciales y las diferencias pendientes en el build log. No se considera completado por crear carpetas, un health endpoint o respuestas HTTP constantes.
+La [aceptación B07](docs/placement/b07-acceptance.md) registra resultados, tests, casos diferenciales y límites en el build log. No se considera completado por crear carpetas, un health endpoint o respuestas HTTP constantes.
 
 ## Comandos y límites
 

@@ -1,0 +1,1231 @@
+{
+  "source": "Placement f4a89d3 util.extract_json/validate_query_params, jsonschema 4.26.0, WebOb 1.8.11; no HTTP service mutation",
+  "cases": [
+    {
+      "name": "create-0",
+      "schema": "create",
+      "body": "{\"name\": null}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: None is not of type 'string'  Failed validating 'type' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     None  "
+          }
+        ]
+      },
+      "instance": {
+        "name": null
+      }
+    },
+    {
+      "name": "create-1",
+      "schema": "create",
+      "body": "{\"name\": true}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: True is not of type 'string'  Failed validating 'type' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     True  "
+          }
+        ]
+      },
+      "instance": {
+        "name": true
+      }
+    },
+    {
+      "name": "create-2",
+      "schema": "create",
+      "body": "{\"name\": 3.1}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 3.1 is not of type 'string'  Failed validating 'type' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     3.1  "
+          }
+        ]
+      },
+      "instance": {
+        "name": 3.1
+      }
+    },
+    {
+      "name": "create-3",
+      "schema": "create",
+      "body": "{\"name\": []}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: [] is not of type 'string'  Failed validating 'type' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     []  "
+          }
+        ]
+      },
+      "instance": {
+        "name": []
+      }
+    },
+    {
+      "name": "create-4",
+      "schema": "create",
+      "body": "{\"name\": {}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: {} is not of type 'string'  Failed validating 'type' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     {}  "
+          }
+        ]
+      },
+      "instance": {
+        "name": {}
+      }
+    },
+    {
+      "name": "create-5",
+      "schema": "create",
+      "body": "{\"name\": \"\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\"}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: '\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c' is too long  Failed validating 'maxLength' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     '\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c'  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c"
+      }
+    },
+    {
+      "name": "create-6",
+      "schema": "create",
+      "body": "{\"name\": \"word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word \"}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 'word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word ' is too long  Failed validating 'maxLength' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     ('word word word word word word word word word word word word word '      'word word word word word word word word word word word word word '      'word word word word word word word word word word word word word '      'word word word word word word ')  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word "
+      }
+    },
+    {
+      "name": "create-7",
+      "schema": "create",
+      "body": "{\"name\": \"can't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\n\"}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 'can\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\n' is too long  Failed validating 'maxLength' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     ('can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n')  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "can't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\n"
+      }
+    },
+    {
+      "name": "create-missing",
+      "schema": "create",
+      "body": "{}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 'name' is a required property  Failed validating 'required' in schema:     {'type': 'object',      'properties': {'name': {'type': 'string', 'maxLength': 200},                     'uuid': {'type': 'string', 'format': 'uuid'}},      'required': ['name'],      'additionalProperties': False}  On instance:     {}  "
+          }
+        ]
+      },
+      "instance": {}
+    },
+    {
+      "name": "create-extra",
+      "schema": "create",
+      "body": "{\"uuid\": \"4446c55f-ee69-4f16-b6c0-b562d5f200ab\", \"name\": \"custom-name\", \"z\": true, \"a\": null}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: Additional properties are not allowed ('a', 'z' were unexpected)  Failed validating 'additionalProperties' in schema:     {'type': 'object',      'properties': {'name': {'type': 'string', 'maxLength': 200},                     'uuid': {'type': 'string', 'format': 'uuid'}},      'required': ['name'],      'additionalProperties': False}  On instance:     {'uuid': '4446c55f-ee69-4f16-b6c0-b562d5f200ab',      'name': 'custom-name',      'z': True,      'a': None}  "
+          }
+        ]
+      },
+      "instance": {
+        "uuid": "4446c55f-ee69-4f16-b6c0-b562d5f200ab",
+        "name": "custom-name",
+        "z": true,
+        "a": null
+      }
+    },
+    {
+      "name": "create-string",
+      "schema": "create",
+      "body": "{\"name\": \"\\\"both' quotes\\n tab\\t\\ud801\\udc00\", \"extra\": [1, true, false, null, {\"nested\": \"hello world hello world hello world hello world hello world hello world hello world hello world \"}]}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: Additional properties are not allowed ('extra' was unexpected)  Failed validating 'additionalProperties' in schema:     {'type': 'object',      'properties': {'name': {'type': 'string', 'maxLength': 200},                     'uuid': {'type': 'string', 'format': 'uuid'}},      'required': ['name'],      'additionalProperties': False}  On instance:     {'name': '\"both\\' quotes\\n tab\\t\ud801\udc00',      'extra': [1,                True,                False,                None,                {'nested': 'hello world hello world hello world hello world '                           'hello world hello world hello world hello '                           'world '}]}  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "\"both' quotes\n tab\t\ud801\udc00",
+        "extra": [
+          1,
+          true,
+          false,
+          null,
+          {
+            "nested": "hello world hello world hello world hello world hello world hello world hello world hello world "
+          }
+        ]
+      }
+    },
+    {
+      "name": "rename-11",
+      "schema": "rename",
+      "body": "{\"name\": null}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: None is not of type 'string'  Failed validating 'type' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     None  "
+          }
+        ]
+      },
+      "instance": {
+        "name": null
+      }
+    },
+    {
+      "name": "rename-12",
+      "schema": "rename",
+      "body": "{\"name\": true}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: True is not of type 'string'  Failed validating 'type' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     True  "
+          }
+        ]
+      },
+      "instance": {
+        "name": true
+      }
+    },
+    {
+      "name": "rename-13",
+      "schema": "rename",
+      "body": "{\"name\": 3.1}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 3.1 is not of type 'string'  Failed validating 'type' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     3.1  "
+          }
+        ]
+      },
+      "instance": {
+        "name": 3.1
+      }
+    },
+    {
+      "name": "rename-14",
+      "schema": "rename",
+      "body": "{\"name\": []}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: [] is not of type 'string'  Failed validating 'type' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     []  "
+          }
+        ]
+      },
+      "instance": {
+        "name": []
+      }
+    },
+    {
+      "name": "rename-15",
+      "schema": "rename",
+      "body": "{\"name\": {}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: {} is not of type 'string'  Failed validating 'type' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     {}  "
+          }
+        ]
+      },
+      "instance": {
+        "name": {}
+      }
+    },
+    {
+      "name": "rename-16",
+      "schema": "rename",
+      "body": "{\"name\": \"\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\\u754c\"}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: '\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c' is too long  Failed validating 'maxLength' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     '\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c'  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c\u754c"
+      }
+    },
+    {
+      "name": "rename-17",
+      "schema": "rename",
+      "body": "{\"name\": \"word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word \"}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 'word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word ' is too long  Failed validating 'maxLength' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     ('word word word word word word word word word word word word word '      'word word word word word word word word word word word word word '      'word word word word word word word word word word word word word '      'word word word word word word ')  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word "
+      }
+    },
+    {
+      "name": "rename-18",
+      "schema": "rename",
+      "body": "{\"name\": \"can't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\ncan't \\\"quote\\\"\\n\"}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 'can\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\ncan\\'t \"quote\"\\n' is too long  Failed validating 'maxLength' in schema['properties']['name']:     {'type': 'string', 'maxLength': 200}  On instance['name']:     ('can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n'      'can\\'t \"quote\"\\n')  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "can't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\ncan't \"quote\"\n"
+      }
+    },
+    {
+      "name": "rename-missing",
+      "schema": "rename",
+      "body": "{}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 'name' is a required property  Failed validating 'required' in schema:     {'type': 'object',      'properties': {'name': {'type': 'string', 'maxLength': 200}},      'required': ['name'],      'additionalProperties': False}  On instance:     {}  "
+          }
+        ]
+      },
+      "instance": {}
+    },
+    {
+      "name": "rename-extra",
+      "schema": "rename",
+      "body": "{\"uuid\": \"4446c55f-ee69-4f16-b6c0-b562d5f200ab\", \"name\": \"custom-name\", \"z\": true, \"a\": null}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: Additional properties are not allowed ('a', 'uuid', 'z' were unexpected)  Failed validating 'additionalProperties' in schema:     {'type': 'object',      'properties': {'name': {'type': 'string', 'maxLength': 200}},      'required': ['name'],      'additionalProperties': False}  On instance:     {'uuid': '4446c55f-ee69-4f16-b6c0-b562d5f200ab',      'name': 'custom-name',      'z': True,      'a': None}  "
+          }
+        ]
+      },
+      "instance": {
+        "uuid": "4446c55f-ee69-4f16-b6c0-b562d5f200ab",
+        "name": "custom-name",
+        "z": true,
+        "a": null
+      }
+    },
+    {
+      "name": "rename-string",
+      "schema": "rename",
+      "body": "{\"name\": \"\\\"both' quotes\\n tab\\t\\ud801\\udc00\", \"extra\": [1, true, false, null, {\"nested\": \"hello world hello world hello world hello world hello world hello world hello world hello world \"}]}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: Additional properties are not allowed ('extra' was unexpected)  Failed validating 'additionalProperties' in schema:     {'type': 'object',      'properties': {'name': {'type': 'string', 'maxLength': 200}},      'required': ['name'],      'additionalProperties': False}  On instance:     {'name': '\"both\\' quotes\\n tab\\t\ud801\udc00',      'extra': [1,                True,                False,                None,                {'nested': 'hello world hello world hello world hello world '                           'hello world hello world hello world hello '                           'world '}]}  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "\"both' quotes\n tab\t\ud801\udc00",
+        "extra": [
+          1,
+          true,
+          false,
+          null,
+          {
+            "nested": "hello world hello world hello world hello world hello world hello world hello world hello world "
+          }
+        ]
+      }
+    },
+    {
+      "name": "uuid-22",
+      "schema": "create",
+      "body": "{\"name\": \"host\", \"uuid\": \"bad\"}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 'bad' is not a 'uuid'  Failed validating 'format' in schema['properties']['uuid']:     {'type': 'string', 'format': 'uuid'}  On instance['uuid']:     'bad'  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "host",
+        "uuid": "bad"
+      }
+    },
+    {
+      "name": "query-23",
+      "schema": "query",
+      "body": "{\"uuid\": \"bad\"}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n Invalid query string parameters: 'bad' is not a 'uuid'  Failed validating 'format' in schema['properties']['uuid']:     {'type': 'string', 'format': 'uuid'}  On instance['uuid']:     'bad'  "
+          }
+        ]
+      },
+      "instance": {
+        "uuid": "bad"
+      }
+    },
+    {
+      "name": "uuid-24",
+      "schema": "create",
+      "body": "{\"name\": \"host\", \"uuid\": \"4446c55fee694f16b6c0b562d5f200ab\"}",
+      "status": 200,
+      "instance": {
+        "name": "host",
+        "uuid": "4446c55fee694f16b6c0b562d5f200ab"
+      }
+    },
+    {
+      "name": "query-25",
+      "schema": "query",
+      "body": "{\"uuid\": \"4446c55fee694f16b6c0b562d5f200ab\"}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n Invalid query string parameters: '4446c55fee694f16b6c0b562d5f200ab' is not a 'uuid'  Failed validating 'format' in schema['properties']['uuid']:     {'type': 'string', 'format': 'uuid'}  On instance['uuid']:     '4446c55fee694f16b6c0b562d5f200ab'  "
+          }
+        ]
+      },
+      "instance": {
+        "uuid": "4446c55fee694f16b6c0b562d5f200ab"
+      }
+    },
+    {
+      "name": "uuid-26",
+      "schema": "create",
+      "body": "{\"name\": \"host\", \"uuid\": \"4446C55F-EE69-4F16-B6C0-B562D5F200AB\"}",
+      "status": 200,
+      "instance": {
+        "name": "host",
+        "uuid": "4446C55F-EE69-4F16-B6C0-B562D5F200AB"
+      }
+    },
+    {
+      "name": "query-27",
+      "schema": "query",
+      "body": "{\"uuid\": \"4446C55F-EE69-4F16-B6C0-B562D5F200AB\"}",
+      "status": 200,
+      "instance": {
+        "uuid": "4446C55F-EE69-4F16-B6C0-B562D5F200AB"
+      }
+    },
+    {
+      "name": "uuid-28",
+      "schema": "create",
+      "body": "{\"name\": \"host\", \"uuid\": null}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: None is not of type 'string'  Failed validating 'type' in schema['properties']['uuid']:     {'type': 'string', 'format': 'uuid'}  On instance['uuid']:     None  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "host",
+        "uuid": null
+      }
+    },
+    {
+      "name": "query-29",
+      "schema": "query",
+      "body": "{\"uuid\": null}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n Invalid query string parameters: 'None' is not a 'uuid'  Failed validating 'format' in schema['properties']['uuid']:     {'type': 'string', 'format': 'uuid'}  On instance['uuid']:     'None'  "
+          }
+        ]
+      },
+      "instance": {
+        "uuid": "None"
+      }
+    },
+    {
+      "name": "uuid-30",
+      "schema": "create",
+      "body": "{\"name\": \"host\", \"uuid\": false}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: False is not of type 'string'  Failed validating 'type' in schema['properties']['uuid']:     {'type': 'string', 'format': 'uuid'}  On instance['uuid']:     False  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "host",
+        "uuid": false
+      }
+    },
+    {
+      "name": "query-31",
+      "schema": "query",
+      "body": "{\"uuid\": false}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n Invalid query string parameters: 'False' is not a 'uuid'  Failed validating 'format' in schema['properties']['uuid']:     {'type': 'string', 'format': 'uuid'}  On instance['uuid']:     'False'  "
+          }
+        ]
+      },
+      "instance": {
+        "uuid": "False"
+      }
+    },
+    {
+      "name": "total-32",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": null}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: None is not of type 'integer'  Failed validating 'type' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['total']:     None  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": null
+          }
+        }
+      }
+    },
+    {
+      "name": "total-33",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": false}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: False is not of type 'integer'  Failed validating 'type' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['total']:     False  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": false
+          }
+        }
+      }
+    },
+    {
+      "name": "total-34",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": \"4\"}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: '4' is not of type 'integer'  Failed validating 'type' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['total']:     '4'  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": "4"
+          }
+        }
+      }
+    },
+    {
+      "name": "total-35",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": []}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: [] is not of type 'integer'  Failed validating 'type' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['total']:     []  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": []
+          }
+        }
+      }
+    },
+    {
+      "name": "total-36",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": {}}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: {} is not of type 'integer'  Failed validating 'type' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['total']:     {}  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": {}
+          }
+        }
+      }
+    },
+    {
+      "name": "total-37",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 0}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 0 is less than the minimum of 1  Failed validating 'minimum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['total']:     0  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "total-38",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": -1}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: -1 is less than the minimum of 1  Failed validating 'minimum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['total']:     -1  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": -1
+          }
+        }
+      }
+    },
+    {
+      "name": "total-39",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 2147483648}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 2147483648 is greater than the maximum of 2147483647  Failed validating 'maximum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['total']:     2147483648  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 2147483648
+          }
+        }
+      }
+    },
+    {
+      "name": "total-40",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 1.5}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 1.5 is not of type 'integer'  Failed validating 'type' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['total']:     1.5  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 1.5
+          }
+        }
+      }
+    },
+    {
+      "name": "reserved-41",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 4, \"reserved\": -1}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: -1 is less than the minimum of 0  Failed validating 'minimum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['reserved']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 0}  On instance['inventories']['MEMORY_MB']['reserved']:     -1  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 4,
+            "reserved": -1
+          }
+        }
+      }
+    },
+    {
+      "name": "reserved-42",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 4, \"reserved\": 2147483648}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 2147483648 is greater than the maximum of 2147483647  Failed validating 'maximum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['reserved']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 0}  On instance['inventories']['MEMORY_MB']['reserved']:     2147483648  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 4,
+            "reserved": 2147483648
+          }
+        }
+      }
+    },
+    {
+      "name": "reserved-43",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 4, \"reserved\": true}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: True is not of type 'integer'  Failed validating 'type' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['reserved']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 0}  On instance['inventories']['MEMORY_MB']['reserved']:     True  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 4,
+            "reserved": true
+          }
+        }
+      }
+    },
+    {
+      "name": "min_unit-44",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 4, \"min_unit\": 0}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 0 is less than the minimum of 1  Failed validating 'minimum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['min_unit']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['min_unit']:     0  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 4,
+            "min_unit": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "min_unit-45",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 4, \"min_unit\": 1.5}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 1.5 is not of type 'integer'  Failed validating 'type' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['min_unit']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['min_unit']:     1.5  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 4,
+            "min_unit": 1.5
+          }
+        }
+      }
+    },
+    {
+      "name": "max_unit-46",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 4, \"max_unit\": 0}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 0 is less than the minimum of 1  Failed validating 'minimum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['max_unit']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['max_unit']:     0  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 4,
+            "max_unit": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "step_size-47",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 4, \"step_size\": 0}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 0 is less than the minimum of 1  Failed validating 'minimum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['step_size']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['MEMORY_MB']['step_size']:     0  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 4,
+            "step_size": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "allocation_ratio-48",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 4, \"allocation_ratio\": \"1\"}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: '1' is not of type 'number'  Failed validating 'type' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['allocation_ratio']:     {'type': 'number', 'maximum': 3.40282e+38}  On instance['inventories']['MEMORY_MB']['allocation_ratio']:     '1'  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 4,
+            "allocation_ratio": "1"
+          }
+        }
+      }
+    },
+    {
+      "name": "allocation_ratio-49",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 4, \"allocation_ratio\": true}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: True is not of type 'number'  Failed validating 'type' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['allocation_ratio']:     {'type': 'number', 'maximum': 3.40282e+38}  On instance['inventories']['MEMORY_MB']['allocation_ratio']:     True  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 4,
+            "allocation_ratio": true
+          }
+        }
+      }
+    },
+    {
+      "name": "allocation_ratio-50",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"MEMORY_MB\": {\"total\": 4, \"allocation_ratio\": 3.40283e+38}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 3.40283e+38 is greater than the maximum of 3.40282e+38  Failed validating 'maximum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['allocation_ratio']:     {'type': 'number', 'maximum': 3.40282e+38}  On instance['inventories']['MEMORY_MB']['allocation_ratio']:     3.40283e+38  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "MEMORY_MB": {
+            "total": 4,
+            "allocation_ratio": 3.40283e+38
+          }
+        }
+      }
+    },
+    {
+      "name": "missing-total",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"VCPU\": {}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 'total' is a required property  Failed validating 'required' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']:     {'type': 'object',      'properties': {'resource_provider_generation': {'type': 'integer'},                     'total': {'type': 'integer',                               'maximum': 2147483647,                               'minimum': 1},                     'reserved': {'type': 'integer',                                  'maximum': 2147483647,                                  'minimum': 0},                     'min_unit': {'type': 'integer',                                  'maximum': 2147483647,                                  'minimum': 1},                     'max_unit': {'type': 'integer',                                  'maximum': 2147483647,                                  'minimum': 1},                     'step_size': {'type': 'integer',                                   'maximum': 2147483647,                                   'minimum': 1},                     'allocation_ratio': {'type': 'number',                                          'maximum': 3.40282e+38}},      'required': ['total'],      'additionalProperties': False}  On instance['inventories']['VCPU']:     {}  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "VCPU": {}
+        }
+      }
+    },
+    {
+      "name": "missing-generation",
+      "schema": "inventories",
+      "body": "{\"inventories\": {}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 'resource_provider_generation' is a required property  Failed validating 'required' in schema:     {'type': 'object',      'properties': {'resource_provider_generation': {'type': 'integer'},                     'inventories': {'type': 'object',                                     'patternProperties': {'^[A-Z0-9_]+$': {'type': 'object',                                                                            'properties': {'resource_provider_generation': {'type': 'integer'},                                                                                           'total': {'type': 'integer',                                                                                                     'maximum': 2147483647,                                                                                                     'minimum': 1},                                                                                           'reserved': {'type': 'integer',                                                                                                        'maximum': 2147483647,                                                                                                        'minimum': 0},                                                                                           'min_unit': {'type': 'integer',                                                                                                        'maximum': 2147483647,                                                                                                        'minimum': 1},                                                                                           'max_unit': {'type': 'integer',                                                                                                        'maximum': 2147483647,                                                                                                        'minimum': 1},                                                                                           'step_size': {'type': 'integer',                                                                                                         'maximum': 2147483647,                                                                                                         'minimum': 1},                                                                                           'allocation_ratio': {'type': 'number',                                                                                                                'maximum': 3.40282e+38}},                                                                            'required': ['total'],                                                                            'additionalProperties': False}}}},      'required': ['resource_provider_generation', 'inventories'],      'additionalProperties': False}  On instance:     {'inventories': {}}  "
+          }
+        ]
+      },
+      "instance": {
+        "inventories": {}
+      }
+    },
+    {
+      "name": "missing-both",
+      "schema": "inventories",
+      "body": "{}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 'resource_provider_generation' is a required property  Failed validating 'required' in schema:     {'type': 'object',      'properties': {'resource_provider_generation': {'type': 'integer'},                     'inventories': {'type': 'object',                                     'patternProperties': {'^[A-Z0-9_]+$': {'type': 'object',                                                                            'properties': {'resource_provider_generation': {'type': 'integer'},                                                                                           'total': {'type': 'integer',                                                                                                     'maximum': 2147483647,                                                                                                     'minimum': 1},                                                                                           'reserved': {'type': 'integer',                                                                                                        'maximum': 2147483647,                                                                                                        'minimum': 0},                                                                                           'min_unit': {'type': 'integer',                                                                                                        'maximum': 2147483647,                                                                                                        'minimum': 1},                                                                                           'max_unit': {'type': 'integer',                                                                                                        'maximum': 2147483647,                                                                                                        'minimum': 1},                                                                                           'step_size': {'type': 'integer',                                                                                                         'maximum': 2147483647,                                                                                                         'minimum': 1},                                                                                           'allocation_ratio': {'type': 'number',                                                                                                                'maximum': 3.40282e+38}},                                                                            'required': ['total'],                                                                            'additionalProperties': False}}}},      'required': ['resource_provider_generation', 'inventories'],      'additionalProperties': False}  On instance:     {}  "
+          }
+        ]
+      },
+      "instance": {}
+    },
+    {
+      "name": "wrong-inventories",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": []}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: [] is not of type 'object'  Failed validating 'type' in schema['properties']['inventories']:     {'type': 'object',      'patternProperties': {'^[A-Z0-9_]+$': {'type': 'object',                                             'properties': {'resource_provider_generation': {'type': 'integer'},                                                            'total': {'type': 'integer',                                                                      'maximum': 2147483647,                                                                      'minimum': 1},                                                            'reserved': {'type': 'integer',                                                                         'maximum': 2147483647,                                                                         'minimum': 0},                                                            'min_unit': {'type': 'integer',                                                                         'maximum': 2147483647,                                                                         'minimum': 1},                                                            'max_unit': {'type': 'integer',                                                                         'maximum': 2147483647,                                                                         'minimum': 1},                                                            'step_size': {'type': 'integer',                                                                          'maximum': 2147483647,                                                                          'minimum': 1},                                                            'allocation_ratio': {'type': 'number',                                                                                 'maximum': 3.40282e+38}},                                             'required': ['total'],                                             'additionalProperties': False}}}  On instance['inventories']:     []  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": []
+      }
+    },
+    {
+      "name": "extra-inventory",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"VCPU\": {\"total\": 2, \"extra\": \"foo\"}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: Additional properties are not allowed ('extra' was unexpected)  Failed validating 'additionalProperties' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']:     {'type': 'object',      'properties': {'resource_provider_generation': {'type': 'integer'},                     'total': {'type': 'integer',                               'maximum': 2147483647,                               'minimum': 1},                     'reserved': {'type': 'integer',                                  'maximum': 2147483647,                                  'minimum': 0},                     'min_unit': {'type': 'integer',                                  'maximum': 2147483647,                                  'minimum': 1},                     'max_unit': {'type': 'integer',                                  'maximum': 2147483647,                                  'minimum': 1},                     'step_size': {'type': 'integer',                                   'maximum': 2147483647,                                   'minimum': 1},                     'allocation_ratio': {'type': 'number',                                          'maximum': 3.40282e+38}},      'required': ['total'],      'additionalProperties': False}  On instance['inventories']['VCPU']:     {'total': 2, 'extra': 'foo'}  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "VCPU": {
+            "total": 2,
+            "extra": "foo"
+          }
+        }
+      }
+    },
+    {
+      "name": "two-invalid",
+      "schema": "inventories",
+      "body": "{\"resource_provider_generation\": 0, \"inventories\": {\"VCPU\": {\"total\": 0}, \"MEMORY_MB\": {\"total\": null}}}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 0 is less than the minimum of 1  Failed validating 'minimum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['VCPU']['total']:     0  "
+          }
+        ]
+      },
+      "instance": {
+        "resource_provider_generation": 0,
+        "inventories": {
+          "VCPU": {
+            "total": 0
+          },
+          "MEMORY_MB": {
+            "total": null
+          }
+        }
+      }
+    },
+    {
+      "name": "two-invalid-reversed",
+      "schema": "inventories",
+      "body": "{\"inventories\": {\"MEMORY_MB\": {\"reserved\": false, \"total\": null}, \"VCPU\": {\"total\": 0}}, \"resource_provider_generation\": 0}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: 0 is less than the minimum of 1  Failed validating 'minimum' in schema['properties']['inventories']['patternProperties']['^[A-Z0-9_]+$']['properties']['total']:     {'type': 'integer', 'maximum': 2147483647, 'minimum': 1}  On instance['inventories']['VCPU']['total']:     0  "
+          }
+        ]
+      },
+      "instance": {
+        "inventories": {
+          "MEMORY_MB": {
+            "reserved": false,
+            "total": null
+          },
+          "VCPU": {
+            "total": 0
+          }
+        },
+        "resource_provider_generation": 0
+      }
+    },
+    {
+      "name": "extra-root",
+      "schema": "inventories",
+      "body": "{\"inventories\": {\"VCPU\": {\"total\": 0}}, \"resource_provider_generation\": 0, \"extra\": 1}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n JSON does not validate: Additional properties are not allowed ('extra' was unexpected)  Failed validating 'additionalProperties' in schema:     {'type': 'object',      'properties': {'resource_provider_generation': {'type': 'integer'},                     'inventories': {'type': 'object',                                     'patternProperties': {'^[A-Z0-9_]+$': {'type': 'object',                                                                            'properties': {'resource_provider_generation': {'type': 'integer'},                                                                                           'total': {'type': 'integer',                                                                                                     'maximum': 2147483647,                                                                                                     'minimum': 1},                                                                                           'reserved': {'type': 'integer',                                                                                                        'maximum': 2147483647,                                                                                                        'minimum': 0},                                                                                           'min_unit': {'type': 'integer',                                                                                                        'maximum': 2147483647,                                                                                                        'minimum': 1},                                                                                           'max_unit': {'type': 'integer',                                                                                                        'maximum': 2147483647,                                                                                                        'minimum': 1},                                                                                           'step_size': {'type': 'integer',                                                                                                         'maximum': 2147483647,                                                                                                         'minimum': 1},                                                                                           'allocation_ratio': {'type': 'number',                                                                                                                'maximum': 3.40282e+38}},                                                                            'required': ['total'],                                                                            'additionalProperties': False}}}},      'required': ['resource_provider_generation', 'inventories'],      'additionalProperties': False}  On instance:     {'inventories': {'VCPU': {'total': 0}},      'resource_provider_generation': 0,      'extra': 1}  "
+          }
+        ]
+      },
+      "instance": {
+        "inventories": {
+          "VCPU": {
+            "total": 0
+          }
+        },
+        "resource_provider_generation": 0,
+        "extra": 1
+      }
+    },
+    {
+      "name": "unknown-query",
+      "schema": "query",
+      "body": "{\"name\": \"word word word word word word word word word word word word word word word word word word word word word word word word word \", \"unknown\": \"true\", \"z\": \"a\"}",
+      "status": 400,
+      "response": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n Invalid query string parameters: Additional properties are not allowed ('unknown', 'z' were unexpected)  Failed validating 'additionalProperties' in schema:     {'type': 'object',      'properties': {'name': {'type': 'string'},                     'uuid': {'type': 'string', 'format': 'uuid'}},      'additionalProperties': False}  On instance:     {'name': 'word word word word word word word word word word word word '              'word word word word word word word word word word word word '              'word ',      'unknown': 'true',      'z': 'a'}  "
+          }
+        ]
+      },
+      "instance": {
+        "name": "word word word word word word word word word word word word word word word word word word word word word word word word word ",
+        "unknown": "true",
+        "z": "a"
+      }
+    },
+    {
+      "name": "duplicate-member",
+      "schema": "create",
+      "body": "{\"name\":null,\"name\":\"accepted\",\"uuid\":\"4446c55fee694f16b6c0b562d5f200ab\"}",
+      "status": 200,
+      "instance": {
+        "name": "accepted",
+        "uuid": "4446c55fee694f16b6c0b562d5f200ab"
+      }
+    }
+  ]
+}

@@ -4,7 +4,7 @@ Trabajo de Título: análisis y futura reimplementación acotada de OpenStack Pl
 
 ## Estado y forma de trabajo
 
-El laboratorio y el análisis de Sprint 2 están aceptados. El catálogo Glance Go B20 (Entregas A y B) está implementado; su alcance y validación se detallan en la documentación de cada entrega. B25 tiene componentes y [arranque operativo](docs/glance/b25-operations.md) implementados con regresiones locales y suites opt-in para comprobar MySQL 8/002 y la integración binaria. Placement B07 está en progreso con el primer recorrido providers/inventories 1.0 y MySQL. El [plan por fases](PLANS.md), las [instrucciones para agentes](AGENTS.md) y el [registro de resultados](harness/build-log.md) permiten continuar con contexto y criterios verificables.
+El laboratorio y el análisis de Sprint 2 están aceptados. El catálogo Glance Go B20 (Entregas A y B) está implementado; su alcance y validación se detallan en la documentación de cada entrega. B25 tiene componentes y [arranque operativo](docs/glance/b25-operations.md) implementados con regresiones locales y suites opt-in para comprobar MySQL 8/002 y la integración binaria. Placement [B07 está implementado y validado](docs/placement/b07-acceptance.md) para providers/inventories 1.0, con MySQL/Keystone reales y 57/57 comparaciones estrictas; su entrega está publicada en el PR #6. El [plan por fases](PLANS.md), las [instrucciones para agentes](AGENTS.md) y el [registro de resultados](harness/build-log.md) permiten continuar con contexto y criterios verificables.
 
 ```bash
 make check           # Verificación local; no inicia la VM ni contacta OpenStack
@@ -40,10 +40,11 @@ mediante los controles locales.
 
 La [guía B07](docs/placement/b07-development.md) describe CRUD de providers,
 inventories con generation, esquema MySQL aislado y autenticación Keystone.
-Incluye fixtures S2, suites opt-in con MySQL real y comparación en vivo con
-Placement Python y Keystone reales: 38/38 status y estados coinciden y 27/38
-comparaciones estrictas coinciden. Solo anuncia 1.0; falta resolver las 11
-representaciones de error pendientes y completar el contrato necesario para Nova.
+Incluye fixtures S2, suites opt-in con MySQL real y [campaña de cierre](evidence/sprint3/placement/b07-close-20261029/README.md):
+**57/57** respuestas estrictas, status y estados coinciden con Placement Python
+y Keystone reales. Solo anuncia 1.0; B08 continúa catálogos/traits, y las tareas
+posteriores completan allocations, candidates, microversiones e integración Nova.
+[Alcance aceptado y límites](docs/placement/b07-acceptance.md).
 `make placement-build` compila el ejecutable; `make check` verifica ambos módulos
 sin iniciar el laboratorio. La guía distingue los resultados reales y los fixtures
 de identidad utilizados en las pruebas.

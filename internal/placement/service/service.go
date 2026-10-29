@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -133,7 +134,7 @@ func (s *Service) Inventories(ctx context.Context, who auth.Identity, id string)
 	}
 	return invs, mapped(err, id)
 }
-func (s *Service) ReplaceInventories(ctx context.Context, who auth.Identity, id string, generation int64, input map[string]model.InventoryInput) (model.Inventories, error) {
+func (s *Service) ReplaceInventories(ctx context.Context, who auth.Identity, id string, generation int64, input map[string]model.InventoryInput, classOrder ...string) (model.Inventories, error) {
 	if err := authorize(who); err != nil {
 		return model.Inventories{}, err
 	}
@@ -141,16 +142,53 @@ func (s *Service) ReplaceInventories(ctx context.Context, who auth.Identity, id 
 	if err != nil {
 		return model.Inventories{}, err
 	}
-	invs := make(map[string]model.Inventory, len(input))
-	for class, raw := range input {
-		if !model.KnownClass(class) {
-			return model.Inventories{}, model.Fail(400, fmt.Sprintf("Unknown resource class in inventory for resource provider %s: No such resource class %s.", id, class))
+	provider, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return model.Inventories{}, mapped(err, id)
+	}
+	if provider.Generation != generation {
+		return model.Inventories{}, mapped(repository.ErrConcurrent, id)
+	}
+	classes := make([]string, 0, len(input))
+	positions := make(map[string]int, len(classOrder))
+	for index, class := range classOrder {
+		positions[class] = index
+	}
+	for class := range input {
+		classes = append(classes, class)
+	}
+	sort.Slice(classes, func(i, j int) bool {
+		left, ok := positions[classes[i]]
+		if !ok {
+			left = len(classOrder)
 		}
+		right, ok := positions[classes[j]]
+		if !ok {
+			right = len(classOrder)
+		}
+		if left != right {
+			return left < right
+		}
+		return classes[i] < classes[j]
+	})
+	invs := make(map[string]model.Inventory, len(input))
+	for _, class := range classes {
+		raw := input[class]
 		inv, err := raw.Resolve()
+		if errors.Is(err, model.ErrInventoryCapacity) {
+			return model.Inventories{}, model.Fail(400, fmt.Sprintf("Unable to update inventory for resource provider %s: Invalid inventory for '%s' on resource provider '%s'. The reserved value is greater than or equal to total.", id, class, id))
+		}
 		if err != nil {
 			return model.Inventories{}, err
 		}
 		invs[class] = inv
+	}
+	// The original validates capacity for every proposed inventory before its
+	// repository resolves class names. Keep the final CAS inside that repository.
+	for _, class := range classes {
+		if !model.KnownClass(class) {
+			return model.Inventories{}, model.Fail(400, fmt.Sprintf("Unknown resource class in inventory for resource provider %s: No such resource class %s.", id, class))
+		}
 	}
 	result, err := s.repo.ReplaceInventories(ctx, id, generation, invs)
 	return result, mapped(err, id)

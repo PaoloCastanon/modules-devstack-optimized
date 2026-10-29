@@ -1,0 +1,10 @@
+{
+  "source": "Planificacion_Trabajo_Titulo_OpenStack.xlsx",
+  "sheet": "Backlog",
+  "id_cell": "A10",
+  "criterion_cell": "H10",
+  "backlog_id": "B07",
+  "criterion": "Operaciones priorizadas de providers e inventories superan las pruebas definidas.",
+  "sha256": "c1bc84044f244a556050ef359f0fe48641ab38382183a82833d3038e1c0887c6",
+  "modified": false
+}

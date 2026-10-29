@@ -84,6 +84,10 @@ type InventoryInput struct {
 	AllocationRatio *float64 `json:"allocation_ratio"`
 }
 
+// ErrInventoryCapacity identifies the domain rule separately from malformed
+// fields, so the service can include the actual provider and resource class.
+var ErrInventoryCapacity = Fail(400, "Inventory capacity must be positive at microversion 1.0.")
+
 func (in InventoryInput) Resolve() (Inventory, error) {
 	inv := Inventory{MinUnit: 1, MaxUnit: math.MaxInt32, StepSize: 1, AllocationRatio: 1}
 	if in.Total == nil {
@@ -107,8 +111,11 @@ func (in InventoryInput) Resolve() (Inventory, error) {
 		}
 	}
 	ratio := inv.AllocationRatio
-	if math.IsNaN(ratio) || math.IsInf(ratio, 0) || ratio > math.MaxFloat32 || ratio < 0 || math.Trunc(float64(inv.Total-inv.Reserved)*ratio) <= 0 {
+	if math.IsNaN(ratio) || math.IsInf(ratio, 0) || ratio > math.MaxFloat32 || ratio < 0 {
 		return inv, Fail(400, "Inventory capacity must be positive at microversion 1.0.")
+	}
+	if math.Trunc(float64(inv.Total-inv.Reserved)*ratio) <= 0 {
+		return inv, ErrInventoryCapacity
 	}
 	return inv, nil
 }

@@ -1,0 +1,10 @@
+ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+Disposable MySQL/data and private credentials removed.
+Traceback (most recent call last):
+  File "/tmp/placement-b07-error-mysql.py", line 35, in <module>
+    subprocess.run(['docker','exec','-i',name,'mysql','--defaults-extra-file=/tmp/review.cnf'],input='\n'.join(sql),text=True,check=True,stdout=subprocess.DEVNULL)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['docker', 'exec', '-i', 'tt-placement-errors-3fc00610', 'mysql', '--defaults-extra-file=/tmp/review.cnf']' returned non-zero exit status 1.

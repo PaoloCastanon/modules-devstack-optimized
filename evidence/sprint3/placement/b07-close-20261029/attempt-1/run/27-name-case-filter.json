@@ -1,0 +1,147 @@
+{
+  "name": "name-case-filter",
+  "provider_uuid": "2694f4f3-ab8f-48d9-be5a-c3aad589ed06",
+  "request": {
+    "method": "GET",
+    "path": "/resource_providers?name=TT-B07-DIFF-2694F4F3-AB8F-48D9-BE5A-C3AAD589ED06",
+    "body": null,
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0"
+    },
+    "body_text": null,
+    "auth_role": "admin"
+  },
+  "seed": {
+    "python": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version",
+          "location": "http://192.168.122.10/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06"
+        },
+        "body_text": ""
+      }
+    ],
+    "go": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version",
+          "location": "http://127.0.0.1:54697/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06"
+        },
+        "body_text": ""
+      }
+    ]
+  },
+  "before": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"2694f4f3-ab8f-48d9-be5a-c3aad589ed06\", \"name\": \"tt-b07-diff-2694f4f3-ab8f-48d9-be5a-c3aad589ed06\", \"generation\": 0, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 0, \"inventories\": {}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":0,\"links\":[{\"href\":\"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-2694f4f3-ab8f-48d9-be5a-c3aad589ed06\",\"uuid\":\"2694f4f3-ab8f-48d9-be5a-c3aad589ed06\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":0,\"inventories\":{}}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"resource_providers\": [{\"uuid\": \"2694f4f3-ab8f-48d9-be5a-c3aad589ed06\", \"name\": \"tt-b07-diff-2694f4f3-ab8f-48d9-be5a-c3aad589ed06\", \"generation\": 0, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/usages\"}]}]}"
+    },
+    "go": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"resource_providers\":[{\"generation\":0,\"links\":[{\"href\":\"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-2694f4f3-ab8f-48d9-be5a-c3aad589ed06\",\"uuid\":\"2694f4f3-ab8f-48d9-be5a-c3aad589ed06\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"2694f4f3-ab8f-48d9-be5a-c3aad589ed06\", \"name\": \"tt-b07-diff-2694f4f3-ab8f-48d9-be5a-c3aad589ed06\", \"generation\": 0, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 0, \"inventories\": {}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":0,\"links\":[{\"href\":\"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/2694f4f3-ab8f-48d9-be5a-c3aad589ed06/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-2694f4f3-ab8f-48d9-be5a-c3aad589ed06\",\"uuid\":\"2694f4f3-ab8f-48d9-be5a-c3aad589ed06\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":0,\"inventories\":{}}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}
