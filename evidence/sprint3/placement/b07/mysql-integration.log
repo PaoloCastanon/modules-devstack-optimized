@@ -1,0 +1,6 @@
+go test -race -count=1 -tags=integration ./internal/placement/repository/mysql -run '^TestB07MySQLHTTP$' -v
+=== RUN   TestB07MySQLHTTP
+    integration_test.go:239: PASS real MySQL 8.0.46; Keystone is an HTTP fixture; dirty disposable schema retained
+--- PASS: TestB07MySQLHTTP (0.07s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/repository/mysql	1.082s

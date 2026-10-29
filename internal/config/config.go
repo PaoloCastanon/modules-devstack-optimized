@@ -84,26 +84,38 @@ func Load(getenv func(string) string, mode string) (Config, error) {
 	if mode != "serve" && mode != "migrate" && mode != "store-scope" && mode != "store-init" {
 		return Config{}, errors.New("command must be serve, migrate, store-scope or store-init")
 	}
-	c := Config{ListenAddress: "127.0.0.1:9293", PublicURL: "http://127.0.0.1:9293", RequestTimeout: 15 * time.Second, DependencyTimeout: 5 * time.Second, MaxBodyBytes: 1048576}
-	if value := getenv("GLANCE_GO_LISTEN_ADDR"); value != "" {
+	return load(getenv, mode, "GLANCE_GO_", "127.0.0.1:9293")
+}
+
+// LoadPlacement uses an independent namespace; Glance settings cannot select its DB.
+func LoadPlacement(getenv func(string) string, mode string) (Config, error) {
+	if mode != "serve" && mode != "migrate" {
+		return Config{}, errors.New("command must be serve or migrate")
+	}
+	return load(getenv, mode, "PLACEMENT_GO_", "127.0.0.1:8779")
+}
+
+func load(getenv func(string) string, mode, prefix, defaultAddress string) (Config, error) {
+	c := Config{ListenAddress: defaultAddress, PublicURL: "http://" + defaultAddress, RequestTimeout: 15 * time.Second, DependencyTimeout: 5 * time.Second, MaxBodyBytes: 1048576}
+	if value := getenv(prefix + "LISTEN_ADDR"); value != "" {
 		c.ListenAddress = value
 	}
 	host, port, err := net.SplitHostPort(c.ListenAddress)
 	if err != nil || host == "" {
-		return Config{}, errors.New("GLANCE_GO_LISTEN_ADDR must contain an explicit host and port")
+		return Config{}, errors.New(prefix + "LISTEN_ADDR must contain an explicit host and port")
 	}
 	n, err := strconv.Atoi(port)
 	if err != nil || n < 1 || n > 65535 {
 		return Config{}, errors.New("invalid listener port")
 	}
-	if value := getenv("GLANCE_GO_PUBLIC_BASE_URL"); value != "" {
+	if value := getenv(prefix + "PUBLIC_BASE_URL"); value != "" {
 		c.PublicURL = value
 	}
 	if err := ValidateURL(c.PublicURL); err != nil {
-		return Config{}, fmt.Errorf("GLANCE_GO_PUBLIC_BASE_URL: %w", err)
+		return Config{}, fmt.Errorf(prefix+"PUBLIC_BASE_URL: %w", err)
 	}
 	c.PublicURL = strings.TrimRight(c.PublicURL, "/")
-	for key, target := range map[string]*time.Duration{"GLANCE_GO_REQUEST_TIMEOUT": &c.RequestTimeout, "GLANCE_GO_DEPENDENCY_TIMEOUT": &c.DependencyTimeout} {
+	for key, target := range map[string]*time.Duration{prefix + "REQUEST_TIMEOUT": &c.RequestTimeout, prefix + "DEPENDENCY_TIMEOUT": &c.DependencyTimeout} {
 		if value := getenv(key); value != "" {
 			d, err := time.ParseDuration(value)
 			if err != nil || d <= 0 || d > time.Minute {
@@ -115,14 +127,14 @@ func Load(getenv func(string) string, mode string) (Config, error) {
 	if c.DependencyTimeout >= c.RequestTimeout {
 		return Config{}, errors.New("dependency timeout must be less than request timeout")
 	}
-	if value := getenv("GLANCE_GO_MAX_BODY_BYTES"); value != "" {
+	if value := getenv(prefix + "MAX_BODY_BYTES"); value != "" {
 		n, err := strconv.ParseInt(value, 10, 64)
 		if err != nil || n < 1 || n > 10485760 {
-			return Config{}, errors.New("GLANCE_GO_MAX_BODY_BYTES must be between 1 and 10485760")
+			return Config{}, errors.New(prefix + "MAX_BODY_BYTES must be between 1 and 10485760")
 		}
 		c.MaxBodyBytes = n
 	}
-	dsn, err := ReadSecret(getenv("GLANCE_GO_DATABASE_DSN_FILE"))
+	dsn, err := ReadSecret(getenv(prefix + "DATABASE_DSN_FILE"))
 	if err != nil {
 		return Config{}, fmt.Errorf("database configuration: %w", err)
 	}
@@ -130,20 +142,23 @@ func Load(getenv func(string) string, mode string) (Config, error) {
 	if c.DatabaseDSN == "" {
 		return Config{}, errors.New("empty database configuration")
 	}
-	if err := loadBinary(&c, getenv, mode); err != nil {
-		return Config{}, err
+	// Binary storage is Glance policy; Placement must not read that namespace.
+	if prefix == "GLANCE_GO_" {
+		if err := loadBinary(&c, getenv, mode); err != nil {
+			return Config{}, err
+		}
 	}
 	if mode != "serve" {
 		return c, nil
 	}
-	c.KeystoneURL = strings.TrimRight(getenv("GLANCE_GO_KEYSTONE_AUTH_URL"), "/")
+	c.KeystoneURL = strings.TrimRight(getenv(prefix+"KEYSTONE_AUTH_URL"), "/")
 	if err := ValidateURL(c.KeystoneURL); err != nil {
-		return Config{}, fmt.Errorf("GLANCE_GO_KEYSTONE_AUTH_URL: %w", err)
+		return Config{}, fmt.Errorf(prefix+"KEYSTONE_AUTH_URL: %w", err)
 	}
 	if !strings.HasSuffix(c.KeystoneURL, "/v3") {
 		return Config{}, errors.New("Keystone URL must end in /v3")
 	}
-	credential, err := ReadSecret(getenv("GLANCE_GO_KEYSTONE_CREDENTIAL_FILE"))
+	credential, err := ReadSecret(getenv(prefix + "KEYSTONE_CREDENTIAL_FILE"))
 	if err != nil {
 		return Config{}, fmt.Errorf("Keystone configuration: %w", err)
 	}

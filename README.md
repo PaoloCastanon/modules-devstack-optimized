@@ -4,7 +4,7 @@ Trabajo de Título: análisis y futura reimplementación acotada de OpenStack Pl
 
 ## Estado y forma de trabajo
 
-El laboratorio y el análisis de Sprint 2 están aceptados. Glance Go B20 (Entregas A y B) está implementado y validado; Placement B07 sigue pendiente. B25 tiene componentes y [arranque operativo](docs/glance/b25-operations.md) implementados con regresiones locales; su validación MySQL 8/002 y Keystone/binarios reales sigue pendiente. El [plan por fases](PLANS.md), las [instrucciones para agentes](AGENTS.md) y el [registro de resultados](harness/build-log.md) permiten continuar con contexto y criterios verificables.
+El laboratorio y el análisis de Sprint 2 están aceptados. El catálogo Glance Go B20 (Entregas A y B) está implementado; su alcance y validación se detallan en la documentación de cada entrega. B25 tiene componentes y [arranque operativo](docs/glance/b25-operations.md) implementados con regresiones locales y suites opt-in para comprobar MySQL 8/002 y la integración binaria. Placement B07 está en progreso con el primer recorrido providers/inventories 1.0 y MySQL. El [plan por fases](PLANS.md), las [instrucciones para agentes](AGENTS.md) y el [registro de resultados](harness/build-log.md) permiten continuar con contexto y criterios verificables.
 
 ```bash
 make check           # Verificación local; no inicia la VM ni contacta OpenStack
@@ -29,6 +29,21 @@ de metadatos con MySQL y autenticación Keystone.
 La [Entrega B](docs/glance/b20-catalog.md) añade listado paginado,
 JSON Patch, borrado lógico y esquemas de metadatos.
 
-Ambas entregas cuentan con validación local e integración real.
-La transferencia de imágenes, integración Nova y comparación de
-rendimiento permanecen pendientes.
+Ambas entregas tienen pruebas locales. La documentación acredita integración real
+para A y mantiene pendiente la validación operativa de las nuevas rutas B.
+La transferencia binaria y su arranque operativo se implementan en B25;
+su guía separa las regresiones locales de las verificaciones reales.
+La integración Nova y la comparación de rendimiento no se acreditan
+mediante los controles locales.
+
+## Placement Go — primer incremento B07
+
+La [guía B07](docs/placement/b07-development.md) describe CRUD de providers,
+inventories con generation, esquema MySQL aislado y autenticación Keystone.
+Incluye fixtures S2, suites opt-in con MySQL real y comparación en vivo con
+Placement Python y Keystone reales: 38/38 status y estados coinciden y 27/38
+comparaciones estrictas coinciden. Solo anuncia 1.0; falta resolver las 11
+representaciones de error pendientes y completar el contrato necesario para Nova.
+`make placement-build` compila el ejecutable; `make check` verifica ambos módulos
+sin iniciar el laboratorio. La guía distingue los resultados reales y los fixtures
+de identidad utilizados en las pruebas.

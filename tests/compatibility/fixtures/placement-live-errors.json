@@ -1,0 +1,86 @@
+{
+  "source": "Live Placement f4a89d3, 2026-10-28; UUID substituted with fixed fixture UUID; request_id omitted",
+  "cases": {
+    "stale-generation": {
+      "status": 409,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body": {
+        "errors": [
+          {
+            "status": 409,
+            "title": "Conflict",
+            "detail": "There was a conflict when trying to complete your request.\n\n resource provider generation conflict  "
+          }
+        ]
+      }
+    },
+    "unknown-class": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body": {
+        "errors": [
+          {
+            "status": 400,
+            "title": "Bad Request",
+            "detail": "The server could not comply with the request since it is either malformed or otherwise incorrect.\n\n Unknown resource class in inventory for resource provider 4446c55f-ee69-4f16-b6c0-b562d5f200ab: No such resource class CUSTOM_B07_UNKNOWN.  "
+          }
+        ]
+      }
+    },
+    "reader-forbidden": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0"
+      },
+      "body": {
+        "errors": [
+          {
+            "status": 403,
+            "title": "Forbidden",
+            "detail": "Access was denied to this resource.\n\n Policy does not allow placement:resource_providers:show to be performed.  "
+          }
+        ]
+      }
+    },
+    "missing-token": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json",
+        "www-authenticate": "Keystone uri=\"http://192.168.122.10/identity\""
+      },
+      "body": {
+        "error": {
+          "code": 401,
+          "title": "Unauthorized",
+          "message": "The request you have made requires authentication."
+        }
+      }
+    },
+    "inventories-provider-missing": {
+      "status": 404,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body": {
+        "errors": [
+          {
+            "status": 404,
+            "title": "Not Found",
+            "detail": "The resource could not be found.\n\n No resource provider with uuid 4446c55f-ee69-4f16-b6c0-b562d5f200ab found : No resource provider with uuid 4446c55f-ee69-4f16-b6c0-b562d5f200ab found  "
+          }
+        ]
+      }
+    }
+  }
+}
