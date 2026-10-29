@@ -1,0 +1,47 @@
+{
+  "checks": [
+    {
+      "name": "privileged-validator-refused",
+      "expected_status": 503,
+      "response": {
+        "status": 503,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"Placement service unavailable.\",\"request_id\":\"req-bbd16263-7d2a-40bc-a42d-d9d1a53ad0ce\",\"status\":503,\"title\":\"Service Unavailable\"}]}\n"
+      },
+      "unchanged": true
+    },
+    {
+      "name": "validator-503-fails-closed",
+      "expected_status": 503,
+      "response": {
+        "status": 503,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"Placement service unavailable.\",\"request_id\":\"req-c048f4b0-2ecb-4d54-9622-8f1ab8c3ad05\",\"status\":503,\"title\":\"Service Unavailable\"}]}\n"
+      },
+      "unchanged": true
+    },
+    {
+      "name": "service-header-cannot-promote-reader",
+      "expected_status": 403,
+      "response": {
+        "status": 403,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"Access was denied to this resource.\\n\\n Composite service authentication is not supported.  \",\"request_id\":\"req-1f108e03-ada1-4f66-8672-ec9c1d1b2a53\",\"status\":403,\"title\":\"Forbidden\"}]}\n"
+      },
+      "unchanged": true
+    }
+  ],
+  "credential_recovery_verified": true,
+  "private_resources_cleaned": true
+}

@@ -1,0 +1,5 @@
+policies {'exit': 1, 'summary': {'total': 134, 'strict_equal': 99}, 'cleanup_ok': True}
+revoked {'exit': 0, 'summary': {'total': 3, 'strict_equal': 3}, 'cleanup_ok': True}
+valid-expiring {'exit': 0, 'summary': {'total': 3, 'strict_equal': 3}, 'cleanup_ok': True}
+expired {'exit': 0, 'summary': {'total': 3, 'strict_equal': 3}, 'cleanup_ok': True}
+Disposable MySQL/data and private credentials removed.

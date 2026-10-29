@@ -539,3 +539,37 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   rechazan output existente y ausencia de opt-in antes de iniciar Docker.
 - Evidencia: evidence/sprint3/placement/b11-close-20261029/. No DB original,
   HA ni sustitución Nova; Keystone/VM continúan en uso por B12.
+
+### 2026-10-29 — B12 cierre de Keystone/políticas y B07–B12
+
+- Base B11 19854f7; se ejecutó el binario normal con MySQL propio y Keystone
+  real. Identidad Nova obtenida de nova.conf (nova/service), sin copiar secretos
+  al repo; credenciales por rol propias y validador service sin admin.
+- Primer intento 99/134 conservado: 29 rechazos unscoped correctos en permiso/
+  efectos pero con error/versión genéricos; tres GET inventory sin cache headers;
+  tres expectativas del runner incorrectas (GET trait devuelve 204 en ambos).
+  Tests rojos reproducidos antes de corregir. Sin cambios a auth/Glance compartida.
+- Se conserva microversión/política en 403; inventory individual lee su timestamp
+  persistido por clase en RR. SQL real prueba dos timestamps y filtro parametrizado.
+- scripts/placement_auth_differential.py: **143/143** estricto: políticas 134,
+  revocación 3, trust válido 3 y expirado 3. Sin efectos ante denegaciones.
+  Expiración real de trust a 25s; token revocado ya se había validado en Go.
+  El original no conocía ese token antes de revocarlo: no se acredita su caché.
+- Tres verificaciones sólo Go: validador privilegiado 503, fallo de validación
+  local 503, composite header 403. Hash de todas las filas intacto; recuperación
+  tras restaurar credencial. No se alteró Keystone original ni se añadió bypass.
+- make check PASS (vet/race/build ambos dominios). MySQL opt-in PASS.
+  Regresión viva final **267/267**: B07 57, B08 82, B09-A 60, B09 moderno 24,
+  B10 44 y seeds sin diferencias. B11 sobre binario final **9/9** con SIGKILL
+  Go/MySQL, rollback no confirmado y backup/restore íntegro byte a byte.
+- Evidencia: evidence/sprint3/placement/b12-close-20261029/, incluye reportes
+  crudos, hashes, helpers archivados sin secretos, intentos fallidos y limpieza.
+  Consulta SQL sólo lectura: 134 IDs provider/16 consumer de los ensayos ausentes;
+  metadatos projects/users intactos. HTTP confirma cleanup de clases/traits.
+- Se eliminaron trusts/trustee, user/project y app creds propios, se revocó el
+  token de Nova emitido para el ensayo y se eliminó el directorio privado remoto.
+  Contenedores/volúmenes propios ausentes; tt-openstack-lab **shut off**.
+- B07–B12 completados para el subconjunto parcial del laboratorio. B13–B15
+  (sustitución/boot con Nova) pendientes. Sin cambiar Nova/endpoints/Excel/S2
+  ni ejecutar SQL de escritura contra DB original. No se acredita API completa,
+  árboles/sharing, composite, federación, system scope, HA o policies custom.

@@ -13,7 +13,7 @@ Este plan organiza el backlog existente; no reemplaza el Excel ni modifica sprin
 
 Las fases son agrupaciones de aceptación, no una prohibición de avanzar en paralelo en los dos módulos. B26 conserva S5. B21 continúa en progreso y B16 pendiente según la última aceptación; preparar estos documentos no los cierra.
 
-## Placement: B07 y B08 completados en el alcance seleccionado
+## Placement: B07–B12 completados en el alcance seleccionado
 
 **Cierre técnico al 2026-10-29:** [B07 aceptado para el alcance priorizado
 providers/inventories 1.0](docs/placement/b07-acceptance.md). La campaña final dio
@@ -44,7 +44,7 @@ del tracker. **44/44** casos vivos y ocho seeds sin diferencias; regresiones
 24/60/57/82 completas. [Evidencia B10](evidence/sprint3/placement/b10-close-20261029/README.md).
 
 **B11 completado:** [durabilidad y restore](docs/placement/b11-acceptance.md), nueve verificaciones reales aprobadas.
-**En ejecución por solicitud del usuario:** cierre B12 de autenticación y políticas. El alcance sigue siendo el subconjunto para Nova; no se acredita
+**B12 completado:** [Keystone y políticas](docs/placement/b12-acceptance.md), 143/143 casos vivos, tres verificaciones fail-closed, 267/267 regresiones y B11 final 9/9. VM apagada y limpieza comprobada. El alcance sigue siendo el subconjunto para Nova; no se acredita
 sustitución Nova, toda la API 1.8 ni se cambia el Excel histórico.
 
 El [plan Placement B07–B15](docs/placement/implementation-plan.md) conserva el

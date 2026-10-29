@@ -1,0 +1,12 @@
+--- FAIL: TestUnscopedPolicyErrorPreservesVersion (0.00s)
+    --- FAIL: TestUnscopedPolicyErrorPreservesVersion/GET1.14 (0.00s)
+        auth_acceptance_test.go:33: 403 map[Content-Type:[application/json] Openstack-Api-Version:[placement 1.0] X-Openstack-Request-Id:[req-f96d5dca-18cf-405c-be5f-892268d9f11e]] {"errors":[{"detail":"Access was denied to this resource.\n\n Project scope is required.  ","request_id":"req-f96d5dca-18cf-405c-be5f-892268d9f11e","status":403,"title":"Forbidden"}]}
+    --- FAIL: TestUnscopedPolicyErrorPreservesVersion/PUT1.36 (0.00s)
+        auth_acceptance_test.go:33: 403 map[Content-Type:[application/json] Openstack-Api-Version:[placement 1.0] X-Openstack-Request-Id:[req-2f8b9d1a-9cfc-49b5-8cc0-88d5959783c9]] {"errors":[{"detail":"Access was denied to this resource.\n\n Project scope is required.  ","request_id":"req-2f8b9d1a-9cfc-49b5-8cc0-88d5959783c9","status":403,"title":"Forbidden"}]}
+    --- FAIL: TestUnscopedPolicyErrorPreservesVersion/DELETE1.26 (0.00s)
+        auth_acceptance_test.go:33: 403 map[Content-Type:[application/json] Openstack-Api-Version:[placement 1.0] X-Openstack-Request-Id:[req-84c0f4ca-224a-41ab-b767-9391435a04c2]] {"errors":[{"detail":"Access was denied to this resource.\n\n Project scope is required.  ","request_id":"req-84c0f4ca-224a-41ab-b767-9391435a04c2","status":403,"title":"Forbidden"}]}
+--- FAIL: TestIndividualInventoryUsesItsPersistedTimestamp (0.00s)
+    auth_acceptance_test.go:66: 200 map[Content-Type:[application/json] Openstack-Api-Version:[placement 1.26] Vary:[OpenStack-API-Version] X-Openstack-Request-Id:[req-d014e726-928d-4ebc-b360-8e09d58351ea]] {"allocation_ratio":0,"max_unit":0,"min_unit":0,"reserved":0,"step_size":0,"total":8}
+FAIL
+FAIL	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api	0.003s
+FAIL

@@ -140,6 +140,26 @@ func TestB10MySQLCandidates(t *testing.T) {
 	}
 	must(<-done)
 	must(r.DeleteAllocations(ctx, c))
+	// Distinct persistent times ensure an individual class cannot inherit the
+	// collection maximum (or interpret a class name as SQL).
+	older := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	newer := older.Add(time.Hour)
+	_, err = admin.ExecContext(ctx, "UPDATE inventories SET updated_at=? WHERE provider_uuid=? AND resource_class='VCPU'", older, p.UUID)
+	must(err)
+	_, err = admin.ExecContext(ctx, "UPDATE inventories SET updated_at=? WHERE provider_uuid=? AND resource_class='MEMORY_MB'", newer, p.UUID)
+	must(err)
+	one, err := r.InventorySnapshot(ctx, p.UUID, "VCPU")
+	must(err)
+	all, err := r.Inventories(ctx, p.UUID)
+	must(err)
+	if len(one.Inventories) != 1 || !one.LastModified.Equal(older) || !all.LastModified.Equal(newer) || one.Generation != all.Generation {
+		t.Fatal("individual timestamp is not class-specific", one, all)
+	}
+	empty, err := r.InventorySnapshot(ctx, p.UUID, "VCPU' OR 1=1 --")
+	must(err)
+	if len(empty.Inventories) != 0 {
+		t.Fatal("class filter not bound", empty)
+	}
 	must(r.Delete(ctx, p.UUID))
 	t.Log("PASS live MySQL candidates reflect usage/traits, and repeatable-read snapshots preserve generation/usage under concurrent writers")
 }
