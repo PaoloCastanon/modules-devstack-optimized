@@ -1,0 +1,7 @@
+test_foreign_site_digest_is_rejected_before_privileged_operations (test_placement_integration_guards.PlacementIntegrationGuards.test_foreign_site_digest_is_rejected_before_privileged_operations) ... ok
+test_mutation_opt_in_precedes_sdk_files_and_privileged_commands (test_placement_integration_guards.PlacementIntegrationGuards.test_mutation_opt_in_precedes_sdk_files_and_privileged_commands) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.015s
+
+OK

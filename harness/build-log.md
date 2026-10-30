@@ -619,3 +619,31 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - B16 cierra protocolo para Placement. Claim/mezcla y campañas B17/B18 se
   implementan/pilotan después de integrar Nova; no se acreditan por estos pilotos.
   Sin cambios al Excel, evidencia S2 o código funcional de Placement/Glance.
+
+### 2026-10-29 — B13 sustitución reversible del perfil plano
+
+- Base B16 d7c89e6; scripts/integration configura user/project tt-placement y
+  app creds por rol, preflight readonly, runtime nativo propio y cambio Apache
+  con backup privado/hash, reemplazo atómico y timer de rollback a 600s.
+- MySQL 8.0.46 dentro de la VM: datadir/socket/puerto 13316, UUID/schema/
+  migrador/app propios. Perfil AppArmor independiente; original sin cambios.
+  Fallos iniciales de confinamiento y tmpdir conservados y limpiados.
+- Readiness/probe mysql CLI con defaults-extra-file heredó ~/.my.cnf y leyó
+  original mediante SELECT. Detectado al coincidir UUID; corregido a defaults-file
+  y SOCKET. Bootstrap PyMySQL y runtime Go usaron siempre socket/DSN explícitos
+  propios. Ver prueba válida de UUIDs/puerto distintos. Sin SQL original de escritura.
+- Python uWSGI detenido durante sustitución. Nova compute/scheduler reiniciados
+  con configuración intacta. Nova publicó provider real, tres inventarios y
+  traits en Go; misma identidad/root, constraints, traits, aggregates y reservas
+  vacías. Generaciones independientes 3/2 conservadas, sin declararlas iguales.
+- Cliente Nova desplegado y RequestSpec/ResourceRequest reales consultaron
+  candidates 1.36 con nova.conf. Probe es biblioteca Nova, no boot del scheduler.
+  Logs Go añaden IDs de identidad validada; prueba de spoofing y tests de
+  discovery/401 corrigen acceso sin identidad sin guardar token/cabeceras falsas.
+- cycle-01 falla por construcción del objeto del helper y restaura original;
+  probe corregido probado primero en Python. cycle-02 PASS completo, con
+  publicación Nova, candidates y original restaurado/hash Apache exacto.
+- make check PASS (vet/race/build ambos dominios), API y guards PASS. Evidencia
+  evidence/sprint4/placement/b13-20261029/. Sin editar Nova, Excel o S2 ni afirmar
+  API completa. B14 continúa boot; B15 suite/inyectores y benchmarks pendientes.
+  Original restaurado; VM/runtime/identidad permanecen temporalmente en uso B14.

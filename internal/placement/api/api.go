@@ -91,7 +91,8 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 			default:
 				method = "OTHER"
 			}
-			h.logger.Info("request completed", "request_id", "req-"+id.String(), "method", method, "route", route(r.URL.Path), "status", out.status, "duration_ms", time.Since(start).Milliseconds())
+			who, _ := r.Context().Value(identityKey{}).(auth.Identity)
+			h.logger.Info("request completed", "request_id", "req-"+id.String(), "method", method, "route", route(r.URL.Path), "status", out.status, "duration_ms", time.Since(start).Milliseconds(), "user_id", who.UserID, "project_id", who.ProjectID)
 		}()
 		if r.URL.Path != "/" {
 			tokens := r.Header.Values("X-Auth-Token")

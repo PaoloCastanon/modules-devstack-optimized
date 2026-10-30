@@ -1,0 +1,5 @@
+c8843da1-be7d-11f1-add6-525400241002	8.0.46-0ubuntu0.24.04.4	1	1	1
+0c242ac102a58b00c9e879cef5671dec35fe0c8ec45d85fa01bbea926d63775d  /etc/apparmor.d/usr.sbin.mysqld
+active
+active
+active
