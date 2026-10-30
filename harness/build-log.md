@@ -672,3 +672,38 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   credenciales. Sin cambios Nova/Excel/S2 ni SQL Placement original de escritura.
 - B16, B13 y B14 cerrados técnicamente para el alcance; B15 sigue pendiente
   (dos suites integrales y negativos), B17/B18 no medidos, B26 fuera de este boot.
+
+### 2026-10-29 — B15 suite integral, dos corridas finales consecutivas
+
+- Base B14 1a2efa7; scripts/integration/placement_suite.py y make
+  placement-integration ejecutan dentro de la VM el flujo completo opt-in con
+  IDs explícitos, output nuevo, user/project/app creds, MySQL/Go propios y ledger
+  privado. Snapshot/hash original y MySQL propio vía DSN app explícito.
+- Once casos obligatorios: preflight/aislamiento, publicación tracker, auth sin
+  efectos, persistencia tras restart Go, CAS, claims contra capacidad, NoValidHost
+  real por disco insuficiente, boot normal, dos boots concurrentes, excepción
+  controlada con rollback por timer y restauración del original/cliente Nova.
+- En este lab, capacidad VCPU16: cinco claims concurrentes de4 producen cuatro
+  204 y un409, sin sobreasignación. CAS de un consumer: 204/409 y una reserva.
+  Cada corrida completa crea tres VMs ACTIVE y una ERROR/NoValidHost, luego
+  comprueba borrado/liberación por Nova y usos devueltos al baseline.
+- Guards rojos/verdes: PASS incompleto prohibido, ownership exacto, output/opt-in,
+  retener backend/credenciales/ledger si falla borrar VM, lease exclusiva entre
+  coordinadores y restore idempotente con timer --collect ya desaparecido.
+- Prototipos01/02 pasaron;03 añadió retención;04 exclusión.05 falló OSError al
+  preparar runtime y limpió todo, sin contarse como PASS. El chequeo bind podía
+  rechazar TIME_WAIT; prueba TCP real reproduce el problema y valida SO_REUSEADDR
+  sin aceptar listeners activos/SO_REUSEPORT. No se conserva errno del fallo
+  histórico, sí su ubicación y estado; nuevos OSError registran errno. MySQL
+  --version ahora usa --no-defaults para no leer ~/.my.cnf del operador.
+- Versión final, sin cambiar fuente/binario entre corridas06/07: **22/22** casos,
+  ocho flags cleanup true por corrida; MySQL UUID/schema y recursos nuevos.
+  Fuente/hashes y prototipos (incluido05 fallido) conservados por separado en
+  evidence/sprint4/placement/b15-20261029/. No se debilitaron casos/error codes.
+- make check PASS: guards/tests, harness/infra, vet/race/build ambos dominios.
+  Auditoría real final: cero instancias/dominios, flavors/user/projects propios,
+  work roots, unidades o perfiles AppArmor propios; imagen original ACTIVE, cinco
+  servicios originales activos y hash Apache/perfil original intactos. Lock de
+  coordinación vacío persiste por diseño; tt-openstack-lab **shut off**.
+- B15 cierra integración del subconjunto; B17/B18 no medidos, B26 fuera.
+  No se cambió Excel/S2/Nova ni se escribió SQL en Placement original.

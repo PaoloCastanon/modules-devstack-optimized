@@ -22,6 +22,14 @@ def command(args, **kwargs):
     return subprocess.run(args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kwargs)
 
 
+def probe_available_port(port):
+    with socket.socket() as test:
+        # Match daemon bind semantics: permit old TIME_WAIT connections, never
+        # SO_REUSEPORT or a currently listening service on the same address.
+        test.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        test.bind(('127.0.0.1', port))
+
+
 def run(args):
     if not args.allow_mutations:
         raise ValueError('explicit mutation opt-in required')
@@ -30,8 +38,7 @@ def run(args):
         raise ValueError('absolute canonical tt-placement runtime path required')
     if args.action == 'prepare':
         for port in [args.mysql_port, args.listen_port]:
-            with socket.socket() as test:
-                test.bind(('127.0.0.1', port))
+            probe_available_port(port)
         if args.mysql_port == args.listen_port or args.mysql_port == 3306:
             raise ValueError('distinct non-original loopback ports required')
         if not args.binary.is_file() or not (args.auth_root / 'validator.json').is_file():

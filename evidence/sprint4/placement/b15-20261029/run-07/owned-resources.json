@@ -1,0 +1,40 @@
+{
+  "servers": [
+    {
+      "id": "2bd60abe-4ea3-4190-bb4b-317f8697bb29",
+      "name": "tt-placement-b15-52eaa09688504e84ac90b671edb45fa7",
+      "deleted": true
+    },
+    {
+      "id": "afeb1561-1b10-4693-84ed-a01fae53fda5",
+      "name": "tt-placement-b14-fb48e3f340864fdb8576d264382b32eb",
+      "deleted": true
+    },
+    {
+      "id": "b19fc3bb-70fc-45a0-8607-a11a1d16a5d1",
+      "name": "tt-placement-b15-9370d40e325e412099099de6140f855a",
+      "deleted": true
+    },
+    {
+      "id": "3349befa-f3d8-44ec-a0ca-8e1650ea5b13",
+      "name": "tt-placement-b15-c094eed0c0c44a548e11b90f85170494",
+      "deleted": true
+    }
+  ],
+  "flavors": [
+    {
+      "id": "dce1934d-1159-4ee3-bb1e-803a5bfa8c3d",
+      "name": "tt-placement-b15-flavor-b24c79b02b3e44a7840a4a4cb8b93908"
+    }
+  ],
+  "consumers": [
+    "df482969-f88d-4204-a0af-7eea7158410c",
+    "5bb531f1-865d-49c9-9789-a780cea640e6",
+    "29e432bb-4501-4e0b-92e9-8f4b3a6146a6",
+    "bb80c66a-197e-4e98-8958-128b7d23cb31",
+    "fc6010e4-b4d7-4de3-9b9e-57979a2795ce",
+    "e882a790-e157-4f47-a3d6-f27a91b94009",
+    "ef9ceebe-d053-4597-8a40-7e1b1f76229d",
+    "c02c9aad-c183-4d0d-9d6b-55728d762a3a"
+  ]
+}

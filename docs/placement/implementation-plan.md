@@ -174,4 +174,5 @@ mediciones. Su orden operativo comienza por B16 y prepara B15 durante B13/B14.
 
 Avance posterior: [B13](b13-integration.md) verifica sustitución/publicación y
 [B14](b14-acceptance.md) el boot real y liberación. [B16](../benchmarks/methodology.md)
-define el protocolo. El siguiente bloque pendiente es B15, antes de medir B17/B18.
+define el protocolo. [B15](b15-integration.md) cerró la suite con dos corridas finales 11/11 y limpieza
+completa. El siguiente bloque pendiente es medir B17/B18 con el protocolo B16.

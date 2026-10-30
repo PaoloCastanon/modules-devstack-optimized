@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import socket
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -18,6 +19,31 @@ def load(name):
 
 
 class PlacementIntegrationGuards(unittest.TestCase):
+    def test_port_probe_allows_time_wait_but_rejects_live_listener(self):
+        module = load('placement_runtime')
+        with socket.socket() as listener:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind(('127.0.0.1', 0))
+            port = listener.getsockname()[1]
+            listener.listen(1)
+            with self.assertRaises(OSError):
+                module.probe_available_port(port)
+            with socket.create_connection(('127.0.0.1', port)) as client:
+                accepted, _ = listener.accept()
+                accepted.close()  # Server closes first and owns TIME_WAIT.
+                self.assertEqual(client.recv(1), b'')
+        with socket.socket() as plain:
+            with self.assertRaises(OSError):
+                plain.bind(('127.0.0.1', port))
+        module.probe_available_port(port)
+
+    def test_elapsed_recovery_timer_does_not_break_idempotent_restore(self):
+        module = load('placement_switch')
+        for code in [0, 4]:
+            with patch.object(module.subprocess, 'run', return_value=SimpleNamespace(returncode=code, stdout='not-found\n')), \
+                    patch.object(module, 'command', side_effect=AssertionError('missing timer must not be stopped')):
+                module.stop_recovery_timer('tt-placement-b13-rollback-0123456789')
+
     def test_mutation_opt_in_precedes_sdk_files_and_privileged_commands(self):
         for name in ['lab_identity', 'placement_runtime', 'placement_switch', 'placement_boot']:
             with self.subTest(name=name):

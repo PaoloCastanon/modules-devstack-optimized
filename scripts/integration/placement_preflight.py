@@ -59,7 +59,7 @@ def run(args):
               'apache_site_sha256': hashlib.sha256(Path('/etc/apache2/sites-enabled/placement-api.conf').read_bytes()).hexdigest(),
               'versions': {name: command(['git', '-C', '/opt/stack/' + name, 'rev-parse', 'HEAD']) for name in ['placement', 'nova', 'glance']},
               'cpu_count': command(['nproc']),
-              'mysql_version': command(['/usr/sbin/mysqld', '--version']),
+              'mysql_version': command(['/usr/sbin/mysqld', '--no-defaults', '--version']),
               'discovery': get('/', '1.0')}
     for provider in get('/resource_providers', '1.14')['resource_providers']:
         prefix = '/resource_providers/' + provider['uuid']
