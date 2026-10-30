@@ -647,3 +647,28 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   evidence/sprint4/placement/b13-20261029/. Sin editar Nova, Excel o S2 ni afirmar
   API completa. B14 continúa boot; B15 suite/inyectores y benchmarks pendientes.
   Original restaurado; VM/runtime/identidad permanecen temporalmente en uso B14.
+
+### 2026-10-29 — B14 boot real con Placement Go y cierre del laboratorio
+
+- Base B13 55b0019, binario 83433d9b… identificado en evidencia B13.
+  Helper SDK real con opt-in, output nuevo e IDs explícitos; no guarda adminPass
+  ni objetos Server enteros. Original uWSGI detenido, sólo Go en /placement.
+- Server 1af1c553-3927-431a-be9b-d7a1f3010006 BUILD→ACTIVE a 00:39:02Z
+  (21:39:02 del 29 en Santiago), imagen CirrOS original, m1.tiny y red shared.
+  Nova hizo candidates/claim; logs Go registran identidad Nova validada.
+- Allocations verificadas en consumer real: VCPU1/MEMORY_MB512/DISK_GB1,
+  owner de la instancia admin (distinto de identidad Nova), consumer gen1 y
+  provider gen3. Usages cero→reserva→cero. DELETE Nova y liberación PASS.
+- Original restaurado/hash Apache exacto. Probe Nova real volvió a obtener
+  candidates en Python. Preflight final conserva provider/inventarios/traits/
+  aggregates/allocations y UUID MySQL original. Listado all-projects sin VMs,
+  imagen original ACTIVE y cinco unidades originales activas antes de shutdown.
+- Runtime Go/MySQL propio detenido; datadir/schema/cuentas/DSN/archivos privados
+  y perfil AppArmor independiente eliminados. Perfil original conserva SHA.
+  User/project/app creds temporales de Keystone y root privado eliminados.
+  Sin unidades/perfiles tt-placement activos; tt-openstack-lab shut off.
+- make check PASS (guards, harness/infra, vet/race/build de ambos dominios).
+  Evidencia evidence/sprint4/placement/b14-20261029/. Scripts/headers no guardan
+  credenciales. Sin cambios Nova/Excel/S2 ni SQL Placement original de escritura.
+- B16, B13 y B14 cerrados técnicamente para el alcance; B15 sigue pendiente
+  (dos suites integrales y negativos), B17/B18 no medidos, B26 fuera de este boot.

@@ -98,3 +98,6 @@ rojas y correcciones del logging incluyen discovery sin identidad autenticada.
 No se acredita HA, nested/sharing, políticas completas ni llamadas fuera de los
 perfiles B10/B12. No se cambió Excel/S2. Al cerrar B13, el original estaba restaurado;
 el runtime/identidad/VM siguen en uso para B14 y su limpieza final se registra allí.
+
+La [aceptación B14](b14-acceptance.md) registra el cierre posterior: boot ACTIVE,
+limpieza de runtime/identidad/perfil propios y VM apagada, con original restaurado.

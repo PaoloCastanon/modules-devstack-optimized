@@ -1,0 +1,7 @@
+active
+active
+active
+active
+active
+0c242ac102a58b00c9e879cef5671dec35fe0c8ec45d85fa01bbea926d63775d  /etc/apparmor.d/usr.sbin.mysqld
+07fab01f3c097319f9ab9d86bb22cf8fc0432381bb4c50e5fd58948c3b29f65f  /etc/apache2/sites-enabled/placement-api.conf

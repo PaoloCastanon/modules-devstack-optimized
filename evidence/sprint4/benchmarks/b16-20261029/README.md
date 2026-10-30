@@ -36,3 +36,6 @@ B17 agrega campañas controladas. No hay afirmación de mejora de rendimiento.
 Las credenciales temporales del piloto quedan privadas y en uso por B13; su
 cleanup y apagado de VM se registran al cierre de esa sesión. El directorio
 privado del generador fue eliminado en finally. No se cambió Excel ni S2.
+
+Cierre posterior de la sesión: evidence/sprint4/placement/b14-20261029/ acredita
+retirada del runtime/identidad/perfil propios, original restaurado y VM apagada.
