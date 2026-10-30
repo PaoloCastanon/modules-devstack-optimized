@@ -594,3 +594,28 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   dominios), git diff --check PASS, hash del Excel intacto. Sin código funcional,
   despliegue, benchmarks, modificación S2 o cambios al estado formal del libro.
   tt-openstack-lab permanece shut off; no se inició durante esta planificación.
+
+### 2026-10-29 — B16 protocolo e instrumentos; inicio B13
+
+- El usuario autorizó comenzar el plan B13–B18. Base integrada B09–B12
+  c2cadc7 en feat/placement-b08; main 45b91ba aún no contiene esos cierres.
+  Se inició feat/placement-b16 desde la base integrada y se conservó el plan.
+- B16: protocolo v1 con matriz/semilla, cargas, warm-up, ventanas, repeticiones,
+  métricas/errores y análisis por repetición antes de medir. Instrumentos HTTP
+  readonly con snapshot completo y /proc con CPU/PSS/RSS y PID identity.
+- TDD rojo al faltar módulo, seis tests finales PASS con HTTP y /proc reales;
+  status 200 con estado erróneo no cuenta como éxito y no se guardan tokens.
+  make check PASS (harness, infra, vet/race/build de ambos dominios).
+- Dos pilotos Python con Keystone real: cada uno cuatro concurrencias
+  1/4/8/16, warm-up 1s/carga 4s, cero errores. Segundo piloto usa instrumento
+  final con UTC y denominador hasta deadline/respuesta final, sin teardown.
+  Muestreo de master+dos workers uWSGI, PSS disponible. Cifras sólo de piloto,
+  no benchmark B17/B18 ni comparación con Go. Fuentes y muestras conservadas
+  en evidence/sprint4/benchmarks/b16-20261029/.
+- VM encendida en uso por B13. Preflight readonly: un provider plano, sin
+  sharing/allocations y sin instancias; compute up. Placement tiene unidad
+  uWSGI independiente y ruta Apache propia. Identidad temporal por roles
+  service/admin/reader con archivos privados; sigue en uso por B13.
+- B16 cierra protocolo para Placement. Claim/mezcla y campañas B17/B18 se
+  implementan/pilotan después de integrar Nova; no se acreditan por estos pilotos.
+  Sin cambios al Excel, evidencia S2 o código funcional de Placement/Glance.

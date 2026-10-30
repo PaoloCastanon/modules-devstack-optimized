@@ -13,6 +13,14 @@ Este plan organiza el backlog existente; no reemplaza el Excel ni modifica sprin
 
 Las fases son agrupaciones de aceptación, no una prohibición de avanzar en paralelo en los dos módulos. B26 conserva S5. B21 continúa en progreso y B16 pendiente según la última aceptación; preparar estos documentos no los cierra.
 
+## Integración y evaluación: avance B13–B18
+
+**B16 completado técnicamente para Placement:** [protocolo experimental](docs/benchmarks/methodology.md),
+instrumentos de lectura/CPU/PSS, tests y dos pilotos reales de calibración.
+[Resultados del piloto](evidence/sprint4/benchmarks/b16-20261029/README.md).
+B13 en ejecución; B14/B15 y mediciones B17/B18 pendientes. El Excel conserva su
+aceptación histórica; este registro no cambia su estado formal.
+
 ## Placement: B07–B12 completados en el alcance seleccionado
 
 **Cierre técnico al 2026-10-29:** [B07 aceptado para el alcance priorizado
