@@ -171,3 +171,7 @@ la API upstream. No cambiar Excel ni evidencia histórica S2.
 
 El [plan B13–B18](b13-b18-plan.md) detalla sustitución, boot, suite y metodología/
 mediciones. Su orden operativo comienza por B16 y prepara B15 durante B13/B14.
+
+Avance posterior: [B13](b13-integration.md) verifica sustitución/publicación y
+[B14](b14-acceptance.md) el boot real y liberación. [B16](../benchmarks/methodology.md)
+define el protocolo. El siguiente bloque pendiente es B15, antes de medir B17/B18.

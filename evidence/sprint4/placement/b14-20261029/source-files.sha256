@@ -1,0 +1,3 @@
+04dd9e519c59905ccc9acfa5bccebb78fb8b8a603712d9b8b148b145ee8b6b1d  scripts/integration/placement_boot.py
+04c0d05228f8cea497964600cb8f29b2151ebd0f02b0057f34eba2031802acbb  tests/unit/test_placement_integration_guards.py
+4a788df0113e54576d9a4e77a8f1988d4938a1f85005ba24bcb32ccfe39c4f61  internal/placement/api/api.go

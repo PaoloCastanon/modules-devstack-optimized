@@ -1,0 +1,8 @@
+[]
+{
+  "id": "525c5703-e0a5-4cee-9669-9e57fd89ca32",
+  "status": "active"
+}
+68ed5a00-d3f7-11f1-9a9b-525400241002	13316	/home/stack/tt-placement-b13-runtime-20261029/mysql/
+07fab01f3c097319f9ab9d86bb22cf8fc0432381bb4c50e5fd58948c3b29f65f  /etc/apache2/sites-enabled/placement-api.conf
+0c242ac102a58b00c9e879cef5671dec35fe0c8ec45d85fa01bbea926d63775d  /etc/apparmor.d/usr.sbin.mysqld
