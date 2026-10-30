@@ -73,3 +73,7 @@ modificó Nova, Excel, S2 ni se ejecutó SQL de escritura en Placement original.
 B15 sigue pendiente, al igual que las campañas B17/B18. Glance original sirvió la
 imagen; este ensayo no cierra B26 ni demuestra toda la API Placement, nested/sharing,
 HA, boot por red/SSH de la instancia o resultados comparativos de rendimiento.
+
+Cierre posterior: [B15](b15-integration.md) automatiza preparación, casos positivos/
+negativos y restauración; sus dos corridas finales pasan 11/11. B17/B18 conservan
+las campañas de rendimiento independientes.

@@ -1,0 +1,24 @@
+import configparser,hashlib,json,os,pathlib,subprocess,sys
+sys.path.insert(0,'/tmp/tt-placement-b15-code-20261029')
+from placement_suite import sdk_connection
+from keystoneclient import exceptions
+from sqlalchemy import create_engine,text
+ids=json.loads(pathlib.Path('/tmp/b15-owned-ids.json').read_text())
+c,_,_=sdk_connection()
+servers=list(c.compute.servers(all_projects=True))
+users={x.id for x in c.identity.users()};projects={x.id for x in c.identity.projects()};flavors={x.id for x in c.compute.flavors()}
+result={'servers_remaining':len(servers),'owned_users_remaining':len(users&set(ids['users'])),'owned_projects_remaining':len(projects&set(ids['projects'])),'owned_flavors_remaining':len(flavors&set(ids['flavors']))}
+result['original_services']={name:subprocess.run(['systemctl','is-active','--quiet',name]).returncode==0 for name in ['devstack@placement-api.service','devstack@n-cpu.service','devstack@n-sch.service','devstack@keystone.service','devstack@g-api.service']}
+result['own_units_remaining']=subprocess.check_output(['systemctl','list-units','--all','--no-legend','tt-placement*'],text=True).strip()
+result['own_apparmor_profiles']=[line.split()[0] for line in subprocess.check_output(['sudo','cat','/sys/kernel/security/apparmor/profiles'],text=True).splitlines() if 'tt-placement-' in line]
+result['own_profile_files']=[p.name for p in pathlib.Path('/etc/apparmor.d').glob('tt-placement-b13-*')]
+result['work_roots_remaining']=[p.name for p in pathlib.Path('/home/stack').glob('tt-placement-b15-work-*')]
+result['nested_domains_remaining']=subprocess.check_output(['sudo','virsh','-c','qemu:///system','list','--all','--name'],text=True).strip()
+result['image_original_active']=c.image.get_image('525c5703-e0a5-4cee-9669-9e57fd89ca32').status.lower()=='active'
+result['apache_sha256']=hashlib.sha256(pathlib.Path('/etc/apache2/sites-enabled/placement-api.conf').read_bytes()).hexdigest()
+result['original_apparmor_sha256']=hashlib.sha256(pathlib.Path('/etc/apparmor.d/usr.sbin.mysqld').read_bytes()).hexdigest()
+lock=pathlib.Path('/run/lock/tt-placement-integration.lock');result['coordinator_lock_bytes']=lock.stat().st_size
+c.close()
+assert not any(result[k] for k in ['servers_remaining','owned_users_remaining','owned_projects_remaining','owned_flavors_remaining','own_units_remaining','own_apparmor_profiles','own_profile_files','work_roots_remaining','nested_domains_remaining'])
+assert all(result['original_services'].values()) and result['image_original_active'] and result['coordinator_lock_bytes']==0
+print(json.dumps(result,indent=2))

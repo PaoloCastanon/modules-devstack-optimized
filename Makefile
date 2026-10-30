@@ -145,3 +145,10 @@ placement-test-allocations:
 # NEW EMPTY schema; verifies candidates and repeatable-read snapshot consistency.
 placement-test-candidates:
 	go test -race -count=1 -tags=integration ./internal/placement/repository/mysql -run '^TestB10MySQLCandidates$$' -v
+
+# Explicit live lab command, inside the VM with admin openrc and deployed SDKs.
+# Example arguments are documented in docs/placement/b15-integration.md.
+.PHONY: placement-integration
+PLACEMENT_INTEGRATION_ARGS ?=
+placement-integration:
+	python3 scripts/integration/placement_suite.py $(PLACEMENT_INTEGRATION_ARGS)

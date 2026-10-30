@@ -1,0 +1,1 @@
+{"run_id": "f54542dc-38b7-463a-8c83-0f5b9fd03b34", "passed": false, "cases_passed": 1, "cases_required": 11, "cleanup": {"servers_removed": true, "flavors_removed": true, "allocations_removed": true, "original_restored": true, "original_state_unchanged": true, "runtime_removed": true, "identity_removed": true, "private_root_removed": true}}

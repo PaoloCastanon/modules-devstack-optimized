@@ -1,0 +1,62 @@
+[
+  {
+    "role": "reader",
+    "method": "PUT",
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.36"
+      },
+      "body_text": "{\"errors\":[{\"code\":\"placement.undefined_code\",\"detail\":\"Access was denied to this resource.\\n\\n Policy does not allow placement:allocations:update to be performed.  \",\"request_id\":\"req-d793c8dc-6a82-4206-b2ed-ba75f48d3204\",\"status\":403,\"title\":\"Forbidden\"}]}\n"
+    }
+  },
+  {
+    "role": "reader",
+    "method": "DELETE",
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.36"
+      },
+      "body_text": "{\"errors\":[{\"code\":\"placement.undefined_code\",\"detail\":\"Access was denied to this resource.\\n\\n Policy does not allow placement:allocations:delete to be performed.  \",\"request_id\":\"req-25ad93b5-db59-4fc5-952b-ad6a3b9af898\",\"status\":403,\"title\":\"Forbidden\"}]}\n"
+    }
+  },
+  {
+    "role": "reader",
+    "method": "GET",
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.36"
+      },
+      "body_text": "{\"errors\":[{\"code\":\"placement.undefined_code\",\"detail\":\"Access was denied to this resource.\\n\\n Policy does not allow placement:allocations:list to be performed.  \",\"request_id\":\"req-ce496f00-a7d6-4467-b566-2e238086c3bb\",\"status\":403,\"title\":\"Forbidden\"}]}\n"
+    }
+  },
+  {
+    "role": "invalid",
+    "method": "GET",
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json",
+        "www-authenticate": "Keystone uri=\"http://192.168.122.10/identity\""
+      },
+      "body_text": "{\"error\":{\"code\":401,\"message\":\"The request you have made requires authentication.\",\"title\":\"Unauthorized\"}}\n"
+    }
+  },
+  {
+    "role": "missing",
+    "method": "GET",
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json",
+        "www-authenticate": "Keystone uri=\"http://192.168.122.10/identity\""
+      },
+      "body_text": "{\"error\":{\"code\":401,\"message\":\"The request you have made requires authentication.\",\"title\":\"Unauthorized\"}}\n"
+    }
+  }
+]

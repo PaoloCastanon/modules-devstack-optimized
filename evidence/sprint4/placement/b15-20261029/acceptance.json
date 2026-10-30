@@ -1,0 +1,18 @@
+{
+  "final_runs": [
+    "run-06",
+    "run-07"
+  ],
+  "consecutive": true,
+  "required_cases_per_run": 11,
+  "passed_cases": 22,
+  "required_cleanup_flags_per_run": 8,
+  "all_cleanup_passed": true,
+  "same_instrument_sha256": "2fb35606ff1a9cce0c31f8d10a7d5a4d9167dce692d97895c9c0378cf3026e43",
+  "same_binary_sha256": "20b7b92db02ca5e330359ee7263a11d9bf4c152343bb865bd1f69f08d02f63db",
+  "separate_mysql_uuids": [
+    "6ff4a430-d404-11f1-bc98-525400241002",
+    "c8153684-d404-11f1-a273-525400241002"
+  ],
+  "base_commit": "1a2efa7289d9d9981aecc859630c2bfee38e3d53"
+}

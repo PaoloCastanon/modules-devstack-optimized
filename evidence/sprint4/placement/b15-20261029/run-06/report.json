@@ -1,0 +1,226 @@
+{
+  "schema": 1,
+  "run_id": "c2e1d98e-a118-4685-bc4e-06215569c6ac",
+  "timestamp_utc": "2026-10-30 01:51:33 UTC",
+  "cases": {
+    "preflight_and_isolation": {
+      "passed": true,
+      "details": {
+        "flat_idle_compute": true,
+        "independent_mysql_uuid": "6ff4a430-d404-11f1-bc98-525400241002",
+        "no_existing_servers": true
+      },
+      "elapsed_s": 9.614370064000013
+    },
+    "tracker": {
+      "passed": true,
+      "details": {
+        "published": true,
+        "original_generation": 3,
+        "go_generation": 2,
+        "generation_note": "independent histories retained, not normalized"
+      },
+      "elapsed_s": 9.34937896200006
+    },
+    "auth_fail_closed": {
+      "passed": true,
+      "details": {
+        "service_accepted": true,
+        "denied_cases": 5,
+        "no_effects": true
+      },
+      "elapsed_s": 0.3261672669999598
+    },
+    "restart_persistence": {
+      "passed": true,
+      "details": {
+        "same_domain_state": true,
+        "new_process": true,
+        "next_nova_client_operation": true
+      },
+      "elapsed_s": 1.175840581999978
+    },
+    "consumer_cas": {
+      "passed": true,
+      "details": {
+        "statuses": [
+          409,
+          204
+        ],
+        "one_reservation": true
+      },
+      "elapsed_s": 0.08267441800001052
+    },
+    "capacity_concurrency": {
+      "passed": true,
+      "details": {
+        "capacity": 16,
+        "per_claim": 4,
+        "statuses": [
+          204,
+          409,
+          204,
+          204,
+          204
+        ],
+        "no_overallocation": true
+      },
+      "elapsed_s": 0.26875125499998376
+    },
+    "nova_no_capacity": {
+      "passed": true,
+      "details": {
+        "server_ids": [
+          "213c5c5c-76d3-4f5e-a6f3-8fce7c486d3f"
+        ],
+        "states": [
+          {
+            "timestamp_utc": "2026-10-30T01:51:54.953559+00:00",
+            "statuses": [
+              "BUILD"
+            ]
+          },
+          {
+            "timestamp_utc": "2026-10-30T01:51:56.996251+00:00",
+            "statuses": [
+              "ERROR"
+            ]
+          }
+        ],
+        "allocations_active": {},
+        "expected_final_status": "ERROR/NoValidHost",
+        "submitted_concurrently": false,
+        "requested_disk_gb": 53,
+        "candidates_empty": true
+      },
+      "elapsed_s": 2.6881066290000035
+    },
+    "nova_boot_and_release": {
+      "passed": true,
+      "details": {
+        "server_id": "a8001fda-9450-47a9-9881-20ce0651ae1f",
+        "active_and_released": true
+      },
+      "elapsed_s": 6.76158552000004
+    },
+    "nova_concurrent_boots": {
+      "passed": true,
+      "details": {
+        "server_ids": [
+          "eb8a6bcf-27f2-429e-ac25-961e11efb19b",
+          "1849355f-d9b0-429c-b654-54fde6e3ef53"
+        ],
+        "states": [
+          {
+            "timestamp_utc": "2026-10-30T01:52:04.308696+00:00",
+            "statuses": [
+              "BUILD",
+              "BUILD"
+            ]
+          },
+          {
+            "timestamp_utc": "2026-10-30T01:52:06.429747+00:00",
+            "statuses": [
+              "BUILD",
+              "BUILD"
+            ]
+          },
+          {
+            "timestamp_utc": "2026-10-30T01:52:08.586611+00:00",
+            "statuses": [
+              "ACTIVE",
+              "ACTIVE"
+            ]
+          }
+        ],
+        "allocations_active": {
+          "eb8a6bcf-27f2-429e-ac25-961e11efb19b": {
+            "project_id": "76fe49699db545d39b31ddd2ad0abaff",
+            "user_id": "2ff6c5c299214623a95877cfc424aa39",
+            "consumer_generation": 1,
+            "allocations": {
+              "3b7cc290-1329-47d2-9502-890059c82d1b": {
+                "generation": 11,
+                "resources": {
+                  "DISK_GB": 1,
+                  "MEMORY_MB": 512,
+                  "VCPU": 1
+                }
+              }
+            }
+          },
+          "1849355f-d9b0-429c-b654-54fde6e3ef53": {
+            "project_id": "76fe49699db545d39b31ddd2ad0abaff",
+            "user_id": "2ff6c5c299214623a95877cfc424aa39",
+            "consumer_generation": 1,
+            "allocations": {
+              "3b7cc290-1329-47d2-9502-890059c82d1b": {
+                "generation": 11,
+                "resources": {
+                  "DISK_GB": 1,
+                  "MEMORY_MB": 512,
+                  "VCPU": 1
+                }
+              }
+            }
+          }
+        },
+        "expected_final_status": "ACTIVE",
+        "submitted_concurrently": true
+      },
+      "elapsed_s": 9.105670374999931
+    },
+    "failure_rollback": {
+      "passed": true,
+      "details": {
+        "injected_exception": true,
+        "automatic_original_restore": true,
+        "owned_claim_removed_directly_from_go": "6a1791ce-271b-463f-8cf5-3c060a997383"
+      },
+      "elapsed_s": 8.408482971000012
+    },
+    "original_restoration": {
+      "passed": true,
+      "details": {
+        "same_original_state": true,
+        "next_nova_client_operation": true
+      }
+    }
+  },
+  "cleanup": {
+    "servers_removed": true,
+    "flavors_removed": true,
+    "allocations_removed": true,
+    "original_restored": true,
+    "original_state_unchanged": true,
+    "runtime_removed": true,
+    "identity_removed": true,
+    "private_root_removed": true
+  },
+  "execution_error": null,
+  "cleanup_errors": [],
+  "binary_sha256": "20b7b92db02ca5e330359ee7263a11d9bf4c152343bb865bd1f69f08d02f63db",
+  "instrument_sha256": "2fb35606ff1a9cce0c31f8d10a7d5a4d9167dce692d97895c9c0378cf3026e43",
+  "resource_ids": {
+    "provider_id": "3b7cc290-1329-47d2-9502-890059c82d1b",
+    "image_id": "525c5703-e0a5-4cee-9669-9e57fd89ca32",
+    "flavor_id": "1",
+    "network_id": "44193c7a-3e3b-4ae2-900e-e1e88856d4e3"
+  },
+  "owner": {
+    "project_id": "76fe49699db545d39b31ddd2ad0abaff",
+    "user_id": "2ff6c5c299214623a95877cfc424aa39"
+  },
+  "runtime": {
+    "server_uuid": "6ff4a430-d404-11f1-bc98-525400241002",
+    "schema": "placement_go_test_b13_26e4cfe68c",
+    "go_unit": "tt-placement-b13-go-a93254902b",
+    "db_unit": "tt-placement-b13-db-a93254902b",
+    "nova_user_id": "c40c4337691f4a94a519104114abb32f"
+  },
+  "nova_methods_observed": {
+    "PUT": true,
+    "DELETE": true
+  },
+  "passed": true
+}

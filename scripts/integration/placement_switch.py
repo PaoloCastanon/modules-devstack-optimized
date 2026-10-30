@@ -28,6 +28,16 @@ def active(unit):
     return subprocess.run(['systemctl', 'is-active', '--quiet', unit], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
 
 
+def stop_recovery_timer(unit):
+    if not re.fullmatch(r'tt-placement-b13-rollback-[0-9a-f]{10}', unit):
+        raise ValueError('recovery timer ownership mismatch')
+    state = subprocess.run(['systemctl', 'show', '--value', '-p', 'LoadState', unit + '.timer'],
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    if state.stdout.strip() == 'not-found':
+        return  # --collect may already have unloaded an elapsed/stopped timer.
+    command(['sudo', 'systemctl', 'stop', unit + '.timer'])
+
+
 def replace_site(path, data, expected, mode, uid, gid):
     # Only the fixed root-owned Apache site is written, with a lease checked
     # inside the privileged process and atomic rename/fsync in the same folder.
@@ -101,7 +111,7 @@ def run(args):
         state['active'] = False
         save(state)
         if state.get('rollback_unit'):
-            command(['sudo', 'systemctl', 'stop', state['rollback_unit'] + '.timer'])
+            stop_recovery_timer(state['rollback_unit'])
         return {'original_restored': True, 'original_site_sha256': state['original_sha'],
                 'original_unit_active': True, 'discovery': discovery}
 
