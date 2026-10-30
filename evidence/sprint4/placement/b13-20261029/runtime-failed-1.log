@@ -1,0 +1,2 @@
+mysqld: [ERROR] Failed to open required defaults file: /home/stack/tt-placement-b13-runtime-20261029/mysql.cnf
+mysqld: [ERROR] Fatal error in defaults handling. Program aborted!

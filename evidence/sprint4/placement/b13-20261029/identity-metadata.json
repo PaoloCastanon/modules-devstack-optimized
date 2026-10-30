@@ -1,0 +1,1 @@
+{"project": "c60013fd28fa4e21aec6fa0e52c02cc2", "user": "76751ada56544b15bbb1800f307a7a19", "tokens": {"admin": {"expires_at": "2026-10-30T01:05:37+00:00", "roles": ["reader", "admin", "manager", "member"]}, "service": {"expires_at": "2026-10-30T01:05:37+00:00", "roles": ["service"]}, "reader": {"expires_at": "2026-10-30T01:05:37+00:00", "roles": ["reader"]}}}

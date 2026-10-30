@@ -87,3 +87,21 @@ func TestExpiredAndDuplicateCredentialsFailClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestRequestLogAttributesValidatedIdentity(t *testing.T) {
+	h, a, log := harness(t)
+	a.who.UserID = "trusted-nova-id"
+	a.who.ProjectID = "trusted-service-project"
+	r := httptest.NewRequest("GET", "/resource_providers", nil)
+	r.Header.Set("X-Auth-Token", "test-token")
+	r.Header.Set("X-User-Id", "spoofed-user")
+	r.Header.Set("X-Project-Id", "spoofed-project")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != 200 || !strings.Contains(log.String(), `"user_id":"trusted-nova-id"`) || !strings.Contains(log.String(), `"project_id":"trusted-service-project"`) {
+		t.Fatalf("missing validated identity: %s", log.String())
+	}
+	if strings.Contains(log.String(), "spoofed") || strings.Contains(log.String(), "test-token") {
+		t.Fatal("untrusted identity or credential in log")
+	}
+}
