@@ -760,3 +760,95 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - Arranque oficial01 sin ventanas: known_hosts ignorado no existía en el nuevo worktree; SSH falló antes de ejecutar el coordinador. Intento y prueba del original activo/directorios remotos ausentes conservados.
 - Guard de archivos SSH/protocolo legibles antes de crear outputs/estado o lanzar SSH; test reproduce ausencia de la caché y exige cero efectos. Ruta absoluta original de confianza para el nuevo intento. No se deshabilita verificación de host.
 - Instrumentos HTTP, coordinador VM y recolector iguales al piloto07; sólo cambia preflight del driver. Campaña240 pendiente, sin reclasificar este fallo como éxito.
+
+
+### 2026-10-30 — Cola de campañas Glance y sustitución conjunta
+
+- Solicitud explícita: al finalizar Placement, crear campañas para Glance Go y
+  para ambos servicios Go juntos. Preparación en rama/worktree independientes
+  feat/glance-joint-benchmark-campaigns, base fa116a8; no se cambió el worktree
+  congelado ni el protocolo/supervisor de la campaña Placement en ejecución.
+- Propuesto: glance-v1 compara Python/Go con Placement original, nueve cargas,
+  cuatro concurrencias y cinco pares (360 ventanas). Diseño conjunto 2x2:
+  cuatro variantes, dos perfiles de caché, lotes 1/2/4 y cinco repeticiones
+  (120 bloques y 280 boots medidos). Preflight y pilotos separados, sin aceptación
+  anticipada ni atribución de rendimiento sólo al lenguaje.
+- Preparado: protocolos JSON, runbook, condiciones de continuación y vínculo en
+  PLANS.md. Estado durable fuera de Git en reports/campaigns/followup-status.json
+  del workspace superior. Seguimiento horario en este chat creado mediante
+  automation_update; ID continuar-con-campa-as-glance-y-conjunta. Espera el cierre
+  aceptado/restaurado de Placement y evita campañas o procesos duplicados.
+- Verificación ligera ejecutada: JSON, unicidad de escenarios, productos de las
+  matrices/pilotos y enlaces relativos. PASS: Glance 360/36 ventanas; conjunto
+  120/16 bloques y 280/24 boots oficiales/piloto. Sin acceso a la VM.
+- make check, compilación, instrumentos específicos, pilotos, mediciones y commit:
+  PENDIENTES hasta que termine la campaña actual, para evitar interferencia.
+  No se declaró B17/B18 Glance/conjunto terminado ni se modificó Excel/Sprint2.
+  Localizar código y evidencia real de B25/B26 antes de usar Glance como baseline
+  aceptado: los documentos de este checkout todavía contienen límites históricos.
+
+
+### 2026-10-31 — Recuperación de la campaña Placement predecesora
+
+- Intento 02: detenido con 111/240 ventanas; la siguiente ventana presentó
+  38706 respuestas válidas, un fallo de transporte y 15 HTTP 503. Journal de la
+  VM correlaciona apt-daily-upgrade con reinicios Apache/Keystone a 06:19:55 UTC.
+  No se aceptan ni se combinan esos resultados con el entorno actualizado.
+- Limpieza remota tardía comprobada: originales activos/inalterados, runtime,
+  identidad y estado privado retirados. Evidencia pública copiada fuera del
+  worktree congelado; apagado normal verificado. Reinicio para un nuevo ensayo.
+- Control operacional temporal: apt-daily y apt-daily-upgrade, servicios y timers,
+  masked-runtime y timers inactivos; habilitación persistente sin cambios.
+  Guardado estado previo/efectivo y versiones de paquetes fuera de Git.
+- Intento 03 iniciado con supervisor durable y 240 ventanas nuevas; HEAD fa116a8,
+  protocolo y fuentes sin modificar. Seguimiento del chat actualizado al servicio
+  tt-placement-b17-b18-20261031-03.service. Campañas Glance/conjunta en espera.
+- No cambios en el código Go, Excel, Sprint2 ni aceptación B17/B18. No se ejecutó
+  make check o compilación durante las ventanas. Controles operacionales y
+  preflight existentes no sustituyen la aceptación de la matriz completa.
+
+
+### 2026-10-31 — Limpieza autorizada y perfiles de campaña compactos
+
+- Usuario pidió liberar disco/cachés y campañas de menor duración. No había
+  respaldo completo confirmado para destruir el laboratorio; se preservó la VM.
+- Cachés Chromium HTTP/código, pnpm metadata y pip HTTP: 1,56 GiB netos liberados.
+  En Ubuntu: syslog 28,6 GiB, acceso Horizon 2,1 GiB y journal 4 GiB. Se preservaron
+  colas recientes comprimidas, journals de incidentes y toda evidencia de pruebas;
+  se redujeron logs, se aspiró journal a 256 MiB y se limpió apt.
+- Domain XML respaldado; discard=unmap sólo en vda. Dos ejecuciones fstrim del
+  espacio libre reclamaron bloques. qcow2 de 44,79 a ~6,76 GiB; host ~39 GiB libres.
+  Capacidad 55 GiB y DevStack conservados; controles originales activos verificados
+  durante mantenimiento y apagado normal final comprobado. No se midió rendimiento.
+- Perfiles v2 preparados: Placement 72 ventanas, Glance 108, conjunta 24 bloques
+  y 36 boots. Verificados productos de matrices. No ejecutados ni aceptados.
+  Supervisor/publicación, estadísticas con n=3, límites de logs/espacio y IaC
+  requieren adaptación y checks antes de pilotos/campañas. Datos v1 no se mezclan.
+- Revisión 2 documenta alcance preliminar y duración menor; no presenta un recorte
+  como cumplimiento de las 240 ventanas históricas. VM apagada al terminar.
+
+
+### 2026-10-31 — B16 v2 e instrumentación compacta B17/B18
+
+- El usuario confirmó continuar con perfiles compactos. Matriz Placement de 72
+  ventanas, tres pares y 10/30s; conteos/status/publicación derivados del protocolo.
+  Análisis de n=3 publica mediana/rango sin intervalo bootstrap de confianza.
+  Aceptación comprueba los IDs completos y únicos de la matriz aprobada.
+- Guardia anfitriona: 20 GiB antes de iniciar, vigilancia a 2s durante carga y
+  aborto controlado bajo 10 GiB. Los workers consultan sólo un Event en memoria;
+  finalización conserva las muestras y limpia recursos fuera de la medición.
+- Helper VM: máscara apt temporal, límites journald temporales y retención
+  acotada de syslog/Horizon entre ventanas. Conserva colas privadas recientes,
+  restaura timer/enablement/configuración y fstrim antes de apagar. No interrumpe
+  un job apt activo ni elimina máscaras ajenas.
+- EOF/RPC corregido: recoge cleanup tardío tras cierre y copia evidencia; una
+  recuperación de limpieza no convierte una campaña inválida en aceptada.
+- Terraform driver.discard=unmap validado contra esquema libvirt 0.9.9 y terraform
+  validate PASS; coincide con la configuración operativa de vda, sin apply.
+- Validación: make check PASS (harness, evidencia S2, Python, infraestructura,
+  Go vet/race/build de ambos dominios). Ocho pruebas compactas específicas PASS,
+  incluida restauración al fallar controles, falta de espacio, retención acotada,
+  limpieza tardía y publicación sin 240 ni confianza inferencial con n=3.
+  Suite Python final repetida tras los últimos ajustes PASS.
+- No campaña oficial nueva aún; próximo paso piloto real de 24 ventanas con
+  original/Go y muestras CPU/PSS. No se declaró cierre B17/B18 o Glance.

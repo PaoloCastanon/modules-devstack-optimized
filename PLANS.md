@@ -35,6 +35,25 @@ Mediciones oficiales B17/B18 pendientes. El Excel conserva su
 aceptación histórica; este registro no cambia su estado formal.
 <!-- placement-b17-b18-status:end -->
 
+## Revisión compacta v2 autorizada, 2026-10-31
+
+El usuario solicitó reducir duración y liberar espacio. Se prepararon perfiles
+[compactos](docs/benchmarks/compact-campaigns-v2.md): Placement 72 ventanas, Glance
+108 y conjunto 24 bloques/36 boots. Instrumentación adaptada a la matriz, rango
+observado con n=3, controles de disco/logs y mantenimiento temporal; checks locales
+aprobados. Piloto real y aceptación de las campañas aún pendientes. Ningún intento
+fallido de la matriz larga acredita v2 ni se mezcla con ella.
+
+## Campañas posteriores autorizadas: Glance y funcionamiento conjunto
+
+Solicitud del usuario, 2026-10-30: continuar después de la campaña Placement
+actual. [Protocolos y runbook](docs/benchmarks/glance-joint-campaigns.md)
+preparados en worktree independiente: Glance Python/Go con Placement original,
+seguido de un diseño conjunto de cuatro variantes con boots Nova reales.
+Instrumentos específicos, preflight, pilotos y resultados oficiales pendientes.
+No cambiar la campaña Placement congelada ni ejecutar campañas simultáneas.
+[Condiciones y continuación](docs/benchmarks/after-placement-handoff.md).
+
 ## Placement: B07–B12 completados en el alcance seleccionado
 
 **Cierre técnico al 2026-10-29:** [B07 aceptado para el alcance priorizado

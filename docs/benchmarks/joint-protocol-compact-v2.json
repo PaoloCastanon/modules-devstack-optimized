@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "protocol": "placement-glance-joint-compact-v2",
+  "status": "prepared; requires pilot, explicit runner support and frozen manifest before measurement",
+  "scope": "Nova original boots instances using Placement and Glance in a controlled 2x2 design",
+  "configurations": [
+    {
+      "id": "python-python",
+      "placement": "python",
+      "glance": "python"
+    },
+    {
+      "id": "go-python",
+      "placement": "go",
+      "glance": "python"
+    },
+    {
+      "id": "python-go",
+      "placement": "python",
+      "glance": "go"
+    },
+    {
+      "id": "go-go",
+      "placement": "go",
+      "glance": "go"
+    }
+  ],
+  "concurrent_boots": [
+    1,
+    2
+  ],
+  "repetitions": 3,
+  "cache_profiles": [
+    "cold-owned-image"
+  ],
+  "order_seed": 20261101,
+  "sampling_interval_s": 1,
+  "idle_sampling_s": 5,
+  "boot_timeout_s": 300,
+  "cleanup_timeout_s": 180,
+  "bootstrap_resamples": 10000,
+  "confidence": 0.95,
+  "flavor": {
+    "vcpus": 1,
+    "ram_mib": 512,
+    "disk_gib": 1
+  },
+  "image": "Same locally available bootable CirrOS payload, pinned SHA256, exact length and format in frozen manifest",
+  "required_official_blocks": 24,
+  "required_measured_boots": 36,
+  "pilot": {
+    "concurrent_boots": [
+      1,
+      2
+    ],
+    "repetitions": 1,
+    "cache_profiles": [
+      "cold-owned-image"
+    ],
+    "required_blocks": 8,
+    "required_measured_boots": 12
+  },
+  "predecessor": "Glance campaign accepted, original services restored, lab released",
+  "acceptance": "All 24 cold-image blocks and 36 measured boots valid in the four variants, correct service traces and allocations, complete metrics, cleanup and original restoration verified",
+  "purpose": "Etapa 3 preliminary validation with reduced duration and declared coverage",
+  "host_free_minimum_bytes": 21474836480,
+  "log_policy": "Bound VM operational logs; rotate only outside measured windows, retain recent incident diagnostics and all benchmark samples",
+  "statistics": "Three independent paired repetitions; publish individual results, median and range, declare limited uncertainty; no claim of precise tail or statistical significance"
+}

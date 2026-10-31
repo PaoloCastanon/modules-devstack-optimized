@@ -111,7 +111,7 @@ resource "libvirt_domain" "lab" {
     disks = [
       {
         device = "disk"
-        driver = { name = "qemu", type = "qcow2" }
+        driver = { name = "qemu", type = "qcow2", discard = "unmap" }
         source = { file = { file = libvirt_volume.system.path } }
         target = { dev = "vda", bus = "virtio" }
       },

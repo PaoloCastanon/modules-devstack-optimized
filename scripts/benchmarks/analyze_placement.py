@@ -10,6 +10,7 @@ import statistics
 
 from placement_http import percentile
 from placement_resources import interval_summary
+from campaign_protocol import accounting
 
 
 def nanos(value):
@@ -19,6 +20,9 @@ def nanos(value):
 def bootstrap(values, seed=20261029, count=10000):
     if not values:
         raise ValueError('no independent repetitions')
+    result = {'n': len(values), 'median': statistics.median(values), 'min': min(values), 'max': max(values)}
+    if len(values) < 5:
+        return {**result, 'interval_kind': 'observed_range; insufficient independent repetitions for confidence claim'}
     rng = random.Random(seed)
     draws = [statistics.median(rng.choices(values, k=len(values))) for _ in range(count)]
     return {'n': len(values), 'median': statistics.median(values), 'min': min(values), 'max': max(values),
@@ -29,6 +33,7 @@ def bootstrap(values, seed=20261029, count=10000):
 def analyze(root):
     manifest = json.loads((root / 'manifest.json').read_text())
     protocol = manifest['protocol']
+    dimensions = accounting(protocol)
     runs, errors = {}, []
     for entry in manifest['runs']:
         ident = entry['run_id']
@@ -127,15 +132,20 @@ def analyze(root):
                             ratios.setdefault(key, []).append(go['resources'][key] / python['resources'][key])
             group['paired_go_over_python'] = {k: bootstrap(v, count=protocol['bootstrap_resamples']) for k, v in ratios.items()}
             groups.append(group)
-    required = 2 * len(protocol['scenarios']) * len(protocol['concurrency']) * protocol['repetitions']
-    official = manifest['stage'] == 'measurement' and manifest['valid'] and manifest['cleanup'] and len(runs) == required
+    required = dimensions['runs']
+    expected_ids = {f'{scenario}-c{concurrency:02}-r{repetition:02}-{impl}'
+                    for scenario in protocol['scenarios'] for concurrency in protocol['concurrency']
+                    for repetition in range(1, protocol['repetitions'] + 1) for impl in ['python', 'go']}
+    observed_ids = [entry['run_id'] for entry in manifest['runs']]
+    official = (manifest['stage'] == 'measurement' and manifest['valid'] and manifest['cleanup']
+                and len(observed_ids) == required and set(observed_ids) == expected_ids and set(runs) == expected_ids)
     return {'schema': 1, 'campaign_id': manifest['campaign_id'], 'stage': manifest['stage'],
             'b17_accepted': official and all(r['b17_valid'] for r in runs.values()),
             'b18_accepted': official and not errors and all(r['b18_valid'] for r in runs.values()),
-            'runs_required': required, 'runs_observed': len(runs), 'errors': errors, 'runs': runs, 'groups': groups,
+            'protocol': protocol, 'runs_required': required, 'runs_observed': len(runs), 'errors': errors, 'runs': runs, 'groups': groups,
             'statistical_unit': 'independent repetition; paired ratio for implementation comparisons',
             'percentiles': 'per-run nearest rank; group median of per-run percentiles, never a pooled percentile',
-            'limitations': ['n=5 limits inference; bootstrap intervals are descriptive',
+            'limitations': [f"n={protocol['repetitions']} independent pairs per cell; small samples limit inference",
                             'closed-loop load; does not infer open-arrival performance',
                             'deployed auth caches, workers, SQL pools and database settings differ; no language-only attribution',
                             'PSS sampled at 1Hz, maximum is observed, not absolute peak',
