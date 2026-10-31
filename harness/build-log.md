@@ -895,3 +895,9 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   un dominio ya detenido. make check PASS y diez pruebas compactas PASS.
 - Se conserva la historia de alertas al reanudar y se limpian error/reason actuales
   después de validar los datos. Próximo paso: reanudar sólo análisis/publicación.
+
+### 2026-10-31 — B17 medición oficial Placement completada
+
+- 72/72 ventanas válidas, protocolo placement-compact-v2; 3 pares por celda, concurrencias [1, 16], warm-up 10s/carga 30s.
+- Requests crudas, status/errores/generaciones, goodput y percentiles conservados. Semilla equivalente, owner SQL reutilizado, limpieza y original restaurado.
+- make check PASS; VM shut off. Informe docs/benchmarks/b17-results.md. Excel y S2 intactos; no inferencia causal exclusiva del lenguaje.
