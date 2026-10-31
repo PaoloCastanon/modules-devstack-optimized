@@ -5,8 +5,10 @@ Los perfiles anteriores se conservan como historia; esta revisión define el
 alcance preliminar de la siguiente ejecución, sin mezclar intentos ni datos.
 Estado: perfiles y adaptación Placement implementados; checks locales aprobados.
 Piloto Placement 24/24 HTTP y CPU/PSS válido; limpieza y apagado comprobados.
-Medición oficial y aceptación de revisión 2 pendientes. Glance y conjunto
-conservan sus tareas de instrumentación pendientes.
+Placement oficial aceptado: 72/72 HTTP y CPU/PSS, CI PASS sobre 13bb013.
+Glance: instrumentos streaming y preflight funcional real 42/42 aprobados;
+coordinador, análisis CPU/PSS, piloto36 y oficial108 pendientes. Conjunto
+conserva instrumentos/pilotos/ejecución pendientes.
 
 | Campaña | Diseño compacto | Carga y calentamiento, sin preparación |
 |---|---|---|

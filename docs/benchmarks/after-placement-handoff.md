@@ -122,3 +122,20 @@ evidence/sprint5/benchmarks/compact-v2-pilot-20261031. El piloto no acepta 72 ve
 sesión usa el supervisor complete_placement_campaign.py con perfil v2 y PR #17.
 Estado/servicio actuales se consultan en followup-status.json del workspace
 superior; no usar los servicios 02/03 fallidos como si siguieran ejecutándose.
+
+
+## Estado vigente: Placement aceptado y preflight Glance aprobado
+
+2026-10-31: Placement compacto v2 completado, 72/72 HTTP y CPU/PSS; aceptación,
+restauración, limpieza, controles y apagado verificados. CI PASS sobre 13bb013;
+PR #17 listo, sin merge. La alerta de apagado fue lectura locale español de
+virsh, corregida con LC_ALL=C; no requiere repetir mediciones.
+
+Trabajo nuevo en /home/paolo/Proyectos/TrabajoTitulo/.worktrees/glance-compact-v2,
+rama feat/glance-compact-v2. Instrumentos 85a78de y preflight real 42/42 aprobado,
+con [evidencia](../../evidence/sprint5/benchmarks/glance-v2-functional-preflight-20261031/README.md).
+Glance v2 todavía NO tiene piloto de rendimiento ni ventanas oficiales.
+Pendientes: RPC/coordinador, análisis CPU/PSS, supervisor durable, piloto36,
+congelación y oficial108; luego conjunta24bloques/36boots. No usar las matrices
+v1 de los apartados históricos anteriores. VM apagada al cerrar preflight.
+Consultar primero followup-status.json superior para estados que avancen.

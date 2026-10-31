@@ -929,3 +929,17 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - make check PASS, seis regresiones Glance de instrumentos PASS. Se rechaza
   dominio/puerto no admitido, 200 binario corrupto y metadatos de propietario/tipo
   incorrectos. VM apagada durante desarrollo; siguiente paso preflight opt-in.
+
+
+### 2026-10-31 — Glance: preflight funcional real aprobado
+
+- Fuente 85a78de, sin cambios productivos Go: 42/42 solicitudes correctas con
+  Keystone real, MySQL/store propios, metadatos y bytes íntegros; Python 1 MiB,
+  Go directo 1/16/64 MiB y Go público Apache 1 MiB. Payloads y credenciales fuera
+  de Git. [Evidencia](../evidence/sprint5/benchmarks/glance-v2-functional-preflight-20261031/README.md).
+- Placement original se mantuvo como control; catálogo original y hashes Apache
+  iguales antes/después. Runtime/identidad/bytes propios retirados, controles
+  restaurados, todos los originales activos y VM apagada normalmente.
+- make check PASS para instrumentos; se repite para esta entrega de evidencia.
+  No es piloto de carga ni aceptación Glance108 o joint24/36. Coordinador/RPC,
+  análisis CPU/PSS y supervisor durable siguen pendientes antes de medir.
