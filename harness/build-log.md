@@ -707,3 +707,56 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   coordinación vacío persiste por diseño; tt-openstack-lab **shut off**.
 - B15 cierra integración del subconjunto; B17/B18 no medidos, B26 fuera.
   No se cambió Excel/S2/Nova ni se escribió SQL en Placement original.
+
+### 2026-10-30 — B17 instrumentación completa y pilotos; campaña oficial pendiente
+
+- Base integrada2046a95 (B13/B14/B15/B16 mergeados). Generador host cerrado por
+  worker, seis cargas B16, validación exacta de generaciones/owner/estado y
+  candidates bajo claims concurrentes. Deadline por request, drain y limpieza de
+  ciclos parciales fuera de la ventana; raw JSONL gzip sin credenciales.
+- Coordinador SSH/SDK con lock B15, semilla/orden congelados antes de mutar,
+  16 providers propios/clase CUSTOM por par, ruta Apache común, MySQL Go propio
+  y owner SQL ya presente en Python. Sólo SELECT en la DB original. Tokens
+  renovados por par; app creds propias24h para cubrir una campaña de más de10h.
+- Prototipos01/02 PUT415 y03 PUT400 corrigieron Content-Type y creación de clase
+  1.7.04 pasó dos lecturas pero falló cleanup DELETE provider1.36; se restauró
+  original y retuvieron medios de reparación. DELETE1.0 con propiedad verificada
+  retiró backend/identidad/privados. No se reclasifican esos fallos como PASS.
+- Pilotos05 y06: cada uno24/24 HTTP/estado PASS (seis cargas, c1/16, warm1s/load4s).
+  Hashes finales de generador/coordinador/recolector coinciden con06. Original,
+  owners SQL, hash Apache y perfil MySQL intactos; recursos privados retirados.
+- make check PASS (52 tests de unidad, harness/infra y vet/race/build ambos
+  dominios). Cuatro tests B17 incluyen HTTP real, estado falso tras204, no adopción
+  de recursos, generaciones/tipos y matriz de120 pares. Evidencia nueva Sprint5.
+- B17 no cierra por estos pilotos. Se mantiene protocolo B16 de240 ventanas,
+  warm30s/load120s y cinco pares por celda. Excel/S2 y Glance original intactos.
+
+### 2026-10-30 — B18 instrumentación y cierre autónomo; mediciones oficiales pendientes
+
+- Recolector por cgroup completo con PID/start_ticks, CPU/PSS/RSS a1Hz, reposo
+  inicial5s, membresía antes/durante/después y ventanas UTC alineadas con reloj
+  monotónico cliente. Grupos separados MySQL, Keystone, Apache, Nova y Glance;
+  VM CPU/steal/memoria/load y costo del recolector/generador registrados.
+- Análisis usa CPU y completadas correctas del mismo intervalo interior; PSS
+  primario y máximo observado, RSS secundario. Bootstrap por repetición/par,
+  n=5 y10000 remuestras; p99 marca soporte insuficiente. Heap/GC Go no expuesto.
+- Pilotos05/06/07:24/24 ventanas CPU/PSS válidas cada uno, además de HTTP/estado.
+  07 añade publicación del compute de control y probes Nova reales antes de
+  cargar; identidad/capacidad/traits/aggregates equivalentes, gen original3/Go2
+  preservadas. Los cuatro instrumentos finales coinciden por SHA con07.
+- make check PASS, incluidos cuatro tests B18: CPU excluye warm-up/otros servicios,
+  PID reciclado/PSS ausente rechazados, bootstrap reproducible, publicación
+  parcial bloqueada y apagado sin cinco servicios originales verificados prohibido.
+- Supervisor de sesión larga en worktree aislado: requiere HEAD limpio/congelado
+  y opt-ins campaña/publicación/apagado. Guarda progreso fuera de Git. Al terminar
+  sólo publica cierre si las240 ventanas oficiales y ambos análisis pasan,
+  original/limpieza quedan verificados, VM apagada, make check y CI aprobados.
+  Commits de resultados B17/B18 separados; PR ready, sin merge automático.
+- B17/B18 siguen pendientes de la campaña oficial de más de10h. No se reduce
+  B16 para cerrar antes. Sin cambios a producción Go, Nova, Excel/S2 o Glance.
+
+### 2026-10-30 — B17 guard de confianza SSH en worktrees
+
+- Arranque oficial01 sin ventanas: known_hosts ignorado no existía en el nuevo worktree; SSH falló antes de ejecutar el coordinador. Intento y prueba del original activo/directorios remotos ausentes conservados.
+- Guard de archivos SSH/protocolo legibles antes de crear outputs/estado o lanzar SSH; test reproduce ausencia de la caché y exige cero efectos. Ruta absoluta original de confianza para el nuevo intento. No se deshabilita verificación de host.
+- Instrumentos HTTP, coordinador VM y recolector iguales al piloto07; sólo cambia preflight del driver. Campaña240 pendiente, sin reclasificar este fallo como éxito.
