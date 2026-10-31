@@ -16,6 +16,7 @@ import sys
 import time
 
 from analyze_glance import analyze, publish
+from campaign_protocol import storage_check
 from complete_placement_campaign import compact, safely_shutdown
 from glance_campaign import save, validate_protocol
 
@@ -38,6 +39,7 @@ def freeze(config):
 
 
 def start_vm(config):
+    storage_check(Path('/var/lib/libvirt/images'), 20 * 1024**3)
     locale = {**os.environ, 'LC_ALL': 'C', 'LANG': 'C'}
     state = subprocess.check_output(['virsh', '-c', 'qemu:///system', 'domstate', 'tt-openstack-lab'], text=True, env=locale).strip()
     if state != 'shut off':

@@ -960,3 +960,5 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   Datos de esos tests son sintéticos y no acreditan mediciones reales.
 - make check PASS para esta revisión antes de congelar. Piloto/campaña aún
   pendientes; VM apagada durante implementación. No se anuncian resultados nuevos.
+
+- Guarda adicional antes de cada encendido:20GiB libres; make check PASS.
