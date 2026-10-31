@@ -883,3 +883,15 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - make check PASS; dos regresiones nuevas para apagado ya completado y rechazo
   de duplicados/revisión incorrecta al reanudar. Diez pruebas compactas PASS.
   Fuente medida 345ca56 conservada; datos y aceptación publicados en pasos aparte.
+
+
+### 2026-10-31 — Diagnóstico de locale del apagado
+
+- El primer diagnóstico de apagado tardío se precisó al reanudar: systemd de
+  usuario heredó locale español y virsh devolvía `apagado`, mientras el script
+  comparaba `shut off`. La VM estaba apagada; no falló la medición ni cleanup.
+- Virsh de la comprobación/solicitud de apagado ahora usa LC_ALL=C/LANG=C.
+  Regresión simula salida española sin ese entorno y exige no volver a apagar
+  un dominio ya detenido. make check PASS y diez pruebas compactas PASS.
+- Se conserva la historia de alertas al reanudar y se limpian error/reason actuales
+  después de validar los datos. Próximo paso: reanudar sólo análisis/publicación.

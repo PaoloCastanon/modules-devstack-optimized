@@ -17,7 +17,9 @@ class CompactTests(unittest.TestCase):
         units = ['devstack@placement-api.service', 'devstack@n-cpu.service', 'devstack@n-sch.service', 'devstack@keystone.service', 'devstack@g-api.service']
         report = {k: True for k in ['original_unchanged', 'runtime_removed', 'identity_removed', 'private_root_removed', 'controls_restored']}
         report['original_services_active'] = dict.fromkeys(units, True)
-        with tempfile.TemporaryDirectory() as folder, patch.object(complete.subprocess, 'check_output', return_value='shut off\n'), patch.object(complete, 'cmd') as mutation:
+        def localized_output(*_, **kwargs):
+            return 'shut off\n' if kwargs.get('env', {}).get('LC_ALL') == 'C' else 'apagado\n'
+        with tempfile.TemporaryDirectory() as folder, patch.object(complete.subprocess, 'check_output', side_effect=localized_output), patch.object(complete, 'cmd') as mutation:
             output = Path(folder) / 'vm.json'
             complete.safely_shutdown({'cleanup': True, 'cleanup_report': report}, output)
             mutation.assert_not_called()

@@ -9,6 +9,7 @@ import datetime
 import gzip
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -66,11 +67,12 @@ def safely_shutdown(manifest, output):
         raise ValueError('restoration not proved; leave lab available for repair')
     if report.get('controls_restored', True) is not True:
         raise ValueError('maintenance controls not restored')
-    initial = subprocess.check_output(['virsh', '-c', 'qemu:///system', 'domstate', 'tt-openstack-lab'], text=True).strip()
+    locale = {**os.environ, 'LC_ALL': 'C', 'LANG': 'C'}
+    initial = subprocess.check_output(['virsh', '-c', 'qemu:///system', 'domstate', 'tt-openstack-lab'], text=True, env=locale).strip()
     if initial != 'shut off':
-        cmd(['virsh', '-c', 'qemu:///system', 'shutdown', 'tt-openstack-lab'], stdout=subprocess.DEVNULL)
+        cmd(['virsh', '-c', 'qemu:///system', 'shutdown', 'tt-openstack-lab'], stdout=subprocess.DEVNULL, env=locale)
     for _ in range(300):
-        state = subprocess.check_output(['virsh', '-c', 'qemu:///system', 'domstate', 'tt-openstack-lab'], text=True).strip()
+        state = subprocess.check_output(['virsh', '-c', 'qemu:///system', 'domstate', 'tt-openstack-lab'], text=True, env=locale).strip()
         if state == 'shut off':
             save(output, {'domain': 'tt-openstack-lab', 'state': state, 'forced': False,
                           'timestamp_utc': datetime.datetime.now(datetime.timezone.utc).isoformat()})
@@ -223,7 +225,9 @@ def resume_postprocess(config):
     status = json.loads(Path(config['status_file']).read_text())
     if status.get('accepted'):
         raise ValueError('campaign is already accepted; do not republish')
-    status['recovered_from'] = {k: status.get(k) for k in ['stage', 'error', 'reason', 'finished_local']}
+    status.setdefault('recovery_history', []).append({k: status.get(k) for k in ['stage', 'error', 'reason', 'finished_local', 'recovered_from']})
+    for key in ['error', 'reason', 'finished_local']:
+        status.pop(key, None)
     status.update(stage='verifying', postprocessing_head=head)
     save(Path(config['status_file']), status)
     try:
