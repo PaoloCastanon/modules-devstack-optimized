@@ -111,3 +111,14 @@ alcance/estadística y make check, limitar logs, actualizar IaC para discard y
 pilotar. El perfil compacto es preliminar y no acredita la matriz larga. No
 se ejecutó ninguna nueva campaña durante la limpieza. Debe verificarse siempre
 el estado vivo y las guardas de almacenamiento antes de iniciar procesos.
+
+
+## Instrumentación compacta y piloto ya validados
+
+Commit de instrumentación 789648e y PR #17 (apilado sobre #16), CI PASS. Piloto
+Placement v2 final: 24/24 HTTP y 24/24 CPU/PSS válidos, controls_restored y cleanup
+true, originales preservados, VM apagada. Evidencia versionada en
+evidence/sprint5/benchmarks/compact-v2-pilot-20261031. El piloto no acepta 72 ventanas oficiales. La siguiente
+sesión usa el supervisor complete_placement_campaign.py con perfil v2 y PR #17.
+Estado/servicio actuales se consultan en followup-status.json del workspace
+superior; no usar los servicios 02/03 fallidos como si siguieran ejecutándose.

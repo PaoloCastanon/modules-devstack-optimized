@@ -4,7 +4,8 @@
 Los perfiles anteriores se conservan como historia; esta revisión define el
 alcance preliminar de la siguiente ejecución, sin mezclar intentos ni datos.
 Estado: perfiles y adaptación Placement implementados; checks locales aprobados.
-Piloto real, medición y aceptación de revisión 2 pendientes. Glance y conjunto
+Piloto Placement 24/24 HTTP y CPU/PSS válido; limpieza y apagado comprobados.
+Medición oficial y aceptación de revisión 2 pendientes. Glance y conjunto
 conservan sus tareas de instrumentación pendientes.
 
 | Campaña | Diseño compacto | Carga y calentamiento, sin preparación |

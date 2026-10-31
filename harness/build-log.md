@@ -852,3 +852,19 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   Suite Python final repetida tras los últimos ajustes PASS.
 - No campaña oficial nueva aún; próximo paso piloto real de 24 ventanas con
   original/Go y muestras CPU/PSS. No se declaró cierre B17/B18 o Glance.
+
+
+### 2026-10-31 — Piloto compacto v2 Placement aceptado para instrumentación
+
+- Fuente 789648e, binario Go idéntico al previamente validado (20b7b92d...f63db).
+  Campaña independiente: 24/24 HTTP válidas y 24/24 CPU/PSS válidas, sin errores
+  del analizador. Seis cargas, concurrencias 1/16 y un par por celda; piloto 1/4s.
+- Todos los archivos y muestras comprimidas conservados en
+  evidence/sprint5/benchmarks/compact-v2-pilot-20261031. Guardia de disco no abortó.
+  Revisión 2 oficial todavía no medida: 72 ventanas, tres pares y 10/30s.
+- Cleanup true, controls_restored true; originales/owners SQL y rutas sin cambios,
+  backend/identidad/estado privado retirados. VM apagada normalmente comprobada.
+  El resumen piloto mantiene b17_accepted/b18_accepted false, como corresponde.
+- CI del PR #17 PASS para instrumentación. Siguiente hito: congelar esta revisión
+  y ejecutar la matriz oficial compacta en supervisor durable, sin builds ni
+  cambios de fuentes mientras mida. Glance/conjunto continúan pendientes.
