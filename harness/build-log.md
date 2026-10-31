@@ -963,3 +963,21 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 
 - Guarda adicional antes de cada encendido:20GiB libres; make check PASS.
 - Preparación tras boot espera todos los servicios originales activos y apt inactivo; make check PASS.
+
+
+### 2026-10-31 — Glance v2: hallazgo real de estrés, sin aceptación oficial
+
+- Piloto36/36 válido, incluido CPU/PSS. Oficial se detuvo en77:76 válidas y
+  descarga Python1MiB HTTP200/0bytes inválida, payload_mismatch. Se preservó
+  toda la evidencia, sin sustituir muestra, reintento oculto ni aceptación.
+- Journal nativo confirma errno24 Too many open files al abrir el archivo de
+  caché, con LimitNOFILE2048. PID/start_ticks estables y guardas disco sin aborto.
+  CacheFilter crea Notifier/get_transport por cached request; acumulación de
+  transports/sockets es hipótesis a contrastar mediante calibración dedicada.
+- Diagnóstico de sólo lectura, originales/restauración verificados y VM apagada.
+  [Evidencia](../evidence/sprint5/benchmarks/glance-compact-v2-20261031-01/README.md).
+- Se prepara v3 (misma matriz108) para comparar API/catálogo/bytes sin bus de
+  notificaciones, fuera del alcance Go. Driver oficial noop en copia privada,
+  OS_GLANCE_CONFIG_DIR mediante dropin sólo /run; originales/caché/límites sin
+  modificación. Todo se retira/restaura por sesión. Debe calibrarse primero;
+  no se presentan v3 ni el control propuesto como solución ya validada.

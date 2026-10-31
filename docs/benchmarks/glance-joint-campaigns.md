@@ -222,3 +222,26 @@ Resultados oficiales sólo después de108/108 válidas, restauración y apagado,
 make check y CI del SHA publicado. PR18 se mantiene borrador hasta esos gates;
 no se hace merge. El estado durable del workspace identifica servicio, config,
 output y revisión vigentes; inspeccionarlo antes de iniciar para evitar duplicados.
+
+## Revisión3 tras fallo real del original
+
+V2 piloto36 aprobado; oficial falló en77 por HTTP200 con cuerpo vacío. Evidencia
+stock conservada sin aceptación. Journal: errno24 y límite2048FD durante lectura
+cacheada; no worker restart/disco lleno. Notifier por request cacheado crea nuevo
+transport: calibración dedicada contrasta crecimiento FD/sockets en messagingv2
+con6000 descargas/hash correctas usando noop antes de otra campaña.
+
+`glance-protocol-compact-v3.json` conserva108/36, cargas, tamaños, tiempos y
+concurrencias. Define explícitamente comparación API/catálogo/bytes **sin bus de
+notificaciones en ambos**. No acredita estabilidad del original con messagingv2.
+La caché Python sigue habilitada. No se aumenta límite para ocultar acumulación.
+No cambia fuente/config original: copia privada de /etc/glance, sólo driver=noop,
+OS_GLANCE_CONFIG_DIR por dropin en /run, retiro/reinicio/restauración exactos al
+terminar. Copias privadas con secretos nunca van a Git. No mezcla datos v2/v3.
+Se añaden conteos FD al recolector para demostrar estabilidad en cada ventana.
+
+[Documentación oficial de drivers](https://docs.openstack.org/oslo.messaging/latest/configuration/opts.html)
+y [configuración noop](https://docs.openstack.org/oslo.messaging/5.12.0/FAQ.html)
+respaldan el control. La causa y la efectividad se prueban en este laboratorio,
+no se infieren de esa documentación. Nueva calibración/piloto y hashes antes
+ de oficial. Conjunta continúa postergada.
