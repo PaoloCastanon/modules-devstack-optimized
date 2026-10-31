@@ -34,6 +34,9 @@ def run(args):
     if not args.allow_mutations:
         raise ValueError('explicit mutation opt-in required')
     root = args.root
+    domain = getattr(args, 'domain', 'placement')
+    if domain not in ('placement', 'glance'):
+        raise ValueError('supported isolated service domain required')
     if not root.is_absolute() or root != root.resolve() or not re.fullmatch(r'tt-placement-[a-z0-9-]+', root.name):
         raise ValueError('absolute canonical tt-placement runtime path required')
     if args.action == 'prepare':
@@ -44,8 +47,8 @@ def run(args):
         if not args.binary.is_file() or not (args.auth_root / 'validator.json').is_file():
             raise ValueError('binary and validator required')
         root.mkdir(mode=0o700, parents=False, exist_ok=False)
-        state = {'id': secrets.token_hex(5), 'owner_uid': os.getuid(), 'units': [],
-                 'schema': 'placement_go_test_b13_' + secrets.token_hex(5),
+        state = {'id': secrets.token_hex(5), 'owner_uid': os.getuid(), 'units': [], 'domain': domain,
+                 'schema': domain + '_go_test_b13_' + secrets.token_hex(5),
                  'mysql_port': args.mysql_port, 'listen_port': args.listen_port}
     else:
         if root.stat().st_uid != os.getuid() or root.stat().st_mode & 0o077:
@@ -53,6 +56,7 @@ def run(args):
         state = json.loads((root / 'state.json').read_text())
         if state['owner_uid'] != os.getuid():
             raise ValueError('runtime ownership mismatch')
+        domain = state.get('domain', 'placement')
 
     def save(name, data):
         p = root / name
@@ -143,26 +147,44 @@ def run(args):
             time.sleep(.2)
         else:
             raise RuntimeError('own MySQL readiness failed')
-        shutil.copy(args.binary, root / 'placement')
-        (root / 'placement').chmod(0o700)
-        env = os.environ.copy()
-        env.update({'PLACEMENT_GO_DATABASE_DSN_FILE': str(root / 'migrate.dsn')})
+        shutil.copy(args.binary, root / domain)
+        (root / domain).chmod(0o700)
+        prefix = domain.upper() + '_GO_'
+        env = {key: value for key, value in os.environ.items() if not key.startswith(prefix)}
+        env.update({prefix + 'DATABASE_DSN_FILE': str(root / 'migrate.dsn')})
         with (root / 'migrate.log').open('w') as log:
-            subprocess.run([str(root / 'placement'), 'migrate'], env=env, check=True, stdout=log, stderr=subprocess.STDOUT)
-        settings = {'PLACEMENT_GO_LISTEN_ADDR': '127.0.0.1:' + str(args.listen_port),
-                    'PLACEMENT_GO_PUBLIC_BASE_URL': args.public_url,
-                    'PLACEMENT_GO_DATABASE_DSN_FILE': str(root / 'app.dsn'),
-                    'PLACEMENT_GO_KEYSTONE_AUTH_URL': args.keystone_url,
-                    'PLACEMENT_GO_KEYSTONE_CREDENTIAL_FILE': str(args.auth_root / 'validator.json')}
+            subprocess.run([str(root / domain), 'migrate'], env=env, check=True, stdout=log, stderr=subprocess.STDOUT)
+        settings = {prefix + 'LISTEN_ADDR': '127.0.0.1:' + str(args.listen_port),
+                    prefix + 'PUBLIC_BASE_URL': args.public_url,
+                    prefix + 'DATABASE_DSN_FILE': str(root / 'app.dsn'),
+                    prefix + 'KEYSTONE_AUTH_URL': args.keystone_url,
+                    prefix + 'KEYSTONE_CREDENTIAL_FILE': str(args.auth_root / 'validator.json')}
+        if domain == 'glance':
+            import uuid
+            own_env = {**env, **settings}
+            result = subprocess.run([str(root / domain), 'store-scope'], env=own_env, check=True, capture_output=True, text=True)
+            scope = result.stdout.strip()
+            if str(uuid.UUID(scope)) != scope or uuid.UUID(scope).version != 5:
+                raise ValueError('verified store scope required')
+            (root / 'store').mkdir(mode=0o700)
+            settings.update({'GLANCE_GO_BINARY_ENABLED': 'true', 'GLANCE_GO_STORE_ROOT': str(root / 'store'),
+                             'GLANCE_GO_STORE_SCOPE': scope, 'GLANCE_GO_MAX_CONCURRENT_TRANSFERS': '16',
+                             'GLANCE_GO_UPLOAD_TIMEOUT': '120s', 'GLANCE_GO_DOWNLOAD_TIMEOUT': '120s'})
+            with (root / 'store-init.log').open('w') as log:
+                subprocess.run([str(root / domain), 'store-init'], env={**env, **settings}, check=True, stdout=log, stderr=subprocess.STDOUT)
         save('serve.env', ''.join(key + '=' + value + '\n' for key, value in settings.items()))
         state['go_unit'] = 'tt-placement-b13-go-' + state['id']
-        start_unit(state['go_unit'], [str(root / 'placement'), 'serve'], ['--property=EnvironmentFile=' + str(root / 'serve.env')])
+        start_unit(state['go_unit'], [str(root / domain), 'serve'], ['--property=EnvironmentFile=' + str(root / 'serve.env')])
         from urllib.request import urlopen
+        from urllib.error import HTTPError
         for _ in range(100):
             try:
-                with urlopen('http://127.0.0.1:' + str(args.listen_port) + '/', timeout=1) as response:
+                with urlopen('http://127.0.0.1:' + str(args.listen_port) + ('/v2/images' if domain == 'glance' else '/'), timeout=1) as response:
                     if response.status == 200:
                         break
+            except HTTPError as error:
+                if domain == 'glance' and error.code == 401:
+                    break
             except OSError:
                 pass
             time.sleep(.2)
@@ -172,8 +194,9 @@ def run(args):
         checkpoint()
         report = {'prepared': True, 'db_unit': state['db_unit'], 'go_unit': state['go_unit'],
                   'schema': state['schema'], 'mysql_port': args.mysql_port, 'listen_port': args.listen_port,
-                  'binary_sha256': hashlib.sha256((root / 'placement').read_bytes()).hexdigest(),
-                  'separate_mysql_datadir': str(datadir), 'runtime_has_ddl': False}
+                  'binary_sha256': hashlib.sha256((root / domain).read_bytes()).hexdigest(),
+                  'separate_mysql_datadir': str(datadir), 'runtime_has_ddl': False, 'domain': domain,
+                  'separate_store': domain == 'glance'}
         save('public-report.json', report)
         print(json.dumps(report))
         return 0
@@ -182,16 +205,16 @@ def run(args):
         if args.action == 'replace-go':
             if not args.binary or not args.binary.is_file():
                 raise ValueError('replacement binary required')
-            shutil.copy(args.binary, root / 'placement.next')
-            (root / 'placement.next').chmod(0o700)
-            (root / 'placement.next').replace(root / 'placement')
+            shutil.copy(args.binary, root / (domain + '.next'))
+            (root / (domain + '.next')).chmod(0o700)
+            (root / (domain + '.next')).replace(root / domain)
         command(['sudo', 'systemctl', 'restart', state['go_unit']])
-        print(json.dumps({'go_restarted': True, 'binary_sha256': hashlib.sha256((root / 'placement').read_bytes()).hexdigest()}))
+        print(json.dumps({'go_restarted': True, 'binary_sha256': hashlib.sha256((root / domain).read_bytes()).hexdigest()}))
         return 0
 
     # Do not dismantle a backend while Apache still points at it.
-    site = Path('/etc/apache2/sites-enabled/placement-api.conf').read_text()
-    if '127.0.0.1:' + str(state['listen_port']) in site:
+    sites = [p.read_text() for p in Path('/etc/apache2/sites-enabled').glob('*.conf')]
+    if any('127.0.0.1:' + str(state['listen_port']) in site for site in sites):
         raise ValueError('restore original route before runtime cleanup')
     for unit in reversed(state['units']):
         command(['sudo', 'systemctl', 'stop', unit])
@@ -211,6 +234,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['prepare', 'restart-go', 'replace-go', 'cleanup'])
     parser.add_argument('--root', type=Path, required=True)
+    parser.add_argument('--domain', choices=['placement', 'glance'], default='placement')
     parser.add_argument('--auth-root', type=Path)
     parser.add_argument('--binary', type=Path)
     parser.add_argument('--mysql-port', type=int, default=13316)

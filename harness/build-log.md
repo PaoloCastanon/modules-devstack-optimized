@@ -908,3 +908,24 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - CPU/op usa requests completadas en intervalo interior común; relojes y overhead del recolector registrados. MySQL/Keystone/Apache/Nova/Glance/generador separados.
 - Mediana y rango observado; tres repeticiones, sin afirmar precisión inferencial. Datos crudos y resumen reproducible; auth/cache/pools/DB declarados.
 - make check PASS. Restauración, cleanup y VM shut off comprobados; B17/B18 cerrados técnicamente para este subconjunto de Placement.
+
+
+### 2026-10-31 — Instrumentación Glance v2 y preparación de preflight real
+
+- Base 13bb013: Placement v2 aceptado 72/72, CI PASS en el mismo SHA, originales
+  restaurados y VM apagada. PR5 fbb4a3d integrado en 4c07cb5: se preserva autoría
+  Glance y se distingue lo informado por su autor de la verificación nueva.
+- Cliente HTTP con payload determinista, streaming acotado, hashes completos,
+  keepalive por worker y TTFB real para descargas. Ventanas de ciclos completos,
+  drenaje incluido en el denominador y muestras/intentos comprimidos sin tokens.
+  UUID propios, estado/tipos estrictos y cleanup sin adoptar imágenes ajenas.
+- Backend de laboratorio extiende helper existente con dominio glance: MySQL
+  propio, migrador/runtime separados, store ligado a UUID SQL e inicialización
+  explícita. Sin cambios en los dominios Go ni bases originales. Proxy /image
+  reversible y lease antes de sustituir; Placement original permanece control.
+- Preflight preparado: original y Go, archivos raw 1/16/64 MiB, metadata y hashes,
+  paso por Apache, eliminación de bytes propios y restauración. Aún no ejecutado;
+  no se presentan sockets locales como Keystone/MySQL/Glance reales.
+- make check PASS, seis regresiones Glance de instrumentos PASS. Se rechaza
+  dominio/puerto no admitido, 200 binario corrupto y metadatos de propietario/tipo
+  incorrectos. VM apagada durante desarrollo; siguiente paso preflight opt-in.
