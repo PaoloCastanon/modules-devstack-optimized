@@ -962,3 +962,4 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   pendientes; VM apagada durante implementación. No se anuncian resultados nuevos.
 
 - Guarda adicional antes de cada encendido:20GiB libres; make check PASS.
+- Preparación tras boot espera todos los servicios originales activos y apt inactivo; make check PASS.

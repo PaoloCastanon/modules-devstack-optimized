@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import sys
 import time
@@ -45,9 +46,14 @@ def start_vm(config):
     if state != 'shut off':
         raise ValueError('idle shut-off VM required before session; inspect existing owner')
     cmd(['virsh', '-c', 'qemu:///system', 'start', 'tt-openstack-lab'], stdout=subprocess.DEVNULL, env=locale)
+    readiness = ("import subprocess,sys; active=lambda u:subprocess.run(['systemctl','is-active','--quiet',u]).returncode==0; "
+                 "sys.exit(0 if all(active(u) for u in ['devstack@g-api.service','devstack@placement-api.service',"
+                 "'devstack@n-cpu.service','devstack@n-sch.service','devstack@keystone.service']) "
+                 "and not any(active(u) for u in ['apt-daily.service','apt-daily-upgrade.service']) else 1)")
     for _ in range(120):
-        probe = subprocess.run([*config['ssh'], 'true'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+        probe = subprocess.run([*config['ssh'], 'python3', '-c', shlex.quote(readiness)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
         if probe.returncode == 0:
+            time.sleep(5)  # App initialization after systemd enters active.
             return
         time.sleep(2)
     raise ValueError('VM SSH readiness failed; inspect before repeating')
