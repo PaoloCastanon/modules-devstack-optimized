@@ -995,3 +995,12 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   RabbitMQ; piloto36 y oficial108 todavía pendientes. V2 fallido preservado.
 - Se añade guarda de crecimiento FD máximo256 por ventana, sin aceptar datos
   sin contador. Prueba positiva/negativa y make check para nueva congelación.
+
+
+### glance-compact-v3: piloto y campaña oficial completados
+
+- Piloto36/36 y oficial108/108, bytes/estado/CPU/PSS válidos; Placement Python fijo.
+- Restauración, limpieza, controles y apagado normal verificados tras ambas sesiones.
+- Datos independientes, n=3 mediana/rango; no atribución exclusiva al lenguaje.
+- Resultado reproducible en docs/benchmarks/glance-results.md y evidencia de esta campaña.
+- Campaña conjunta postergada por el usuario; no se ejecutó.
