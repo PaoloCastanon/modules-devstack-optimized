@@ -23,6 +23,25 @@ import resource
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import placement_window
+from campaign_protocol import accounting, storage_check, StorageWatch
+
+
+def finalize_remote(remote, output, manifest):
+    """EOF permits the lab's finally cleanup retry; then recover its evidence."""
+    try:
+        manifest['cleanup_report'] = remote.call('cleanup')
+    except Exception as error:
+        manifest['cleanup_error'] = type(error).__name__
+    finally:
+        try:
+            remote.close()
+        finally:
+            remote.copy_public_evidence()
+    late = output / 'lab/cleanup.json'
+    if late.exists() and 'cleanup_report' not in manifest:
+        manifest['cleanup_report'] = json.loads(late.read_text())
+        manifest['cleanup_recovered_after_close'] = True
+    return manifest.get('cleanup_report', {}).get('private_root_removed') is True
 
 
 def save(path, value):
@@ -99,10 +118,12 @@ def run(args):
     for path in [args.known_hosts, args.ssh_key, args.protocol]:
         if not path.is_file() or not os.access(path, os.R_OK):
             raise FileNotFoundError('readable SSH trust/key and protocol files required before preparing a campaign')
+    protocol = json.loads(args.protocol.read_text())
+    accounting(protocol)
+    storage_check(args.storage_path, protocol.get('host_free_minimum_bytes', 20 * 1024**3))
     args.output.mkdir(parents=True, exist_ok=False)
     args.private_root.mkdir(mode=0o700, parents=False, exist_ok=False)
     args.private_root.chmod(0o700)
-    protocol = json.loads(args.protocol.read_text())
     ident = str(uuid.uuid4())
     plan = schedule(protocol, ident, args.pilot)
     manifest = {'schema': 1, 'campaign_id': ident, 'stage': 'pilot' if args.pilot else 'measurement',
@@ -137,9 +158,12 @@ def run(args):
                 remote.call('start-collector', run_id=run_id)
                 begin_usage = os.times()
                 host_load_before = os.getloadavg()
-                report = placement_window.run(config, token, args.output / run_id, manifest['stage'],
+                with StorageWatch(args.storage_path, 10 * 1024**3) as storage:
+                    report = placement_window.run(config, token, args.output / run_id, manifest['stage'],
                                                duration=4 if args.pilot else protocol['measurement_s'],
-                                               warmup=1 if args.pilot else protocol['warmup_s'], timeout=protocol['request_timeout_s'])
+                                               warmup=1 if args.pilot else protocol['warmup_s'], timeout=protocol['request_timeout_s'],
+                                               abort_check=storage.failed.is_set)
+                report['host_storage'] = storage.report()
                 end_usage = os.times()
                 report['generator_cpu_seconds'] = end_usage.user + end_usage.system - begin_usage.user - begin_usage.system
                 report['generator_cpu_boundary'] = 'host process, whole warmup/load/partial-cycle cleanup; not attributed to Placement'
@@ -176,10 +200,7 @@ def run(args):
         manifest['error_stage'] = str(error) if isinstance(error, (ValueError, RuntimeError)) else 'local IO/instrument failure'
     finally:
         try:
-            manifest['cleanup_report'] = remote.call('cleanup')
-            cleaned = manifest['cleanup_report']['private_root_removed']
-            remote.close()
-            remote.copy_public_evidence()
+            cleaned = finalize_remote(remote, args.output, manifest)
         except Exception as error:
             manifest['cleanup_error'] = type(error).__name__
         manifest['cleanup'] = cleaned
@@ -197,6 +218,7 @@ def main():
     for name in ['output', 'private-root', 'protocol', 'remote-code', 'remote-work', 'remote-output', 'ssh-key', 'known-hosts']:
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--host', default='stack@192.168.122.10')
+    parser.add_argument('--storage-path', type=Path, default=Path('/var/lib/libvirt/images'))
     parser.add_argument('--pilot', action='store_true')
     parser.add_argument('--allow-mutations', action='store_true')
     args = parser.parse_args()

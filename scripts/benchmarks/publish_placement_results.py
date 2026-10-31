@@ -5,28 +5,39 @@ import json
 from pathlib import Path
 
 
+def table_lines(summary, title, columns):
+    if not summary['b17_accepted'] or not summary['b18_accepted']:
+        raise ValueError('both complete protocol acceptance gates required')
+    p = summary['protocol']
+    small = p['repetitions'] < 5
+    interval = 'observed range' if small else '95% descriptive bootstrap interval'
+    rows = [f'# {title}', '',
+            f"Protocol {p['protocol']}: {summary['runs_required']} valid official windows, {p['repetitions']} independent pairs per cell.", '',
+            f'Values are medians of independent run metrics; paired ratios show {interval}.',
+            'A median of run percentiles is not a pooled request percentile. Limited coverage and repetitions do not establish statistical significance.', '',
+            f'| Load | Concurrency | Metric | Python median | Go median | Go/Python paired median [{interval}] |',
+            '|---|---:|---|---:|---:|---:|']
+    for group in summary['groups']:
+        for metric, label in columns:
+            scale = 1024 * 1024 if metric == 'pss_mean_bytes' else 1
+            python = group['implementations']['python'][metric]['median'] / scale
+            go = group['implementations']['go'][metric]['median'] / scale
+            ratio = group['paired_go_over_python'][metric]
+            bounds = [ratio['min'], ratio['max']] if small else ratio['ci95_bootstrap_median']
+            if metric == 'p99_ms' and any(group['implementations'][impl]['p99_runs_supported'] < p['repetitions'] for impl in ['python', 'go']):
+                label += ' (insufficient tail support in some runs)'
+            rows.append(f"| {group['scenario']} | {group['concurrency']} | {label} | {python:.6g} | {go:.6g} | {ratio['median']:.4g} [{bounds[0]:.4g}, {bounds[1]:.4g}] |")
+    return rows
+
+
 def render(summary, output):
     if not summary['b17_accepted'] or not summary['b18_accepted']:
-        raise ValueError('both full campaign acceptance gates required')
+        raise ValueError('both complete protocol acceptance gates required')
     output.mkdir(parents=True, exist_ok=False)
     metrics = [('B17 latency and throughput', [('correct_ops_s', 'Correct HTTP requests/s'), ('p50_ms', 'p50 latency (ms)'), ('p95_ms', 'p95 latency (ms)'), ('p99_ms', 'p99 latency (ms)')]),
                ('B18 CPU and PSS', [('cpu_s_per_correct_request', 'CPU seconds / correct request'), ('pss_mean_bytes', 'Mean PSS (MiB)')])]
     for title, columns in metrics:
-        rows = [f'# {title}', '', 'Computed from all 240 official runs, five paired repetitions per cell.', '',
-                'Values are medians of independent run metrics. Ratios and 95% bootstrap intervals use paired repetitions.',
-                'A median of run percentiles is not a pooled request percentile. n=5 limits inference.', '',
-                '| Load | Concurrency | Metric | Python median | Go median | Go/Python paired median [95% CI] |',
-                '|---|---:|---|---:|---:|---:|']
-        for group in summary['groups']:
-            for metric, label in columns:
-                scale = 1024 * 1024 if metric == 'pss_mean_bytes' else 1
-                python = group['implementations']['python'][metric]['median'] / scale
-                go = group['implementations']['go'][metric]['median'] / scale
-                ratio = group['paired_go_over_python'][metric]
-                ci = ratio['ci95_bootstrap_median']
-                if metric == 'p99_ms' and any(group['implementations'][impl]['p99_runs_supported'] < 5 for impl in ['python', 'go']):
-                    label += ' (some runs have insufficient tail support; see summary)'
-                rows.append(f"| {group['scenario']} | {group['concurrency']} | {label} | {python:.6g} | {go:.6g} | {ratio['median']:.4g} [{ci[0]:.4g}, {ci[1]:.4g}] |")
+        rows = table_lines(summary, title, columns)
         rows.extend(['', 'Limits: same VM and Apache entry, but deployed workers, authentication token caching, SQL pools and MySQL configuration differ.',
                      'This compares these deployments and does not isolate programming language. Go is not required to be faster.',
                      'CPU excludes database, Keystone, Apache and generator; their raw control activity is retained. PSS peak is sampled, not absolute.',
@@ -50,16 +61,17 @@ def render(summary, output):
                     scale = 1024 * 1024 if metric == 'pss_mean_bytes' else 1
                     values = [g['implementations'][implementation][metric] for g in groups]
                     mid = [v['median'] / scale for v in values]
-                    low = [(v['median'] - v['ci95_bootstrap_median'][0]) / scale for v in values]
-                    high = [(v['ci95_bootstrap_median'][1] - v['median']) / scale for v in values]
+                    low = [(v['median'] - v.get('ci95_bootstrap_median', [v['min'], v['max']])[0]) / scale for v in values]
+                    high = [(v.get('ci95_bootstrap_median', [v['min'], v['max']])[1] - v['median']) / scale for v in values]
                     axis.errorbar([g['concurrency'] for g in groups], mid, yerr=[low, high], marker='o', label=implementation, color=color)
                 axis.set_title(scenario)
-                axis.set_xticks([1, 4, 8, 16])
+                axis.set_xticks(summary['protocol']['concurrency'])
                 axis.set_xlabel('Concurrent workers')
                 axis.set_ylabel(label)
                 axis.grid(alpha=.2)
                 axis.legend()
-            figure.suptitle('Placement: five repetitions per point; 95% bootstrap median intervals')
+            interval = 'observed ranges' if summary['protocol']['repetitions'] < 5 else 'descriptive bootstrap intervals'
+            figure.suptitle(f"Placement {summary['protocol']['protocol']}: {summary['protocol']['repetitions']} repetitions; {interval}")
             figure.savefig(output / (metric + '.png'), dpi=160)
             plt.close(figure)
 
