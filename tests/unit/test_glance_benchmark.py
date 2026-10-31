@@ -130,3 +130,127 @@ class GlanceBenchmarkTests(unittest.TestCase):
                 self.assertIn('unproven image ownership', result['cleanup_errors'][0])
         finally:
             server.shutdown(); server.server_close(); thread.join()
+
+
+class GlanceCampaignTests(unittest.TestCase):
+    @staticmethod
+    def protocol():
+        return json.loads((Path(__file__).resolve().parents[2] / 'docs/benchmarks/glance-protocol-compact-v2.json').read_text())
+
+    def test_matrix_is_complete_unique_paired_and_reproducible(self):
+        import glance_campaign
+        p, namespace = self.protocol(), str(uuid.uuid4())
+        plan = glance_campaign.schedule(p, namespace)
+        self.assertEqual(len(plan), 54)
+        self.assertEqual(plan, glance_campaign.schedule(p, namespace))
+        self.assertEqual(len({row['namespace'] for row in plan}), 54)
+        self.assertTrue(all(set(row['order']) == {'python', 'go'} for row in plan))
+        self.assertEqual(len(glance_campaign.schedule(p, namespace, True)), 18)
+        p['scenarios'][-1]['size_bytes'] = 1
+        with self.assertRaisesRegex(ValueError, 'payload size'):
+            glance_campaign.schedule(p, namespace)
+
+    def test_cleanup_never_adopts_foreign_uuid_owner_tag_or_name(self):
+        from glance_lab import owned_descriptor
+        namespace = uuid.uuid4()
+        values = {'namespace': str(namespace), 'tag': 'own-tag', 'concurrency': 16, 'seed_count': 100}
+        image = {'id': str(uuid.uuid5(namespace, 'measurement-15-12')), 'name': 'tt-glance-measurement-w15-c12-updated',
+                 'tags': ['own-tag'], 'owner': 'own-project'}
+        self.assertTrue(owned_descriptor(values, image, 'own-project'))
+        for key, value in [('id', str(uuid.uuid4())), ('name', 'tt-glance-measurement-w16-c12'),
+                           ('owner', 'foreign'), ('tags', ['foreign'])]:
+            self.assertFalse(owned_descriptor(values, {**image, key: value}, 'own-project'))
+        seed = {**image, 'name': 'tt-glance-seed-99', 'id': str(uuid.uuid5(namespace, 'seed-99'))}
+        self.assertTrue(owned_descriptor(values, seed, 'own-project'))
+        self.assertFalse(owned_descriptor(values, {**seed, 'name': 'tt-glance-seed-100', 'id': str(uuid.uuid5(namespace, 'seed-100'))}, 'own-project'))
+
+    def test_analyzer_reconstructs_cycles_and_pilot_is_never_official_acceptance(self):
+        """Synthetic resource fixture only: never represented as lab evidence."""
+        import datetime
+        import gzip
+        import analyze_glance
+        import glance_campaign
+        from glance_campaign import save
+        p, campaign = self.protocol(), str(uuid.uuid4())
+        plan = glance_campaign.schedule(p, campaign, True)
+        timestamp = datetime.datetime(2026, 10, 31, tzinfo=datetime.timezone.utc)
+        t = int(timestamp.timestamp() * 1e9)
+        def utc(seconds):
+            return (timestamp + datetime.timedelta(seconds=seconds)).isoformat()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); (root / 'lab').mkdir()
+            manifest = {'campaign_id': campaign, 'protocol': p, 'stage': 'pilot', 'sequence': plan, 'valid': True,
+                        'cleanup': True, 'git_base': 'fixture', 'protocol_sha256': 'fixture', 'runs': []}
+            for pair in plan:
+                for impl in ('python', 'go'):
+                    ident = pair['pair_id'] + '-' + impl
+                    folder = root / ident; folder.mkdir()
+                    ops = (['fresh-id', 'create', 'patch', 'verify', 'delete', 'verify-absent'] if pair['scenario'] == 'catalog-lifecycle'
+                           else ['fresh-id', 'create', 'upload', 'verify-upload', 'delete', 'verify-absent'] if pair['scenario'].startswith('upload-')
+                           else ['download'] if pair['scenario'].startswith('download-') else [pair['scenario']])
+                    size = pair['size_bytes'] or 0
+                    samples = [{'run_id': ident, 'worker': 0, 'cycle': 0, 'operation': op, 'offset_ns': (index+1)*100_000_000,
+                                'elapsed_ns': 10_000_000, 'ttfb_ns': 1_000_000 if op == 'download' else None,
+                                'valid': True, 'error_kind': None, 'request_bytes': size if op == 'upload' else 0,
+                                'response_bytes': size if op == 'download' else 0} for index, op in enumerate(ops)]
+                    with gzip.open(folder / 'measurement-samples.jsonl.gz', 'wt') as f:
+                        for row in samples:
+                            f.write(json.dumps(row)+'\n')
+                    report = {'run_id': ident, 'scenario': pair['scenario'], 'implementation': impl, 'concurrency': pair['concurrency'],
+                              'valid': True, 'cleanup_ok': True, 'clock_valid': True, 'clock_drift_ns': 0,
+                              'clocks': {key: {'best': {'remote_minus_host_ns': 0, 'rtt_ns': 1000}} for key in ('before','after')},
+                              'warmup': {'start_utc': utc(-1)},
+                              'measurement': {'start_utc': utc(0), 'end_utc': utc(4), 'elapsed_s': 4, 'requests': len(ops),
+                                              'correct': len(ops), 'cycles': 1, 'errors': 0, 'failed': False,
+                                              'correct_ops_s': len(ops)/4, 'complete_cycles_s': .25,
+                                              'validated_payload_bytes': size, 'validated_payload_mib_s': size/4/1024**2,
+                                              'latency_ms': dict.fromkeys(['p50','p95','p99'],10.0)}}
+                    save(folder / 'report.json', report)
+                    resources = root / 'lab' / (ident+'-resources'); resources.mkdir()
+                    save(resources / 'collector.json', {'clock_ticks_s': 100, 'self_terminated_at_limit': False})
+                    with (resources / 'resources.jsonl').open('w') as f:
+                        for sec in range(-5, 7):
+                            row = {'utc_ns': t+sec*10**9, 'read_finished_utc_ns': t+sec*10**9+1000000, 'collector_cpu_s': (sec+5)*.001,
+                                   'groups': {impl: {'error': None, 'processes': [{'pid': 123,'start_ticks': 2,'cpu_ticks': (sec+5)*100,
+                                                                                'pss_bytes': 1024**2,'rss_bytes': 2*1024**2}]}}}
+                            f.write(json.dumps(row)+'\n')
+                    manifest['runs'].append({'run_id': ident, 'valid': True})
+            save(root / 'manifest.json', manifest)
+            result = analyze_glance.analyze(root)
+            self.assertTrue(result['pilot_validated'], result['errors'])
+            self.assertFalse(result['accepted'])
+            self.assertEqual(result['runs_observed'],36)
+            with self.assertRaises(ValueError):
+                analyze_glance.publish(result, root / 'must-not-publish.md')
+            first = root / manifest['runs'][0]['run_id'] / 'report.json'
+            report = json.loads(first.read_text()); report['measurement']['requests'] += 1; save(first, report)
+            result = analyze_glance.analyze(root)
+            self.assertFalse(result['complete_valid'])
+            self.assertIn('counts', result['errors'][0]['error'])
+
+    def test_catalog_same_ids_wrong_order_is_rejected_over_real_http(self):
+        import glance_window
+        namespace = str(uuid.uuid4())
+        images = [{'id': str(uuid.uuid4()), 'name': name, 'owner': 'p', 'tags': ['t'], 'status': 'queued'} for name in ['a','b']]
+        mode = {'reverse': False}
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = 'HTTP/1.1'
+            def log_message(self, *_):
+                pass
+            def do_GET(self):
+                body = json.dumps({'images': list(reversed(images)) if mode['reverse'] else images}).encode()
+                self.send_response(200); self.send_header('Content-Length', str(len(body))); self.end_headers(); self.wfile.write(body)
+        server = ThreadingHTTPServer(('127.0.0.1',0), Handler)
+        thread = threading.Thread(target=server.serve_forever,daemon=True); thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                config = {'run_id':'catalog-fixture','scenario':'catalog-list','implementation':'fixture','concurrency':1,
+                          'namespace':namespace,'tag':'t','owner':'p','images':images,'url':f'http://127.0.0.1:{server.server_port}/image'}
+                result = glance_window.run(config,'private',Path(tmp)/'correct',duration=.05,warmup=0)
+                self.assertTrue(result['valid'])
+                mode['reverse'] = True
+                result = glance_window.run(config,'private',Path(tmp)/'reversed',duration=.05,warmup=0)
+                self.assertFalse(result['valid'])
+                self.assertEqual(result['measurement']['errors'],1)
+        finally:
+            server.shutdown(); server.server_close(); thread.join()

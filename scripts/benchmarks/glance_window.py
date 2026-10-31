@@ -106,6 +106,7 @@ def run(config, token, output, *, duration=30, warmup=10, abort_check=None):
                                     return False
                                 images = value['images']
                                 return (len(images) == len(seeds) and len({i.get('id') for i in images}) == len(seeds)
+                                        and [i.get('id') for i in images] == [i['id'] for i in sorted(seeds.values(), key=lambda item: item['name'])]
                                         and all(i.get('id') in seeds and metadata_matches(i, seeds[i['id']]) for i in images))
                             call('catalog-list', 'GET', '/v2/images?' + urlencode({'tag': tag, 'limit': 1000, 'sort': 'name:asc'}), 200, validate=listing)
                         elif scenario == 'catalog-show':

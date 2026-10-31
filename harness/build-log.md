@@ -943,3 +943,20 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - make check PASS para instrumentos; se repite para esta entrega de evidencia.
   No es piloto de carga ni aceptación Glance108 o joint24/36. Coordinador/RPC,
   análisis CPU/PSS y supervisor durable siguen pendientes antes de medir.
+
+
+### 2026-10-31 — B16/B23 Glance: coordinador y análisis compacto
+
+- Usuario limitó esta ejecución a automatización, piloto36 y oficial108 de Glance;
+  conjunta postergada. Seguimiento actualizado y Placement Python permanece fijo.
+- RPC con lock, seeds propios por namespace/owner, equivalencia entre implementaciones,
+  roundtrip por worker fuera de ventanas, restauración y apagado por sesión.
+- Collector Glance g-api/Go separado de Placement; análisis reconstruye ciclos,
+  muestras/bytes, percentiles, TTFB y CPU/PSS con PID/start_ticks e intervalo común.
+- Supervisor durable piloto->oficial, revisión/protocolo/binario congelados,
+  guardas disco host/VM y CI exacto antes de publicar PR ready. No merge ni conjunta.
+- Diez pruebas específicas PASS, incluyendo matriz108/36 reproducible, rechazo
+  de ownership ajeno y analizador que rechaza muestras incompletas/no acepta piloto.
+  Datos de esos tests son sintéticos y no acreditan mediciones reales.
+- make check PASS para esta revisión antes de congelar. Piloto/campaña aún
+  pendientes; VM apagada durante implementación. No se anuncian resultados nuevos.
