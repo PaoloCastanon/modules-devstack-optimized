@@ -27,12 +27,7 @@ restaurado, identidad/runtime propios retirados y VM apagada.
 dos corridas finales consecutivas 11/11, con ocho verificaciones de limpieza cada
 una, recursos propios nuevos y original restaurado. VM apagada.
 <!-- placement-b17-b18-status:start -->
-**B17/B18 en ejecución, 2026-10-30:** [coordinador y runbook](docs/benchmarks/campaign-runbook.md)
-con las seis cargas y recolector por cgroup. Tres pilotos completos24/24 HTTP y
-CPU/PSS válidos; [evidencia](evidence/sprint5/benchmarks/b17-b18-pilots-20261030/README.md).
-La aceptación exige todavía las240 ventanas oficiales del protocolo B16.
-Mediciones oficiales B17/B18 pendientes. El Excel conserva su
-aceptación histórica; este registro no cambia su estado formal.
+**B17/B18 completados técnicamente, 2026-10-31:** 72/72 ventanas válidas, protocolo placement-compact-v2; 3 pares por celda, concurrencias [1, 16], warm-up 10s/carga 30s. Análisis CPU/PSS correlacionado aprobado para este perfil. Ver [B17](docs/benchmarks/b17-results.md) y [B18](docs/benchmarks/b18-results.md). Original restaurado, limpieza comprobada y VM apagada. Excel/S2 conservan su aceptación histórica.
 <!-- placement-b17-b18-status:end -->
 
 ## Revisión compacta v2 autorizada, 2026-10-31

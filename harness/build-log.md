@@ -901,3 +901,10 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - 72/72 ventanas válidas, protocolo placement-compact-v2; 3 pares por celda, concurrencias [1, 16], warm-up 10s/carga 30s.
 - Requests crudas, status/errores/generaciones, goodput y percentiles conservados. Semilla equivalente, owner SQL reutilizado, limpieza y original restaurado.
 - make check PASS; VM shut off. Informe docs/benchmarks/b17-results.md. Excel y S2 intactos; no inferencia causal exclusiva del lenguaje.
+
+### 2026-10-31 — B18 consumo CPU/PSS correlacionado completado
+
+- Las mismas 72 ventanas de B17: cgroups completos, PID/start_ticks estables, ticks CPU y PSS a1Hz; reposo, carga, máximo observado y RSS secundario.
+- CPU/op usa requests completadas en intervalo interior común; relojes y overhead del recolector registrados. MySQL/Keystone/Apache/Nova/Glance/generador separados.
+- Mediana y rango observado; tres repeticiones, sin afirmar precisión inferencial. Datos crudos y resumen reproducible; auth/cache/pools/DB declarados.
+- make check PASS. Restauración, cleanup y VM shut off comprobados; B17/B18 cerrados técnicamente para este subconjunto de Placement.
