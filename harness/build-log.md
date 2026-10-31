@@ -868,3 +868,18 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - CI del PR #17 PASS para instrumentación. Siguiente hito: congelar esta revisión
   y ejecutar la matriz oficial compacta en supervisor durable, sin builds ni
   cambios de fuentes mientras mida. Glance/conjunto continúan pendientes.
+
+
+### 2026-10-31 — Corrección de apagado tardío y reanudación sin medir otra vez
+
+- La campaña compacta terminó con 72/72 ventanas válidas, cleanup y controles
+  restaurados true. El apagado normal superó el límite de 120s del supervisor;
+  libvirt confirmó después shut off (shutdown). No se forzó la VM ni se perdió
+  la matriz. El analizador confirmó B17 y B18 aceptables, 72/72, sin errores.
+- El supervisor admite VM ya apagada y espera hasta 600s el apagado normal.
+  Nueva reanudación de postproceso no lanza un generador: exige medición completa,
+  manifest igual al original, protocolo inalterado y fuentes de la revisión
+  medida verificadas contra Git. Guarda la revisión de postproceso por separado.
+- make check PASS; dos regresiones nuevas para apagado ya completado y rechazo
+  de duplicados/revisión incorrecta al reanudar. Diez pruebas compactas PASS.
+  Fuente medida 345ca56 conservada; datos y aceptación publicados en pasos aparte.

@@ -12,6 +12,29 @@ import campaign_protocol
 
 
 class CompactTests(unittest.TestCase):
+    def test_already_off_vm_does_not_issue_another_shutdown(self):
+        import complete_placement_campaign as complete
+        units = ['devstack@placement-api.service', 'devstack@n-cpu.service', 'devstack@n-sch.service', 'devstack@keystone.service', 'devstack@g-api.service']
+        report = {k: True for k in ['original_unchanged', 'runtime_removed', 'identity_removed', 'private_root_removed', 'controls_restored']}
+        report['original_services_active'] = dict.fromkeys(units, True)
+        with tempfile.TemporaryDirectory() as folder, patch.object(complete.subprocess, 'check_output', return_value='shut off\n'), patch.object(complete, 'cmd') as mutation:
+            output = Path(folder) / 'vm.json'
+            complete.safely_shutdown({'cleanup': True, 'cleanup_report': report}, output)
+            mutation.assert_not_called()
+            self.assertFalse(json.loads(output.read_text())['forced'])
+
+    def test_resume_refuses_duplicate_windows_and_different_measurement_revision(self):
+        import complete_placement_campaign as complete
+        p = json.loads((SCRIPTS.parents[1] / 'docs/benchmarks/placement-protocol-compact-v2.json').read_text())
+        m = {'stage': 'measurement', 'git_base': 'frozen', 'protocol': p, 'valid': True, 'cleanup': True,
+             'runs': [{'run_id': f'window-{i}', 'valid': True} for i in range(72)]}
+        complete.validate_resume_manifest(m, p, 'frozen')
+        with self.assertRaises(ValueError):
+            complete.validate_resume_manifest(m, p, 'different')
+        m['runs'][-1]['run_id'] = m['runs'][0]['run_id']
+        with self.assertRaises(ValueError):
+            complete.validate_resume_manifest(m, p, 'frozen')
+
     def test_profile_count_and_no_acceptance_for_inconsistent_matrix(self):
         p = json.loads((SCRIPTS.parents[1] / 'docs/benchmarks/placement-protocol-compact-v2.json').read_text())
         self.assertEqual(campaign_protocol.accounting(p)['runs'], 72)
