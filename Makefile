@@ -152,3 +152,9 @@ placement-test-candidates:
 PLACEMENT_INTEGRATION_ARGS ?=
 placement-integration:
 	python3 scripts/integration/placement_suite.py $(PLACEMENT_INTEGRATION_ARGS)
+
+# Explicit live host campaign; VM/SDK/code deployment must already be prepared.
+.PHONY: placement-benchmark
+PLACEMENT_BENCHMARK_ARGS ?=
+placement-benchmark:
+	python3 scripts/benchmarks/placement_campaign.py $(PLACEMENT_BENCHMARK_ARGS)

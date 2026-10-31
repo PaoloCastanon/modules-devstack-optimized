@@ -707,3 +707,26 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   coordinación vacío persiste por diseño; tt-openstack-lab **shut off**.
 - B15 cierra integración del subconjunto; B17/B18 no medidos, B26 fuera.
   No se cambió Excel/S2/Nova ni se escribió SQL en Placement original.
+
+### 2026-10-30 — B17 instrumentación completa y pilotos; campaña oficial pendiente
+
+- Base integrada2046a95 (B13/B14/B15/B16 mergeados). Generador host cerrado por
+  worker, seis cargas B16, validación exacta de generaciones/owner/estado y
+  candidates bajo claims concurrentes. Deadline por request, drain y limpieza de
+  ciclos parciales fuera de la ventana; raw JSONL gzip sin credenciales.
+- Coordinador SSH/SDK con lock B15, semilla/orden congelados antes de mutar,
+  16 providers propios/clase CUSTOM por par, ruta Apache común, MySQL Go propio
+  y owner SQL ya presente en Python. Sólo SELECT en la DB original. Tokens
+  renovados por par; app creds propias24h para cubrir una campaña de más de10h.
+- Prototipos01/02 PUT415 y03 PUT400 corrigieron Content-Type y creación de clase
+  1.7.04 pasó dos lecturas pero falló cleanup DELETE provider1.36; se restauró
+  original y retuvieron medios de reparación. DELETE1.0 con propiedad verificada
+  retiró backend/identidad/privados. No se reclasifican esos fallos como PASS.
+- Pilotos05 y06: cada uno24/24 HTTP/estado PASS (seis cargas, c1/16, warm1s/load4s).
+  Hashes finales de generador/coordinador/recolector coinciden con06. Original,
+  owners SQL, hash Apache y perfil MySQL intactos; recursos privados retirados.
+- make check PASS (52 tests de unidad, harness/infra y vet/race/build ambos
+  dominios). Cuatro tests B17 incluyen HTTP real, estado falso tras204, no adopción
+  de recursos, generaciones/tipos y matriz de120 pares. Evidencia nueva Sprint5.
+- B17 no cierra por estos pilotos. Se mantiene protocolo B16 de240 ventanas,
+  warm30s/load120s y cinco pares por celda. Excel/S2 y Glance original intactos.

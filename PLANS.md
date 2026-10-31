@@ -26,7 +26,11 @@ restaurado, identidad/runtime propios retirados y VM apagada.
 **B15 completado técnicamente:** [suite integral](docs/placement/b15-integration.md),
 dos corridas finales consecutivas 11/11, con ocho verificaciones de limpieza cada
 una, recursos propios nuevos y original restaurado. VM apagada.
-Mediciones B17/B18 pendientes. El Excel conserva su
+**B17/B18 en ejecución, 2026-10-30:** [coordinador y runbook](docs/benchmarks/campaign-runbook.md)
+con las seis cargas y recolector por cgroup. Dos pilotos completos24/24 HTTP y
+CPU/PSS válidos; [evidencia](evidence/sprint5/benchmarks/b17-b18-pilots-20261030/README.md).
+La aceptación exige todavía las240 ventanas oficiales del protocolo B16.
+Mediciones oficiales B17/B18 pendientes. El Excel conserva su
 aceptación histórica; este registro no cambia su estado formal.
 
 ## Placement: B07–B12 completados en el alcance seleccionado

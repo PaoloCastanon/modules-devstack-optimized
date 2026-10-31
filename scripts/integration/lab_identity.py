@@ -25,6 +25,9 @@ def run(args):
     from keystoneclient.v3 import client
     from keystoneclient import exceptions
     if args.action == 'prepare':
+        lifetime = getattr(args, 'application_lifetime_hours', 8)
+        if type(lifetime) is not int or not 1 <= lifetime <= 24:
+            raise ValueError('bounded application credential lifetime required')
         root.mkdir(mode=0o700, parents=False, exist_ok=False)
         state = {'apps': [], 'name': 'tt-placement-' + secrets.token_hex(8)}
     else:
@@ -63,7 +66,7 @@ def run(args):
             admin.roles.grant(roles[role], user=state['user'], project=state['project'])
         user = client.Client(session=session.Session(auth=v3.Password(auth_url=auth_url, user_id=state['user'], password=state['password'], project_id=state['project']), timeout=15))
         for role in ['admin', 'service', 'reader']:
-            expiry = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=8)
+            expiry = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=lifetime)
             app = user.application_credentials.create(name='placement-lab-' + role, user=state['user'], roles=[{'name': role}], expires_at=expiry)
             credential = {'application_credential_id': app.id, 'application_credential_secret': app.secret}
             state['apps'].append({'id': app.id, 'role': role})
@@ -126,6 +129,7 @@ def main():
     parser.add_argument('action', choices=['prepare', 'refresh', 'cleanup'])
     parser.add_argument('--private-root', type=Path, required=True)
     parser.add_argument('--allow-mutations', action='store_true')
+    parser.add_argument('--application-lifetime-hours', type=int, default=8)
     args = parser.parse_args()
     try:
         return run(args)

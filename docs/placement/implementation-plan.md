@@ -176,3 +176,8 @@ Avance posterior: [B13](b13-integration.md) verifica sustitución/publicación y
 [B14](b14-acceptance.md) el boot real y liberación. [B16](../benchmarks/methodology.md)
 define el protocolo. [B15](b15-integration.md) cerró la suite con dos corridas finales 11/11 y limpieza
 completa. El siguiente bloque pendiente es medir B17/B18 con el protocolo B16.
+
+Preparación2026-10-30: [instrumentación completa](../benchmarks/campaign-runbook.md)
+y dos pilotos24/24 válidos HTTP/CPU/PSS. El coordinador ejecuta las240 ventanas
+oficiales B16 sin recortar duraciones/repeticiones. El piloto no cierra B17/B18;
+el cierre exige datos oficiales, análisis, limpieza y restauración.
