@@ -178,6 +178,6 @@ define el protocolo. [B15](b15-integration.md) cerró la suite con dos corridas 
 completa. El siguiente bloque pendiente es medir B17/B18 con el protocolo B16.
 
 Preparación2026-10-30: [instrumentación completa](../benchmarks/campaign-runbook.md)
-y dos pilotos24/24 válidos HTTP/CPU/PSS. El coordinador ejecuta las240 ventanas
+y tres pilotos24/24 válidos HTTP/CPU/PSS. El coordinador ejecuta las240 ventanas
 oficiales B16 sin recortar duraciones/repeticiones. El piloto no cierra B17/B18;
 el cierre exige datos oficiales, análisis, limpieza y restauración.

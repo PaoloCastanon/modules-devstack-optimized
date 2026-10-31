@@ -4,14 +4,18 @@ No son mediciones oficiales. B16 conserva su matriz de 240 ventanas de 30 s de
 warm-up y 120 s de carga. B13/B14/B15 están integrados en base 2046a95. Excel y S2
 permanecen intactos; Glance original es control.
 
-- Pilotos05 y06: **24/24 ventanas cada uno**, las seis cargas en Python/Go y
+- Pilotos05,06 y07: **24/24 ventanas cada uno**, las seis cargas en Python/Go y
   concurrencias1/16, warm-up1s y carga4s. Cero errores HTTP/estado, semillas
   equivalentes por par y limpieza completa. Análisis CPU/PSS también válido24/24
-  en ambos, sin errores de membresía, relojes, PSS ni reposo. No se agregan para
+  en los tres, sin errores de membresía, relojes, PSS ni reposo. No se agregan para
   simular las cinco repeticiones ni la duración de una campaña oficial.
-- Piloto06 usa exactamente los hashes finales de placement_window.py,
+- Piloto07 usa exactamente los hashes finales de placement_window.py,
   placement_campaign.py, placement_lab.py y placement_resources.py. Los manifests
   registran fuente, protocolo, semilla completa, orden y configuración efectiva.
+  La ampliación07 prepara también el compute real con el tracker y consulta desde
+  la biblioteca Nova en ambos servicios antes de cargar: misma identidad,
+  inventarios/traits/aggregates, generaciones independientes3/2 preservadas.
+  Evita que la primera publicación del compute aparezca dentro de una ventana.
 - Preparaciones01/02 detectaron PUT415 y03 PUT400: faltaba Content-Type y se
   pedía1.2 para crear una clase en vez de1.7. Se detuvieron y limpiaron; no cuentan
   como éxito. No se cambió el servidor para aceptar requests incorrectas.
@@ -22,13 +26,13 @@ permanecen intactos; Glance original es control.
   pilot-04-repair.log y su cleanup.json posterior registran la reparación efectiva.
   No se reclasifica esa corrida como aprobada. Directorio privado host también
   retirado después de comprobar la reparación.
-- Piloto06 final: original providers/inventarios/traits/allocations y owners SQL
+- Piloto07 final: original providers/inventarios/traits/allocations y owners SQL
   iguales; hash Apache y perfil AppArmor MySQL original intactos; cinco servicios
   originales activos; backend, identidad y raíces privadas propios retirados.
   La VM permanece temporalmente encendida para la campaña oficial inmediatamente
   posterior; su apagado se registrará al terminar esa sesión.
 - make-check.log PASS: 52 tests Python de unidad, harness/infra y vet/race/build
-  de ambos dominios. Cuatro tests B17 y tres B18 incluyen sockets HTTP reales,
+  de ambos dominios. Cuatro tests B17 y cuatro B18 incluyen sockets HTTP reales,
   claim204 sin persistencia rechazado, limpieza por propiedad, generaciones/tipos,
   membresía/PSS/CPU sobre ventana común y bloqueo de publicación parcial.
   b18-shutdown-red/green reproduce y corrige la aceptación incorrecta de una lista
@@ -45,3 +49,7 @@ Esto prepara comparaciones de despliegues, no una atribución exclusiva al lengu
 Reproducción: docs/benchmarks/campaign-runbook.md. Los summaries conservan
 b17_accepted=false y b18_accepted=false porque su stage es pilot y sólo hay24
 ventanas por campaña, frente a las240 oficiales requeridas.
+
+ready-make-check-final.log amplía el gate a53 tests de unidad: añade archivo
+exacto gzip de logs con whitespace del SDK y conservación byte a byte de requests.
+Los logs .raw.gz conservan el original; text-normalization.json registra hashes.

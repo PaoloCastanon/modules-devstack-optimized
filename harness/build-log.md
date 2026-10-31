@@ -730,3 +730,27 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   de recursos, generaciones/tipos y matriz de120 pares. Evidencia nueva Sprint5.
 - B17 no cierra por estos pilotos. Se mantiene protocolo B16 de240 ventanas,
   warm30s/load120s y cinco pares por celda. Excel/S2 y Glance original intactos.
+
+### 2026-10-30 — B18 instrumentación y cierre autónomo; mediciones oficiales pendientes
+
+- Recolector por cgroup completo con PID/start_ticks, CPU/PSS/RSS a1Hz, reposo
+  inicial5s, membresía antes/durante/después y ventanas UTC alineadas con reloj
+  monotónico cliente. Grupos separados MySQL, Keystone, Apache, Nova y Glance;
+  VM CPU/steal/memoria/load y costo del recolector/generador registrados.
+- Análisis usa CPU y completadas correctas del mismo intervalo interior; PSS
+  primario y máximo observado, RSS secundario. Bootstrap por repetición/par,
+  n=5 y10000 remuestras; p99 marca soporte insuficiente. Heap/GC Go no expuesto.
+- Pilotos05/06/07:24/24 ventanas CPU/PSS válidas cada uno, además de HTTP/estado.
+  07 añade publicación del compute de control y probes Nova reales antes de
+  cargar; identidad/capacidad/traits/aggregates equivalentes, gen original3/Go2
+  preservadas. Los cuatro instrumentos finales coinciden por SHA con07.
+- make check PASS, incluidos cuatro tests B18: CPU excluye warm-up/otros servicios,
+  PID reciclado/PSS ausente rechazados, bootstrap reproducible, publicación
+  parcial bloqueada y apagado sin cinco servicios originales verificados prohibido.
+- Supervisor de sesión larga en worktree aislado: requiere HEAD limpio/congelado
+  y opt-ins campaña/publicación/apagado. Guarda progreso fuera de Git. Al terminar
+  sólo publica cierre si las240 ventanas oficiales y ambos análisis pasan,
+  original/limpieza quedan verificados, VM apagada, make check y CI aprobados.
+  Commits de resultados B17/B18 separados; PR ready, sin merge automático.
+- B17/B18 siguen pendientes de la campaña oficial de más de10h. No se reduce
+  B16 para cerrar antes. Sin cambios a producción Go, Nova, Excel/S2 o Glance.

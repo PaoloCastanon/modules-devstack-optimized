@@ -30,6 +30,12 @@ se verifican sus filas mediante SELECT antes y después. No hay SQL de escritura
 en la base original. La clase se crea con PUT 1.7, no con el PUT de renombrado
 1.2–1.6; los providers se eliminan con DELETE 1.0.
 
+Antes de la matriz, publica el compute real en Go mediante reinicio del tracker
+y verifica sus inventarios/traits/aggregates y candidates desde la biblioteca
+Nova desplegada. Restaura Python y reinicia sus consumidores antes de medir.
+Ambos conservan así el compute de control además de los16 providers del ensayo;
+las generaciones independientes del compute se registran sin igualarlas.
+
 ## Ejecución
 
 Ejemplo de piloto (cambiar todos los directorios de resultados/estado en cada
@@ -102,3 +108,19 @@ se necesita reparar un fallo. No guardar el canal SSH privado ni stderr/credenci
 Las diferencias de workers, caching de tokens, pools y buffer pool MySQL deben
 acompañar el informe: la comparación es de estos despliegues y no demuestra una
 causa exclusiva del lenguaje. Glance original permanece como control; no cierra B26.
+
+## Cierre autónomo de una sesión larga
+
+`complete_placement_campaign.py` permite que la campaña siga en un worktree
+aislado, bajo un supervisor de usuario y un inhibidor temporal de suspensión.
+Exige HEAD congelado/árbol limpio, un JSON de rutas públicas/PR existente y
+opt-ins independientes --allow-mutations, --allow-publish y --allow-vm-shutdown.
+Ese JSON nunca contiene credenciales. El estado y logs de ejecución se guardan
+fuera del repositorio durante la medición.
+
+Al terminar, conserva/comprime los datos, verifica restauración y servicios antes
+del apagado normal de la VM, analiza ambas tareas, genera tablas/figuras y ejecuta
+make check fuera de las ventanas. Sólo con los dos gates aprobados escribe la
+aceptación, hace commits separados de B17 y B18, push y actualiza el PR. Pasa el
+PR de draft a ready únicamente si CI aprueba. No hace merge. Si falla una etapa,
+deja estado needs_attention y conserva evidencia, sin inventar un cierre.

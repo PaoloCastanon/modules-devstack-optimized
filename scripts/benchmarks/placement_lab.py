@@ -84,8 +84,51 @@ class Lab:
         self.runtime_state = json.loads((self.runtime / 'state.json').read_text())
         self.refresh()
         save_json(self.args.output / 'original-owners.json', self.original_owners)
+        tracker = self.prepare_tracker()
         return {'original': self.original, 'runtime': json.loads((self.runtime / 'public-report.json').read_text()), 'owner': self.owner,
-                'environment': self.environment()}
+                'environment': self.environment(), 'tracker': tracker}
+
+    def prepare_tracker(self):
+        # Give both deployments the same idle real compute in addition to the
+        # sixteen synthetic providers. Do not let its first publication happen
+        # unpredictably inside an official load window.
+        require(len(self.original['providers']) == 1, 'single flat idle compute required')
+        original = self.original['providers'][0]
+        ident = original['provider']['uuid']
+        def restart_nova():
+            subprocess.run(['sudo', 'systemctl', 'restart', 'devstack@n-cpu.service', 'devstack@n-sch.service'],
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        def probe(label):
+            result = subprocess.run([sys.executable, str(HERE.parent / 'integration/nova_candidates_probe.py'),
+                                     '--provider-id', ident, '--output', str(self.args.output / label)], capture_output=True, text=True)
+            (self.args.output / (label + '.log')).write_text(result.stdout + result.stderr)
+            require(result.returncode == 0, 'real Nova client candidate probe')
+        self.route('go')
+        try:
+            restart_nova()
+            deadline = time.monotonic() + 120
+            while time.monotonic() < deadline:
+                response = self.targets['go'].call('GET', '/resource_providers/' + ident, headers={'OpenStack-API-Version': 'placement 1.14'})
+                if response['status'] == 200:
+                    state = self.snapshots('go', {'providers': [ident]})[ident]
+                    aggregates = self.call('go', 'GET', '/resource_providers/' + ident + '/aggregates', version='1.19')
+                    fields = [('inventories', 'inventories'), ('traits', 'traits'), ('allocations', 'allocations')]
+                    if all(sorted(state[key][field]) == sorted(original[key][field]) if isinstance(state[key][field], list)
+                           else state[key][field] == original[key][field] for key, field in fields):
+                        require(sorted(aggregates['aggregates']) == sorted(original['aggregates']['aggregates']), 'compute aggregates equivalent')
+                        require(all(state['provider'][key] == original['provider'][key] for key in ['uuid', 'name', 'root_provider_uuid', 'parent_provider_uuid']), 'same compute identity/root')
+                        break
+                time.sleep(1)
+            else:
+                raise TimeoutError('compute publication outside load window')
+            probe('go-nova-probe')
+            save_json(self.args.output / 'go-compute-before-load.json', state)
+        finally:
+            self.route('python')
+            restart_nova()
+        probe('python-nova-probe')
+        return {'logical_compute_equivalent': True, 'provider_id': ident, 'original_generation': original['provider']['generation'],
+                'go_generation': state['provider']['generation'], 'note': 'independent generations retained; tracker publication and restarts outside every load window'}
 
     def refresh(self):
         self.action('identity-refresh', lab_identity, action='refresh', private_root=self.auth)
