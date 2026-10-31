@@ -15,6 +15,20 @@ import placement_window as window
 
 
 class CampaignTests(unittest.TestCase):
+    def test_missing_worktree_trust_file_fails_before_creating_outputs_or_ssh(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            args = SimpleNamespace(allow_mutations=True, known_hosts=root / 'missing-local-cache',
+                                   ssh_key=root / 'key', protocol=root / 'protocol', output=root / 'output', private_root=root / 'private')
+            with patch.object(campaign, 'Remote') as remote:
+                with self.assertRaises(FileNotFoundError):
+                    campaign.run(args)
+                remote.assert_not_called()
+            self.assertFalse(args.output.exists())
+            self.assertFalse(args.private_root.exists())
+
     def test_full_matrix_has_five_independent_pairs_and_balanced_orders(self):
         protocol = json.loads((SCRIPTS.parents[1] / 'docs/benchmarks/protocol-v1.json').read_text())
         ident = str(uuid.uuid4())

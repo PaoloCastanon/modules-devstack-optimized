@@ -754,3 +754,9 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   Commits de resultados B17/B18 separados; PR ready, sin merge automático.
 - B17/B18 siguen pendientes de la campaña oficial de más de10h. No se reduce
   B16 para cerrar antes. Sin cambios a producción Go, Nova, Excel/S2 o Glance.
+
+### 2026-10-30 — B17 guard de confianza SSH en worktrees
+
+- Arranque oficial01 sin ventanas: known_hosts ignorado no existía en el nuevo worktree; SSH falló antes de ejecutar el coordinador. Intento y prueba del original activo/directorios remotos ausentes conservados.
+- Guard de archivos SSH/protocolo legibles antes de crear outputs/estado o lanzar SSH; test reproduce ausencia de la caché y exige cero efectos. Ruta absoluta original de confianza para el nuevo intento. No se deshabilita verificación de host.
+- Instrumentos HTTP, coordinador VM y recolector iguales al piloto07; sólo cambia preflight del driver. Campaña240 pendiente, sin reclasificar este fallo como éxito.

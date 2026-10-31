@@ -96,6 +96,9 @@ class Remote:
 def run(args):
     if not args.allow_mutations:
         raise ValueError('explicit mutation opt-in required')
+    for path in [args.known_hosts, args.ssh_key, args.protocol]:
+        if not path.is_file() or not os.access(path, os.R_OK):
+            raise FileNotFoundError('readable SSH trust/key and protocol files required before preparing a campaign')
     args.output.mkdir(parents=True, exist_ok=False)
     args.private_root.mkdir(mode=0o700, parents=False, exist_ok=False)
     args.private_root.chmod(0o700)
