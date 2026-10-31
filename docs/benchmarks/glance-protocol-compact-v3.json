@@ -92,5 +92,6 @@
   "log_policy": "Bound VM operational logs; rotate only outside measured windows, retain recent incident diagnostics and all benchmark samples",
   "statistics": "Three independent paired repetitions; publish individual results, median and range, declare limited uncertainty; no claim of precise tail or statistical significance",
   "notification_policy": "noop",
-  "reason": "Stock Python CacheFilter creates per-request notification transports; original messagingv2 exhausted LimitNOFILE2048 and produced HTTP200 zero bytes. Failure retained without acceptance. v3 uses documented noop notification driver in runtime-only private config directory; original config/code/limits untouched and restored."
+  "reason": "Stock Python CacheFilter creates per-request notification transports; original messagingv2 exhausted LimitNOFILE2048 and produced HTTP200 zero bytes. Failure retained without acceptance. v3 uses documented noop notification driver in runtime-only private config directory; original config/code/limits untouched and restored.",
+  "maximum_open_fd_growth_per_window": 256
 }

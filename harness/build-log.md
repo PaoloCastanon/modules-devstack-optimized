@@ -981,3 +981,17 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   OS_GLANCE_CONFIG_DIR mediante dropin sólo /run; originales/caché/límites sin
   modificación. Todo se retira/restaura por sesión. Debe calibrarse primero;
   no se presentan v3 ni el control propuesto como solución ya validada.
+
+
+### 2026-10-31 — Glance: calibración FD confirma causa y control v3
+
+- Ensayo nativo fuente07b03de:1500 descargas1MiB messagingv2, +1500FD;
+  6000 descargas1MiB noop, +4FD. Todas con bytes/hash completos. Conteos de
+  sockets por worker respaldan acumulación de transportes por cached request.
+- Control temporal OS_GLANCE_CONFIG_DIR en /run restaurado y hashes originales
+  iguales; caché y límite2048 intactos. Recursos propios retirados y VM apagada.
+  [Evidencia](../evidence/sprint5/benchmarks/glance-v3-fd-calibration-20261031/README.md).
+- No es benchmark de rendimiento (cliente VM-local). V3 mide API/bytes sin bus
+  RabbitMQ; piloto36 y oficial108 todavía pendientes. V2 fallido preservado.
+- Se añade guarda de crecimiento FD máximo256 por ventana, sin aceptar datos
+  sin contador. Prueba positiva/negativa y make check para nueva congelación.

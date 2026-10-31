@@ -20,6 +20,13 @@ def distribution(values):
             'p99_tail_supported': len(values) >= 1000}
 
 
+def validate_fd_stability(resources, maximum):
+    if any(type(resources.get(k)) is not int for k in ['open_fds_start', 'open_fds_end', 'open_fds_peak']):
+        raise ValueError('descriptor counts required for v3')
+    if resources['open_fds_peak'] - resources['open_fds_start'] > maximum:
+        raise ValueError('descriptor accumulation exceeds frozen v3 window bound')
+
+
 def analyze(root):
     manifest = json.loads((root / 'manifest.json').read_text())
     p = manifest['protocol']; validate_protocol(p)
@@ -83,6 +90,8 @@ def analyze(root):
             start, end = nanos(m['start_utc']) + offset, nanos(m['end_utc']) + offset
             completions = [start + s['offset_ns'] + s['elapsed_ns'] for s in samples]
             resources = interval_summary(records, report['implementation'], start, end, completions, ticks=collector['clock_ticks_s'])
+            if p['protocol'] == 'glance-compact-v3':
+                validate_fd_stability(resources, p['maximum_open_fd_growth_per_window'])
             resources['clock_uncertainty_ns'] = max(c['best']['rtt_ns'] // 2 for c in clocks.values()) + report['clock_drift_ns']
             warmup_start = nanos(report['warmup']['start_utc']) + offset
             idle = [sum(proc['pss_bytes'] for proc in row['groups'][report['implementation']]['processes']) for row in records
@@ -155,7 +164,8 @@ def publish(summary, output):
     lines = ['# Glance Python frente a Go: ' + summary['protocol']['protocol'], '',
              f"Resultado: {summary['runs_observed']}/{summary['runs_required']} ventanas válidas; HTTP/bytes/estado y CPU/PSS comprobados.",
              'Tres pares por celda; concurrencias1/16; calentamiento10s y carga30s más drenaje completo.',
-             f"Fuente medida: `{summary['measurement_head']}`. Placement Python permanece como control.", '',
+             f"Fuente medida: `{summary['measurement_head']}`. Placement Python permanece como control.",
+             'Política de notificaciones: ' + summary['protocol'].get('notification_policy', 'original') + '. La revisión3 mide API/catálogo/bytes sin bus RabbitMQ; conserva caché Python y documenta por separado el fallo stock v2.', '',
              '| Carga | C | Ciclos/s Python | Ciclos/s Go | MiB/s Python | MiB/s Go | PSS MiB Python | PSS MiB Go |',
              '|---|---:|---:|---:|---:|---:|---:|---:|']
     for g in summary['groups']:

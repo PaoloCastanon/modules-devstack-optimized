@@ -36,7 +36,7 @@ def validate_protocol(p):
             or p['pilot'] != {'concurrency': [1, 16], 'repetitions': 1, 'warmup_s': 1, 'measurement_s': 4, 'required_windows': 36}
             or p['payload_sizes_bytes'] != [1048576, 16777216, 67108864]):
         raise ValueError('unsupported or incomplete frozen compact Glance matrix')
-    if p['protocol'] == 'glance-compact-v3' and p.get('notification_policy') != 'noop':
+    if p['protocol'] == 'glance-compact-v3' and (p.get('notification_policy') != 'noop' or p.get('maximum_open_fd_growth_per_window') != 256):
         raise ValueError('v3 requires explicit API/bytes scope with noop notifications')
     for item in p['scenarios']:
         if item['id'].startswith(('upload-', 'download-')):

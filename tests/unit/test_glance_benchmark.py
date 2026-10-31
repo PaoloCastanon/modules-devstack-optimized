@@ -264,4 +264,10 @@ class GlanceCampaignTests(unittest.TestCase):
         with self.assertRaises(ValueError):noop_config('[DEFAULT]\nother = keep\n')
         p=self.protocol();p['protocol']='glance-compact-v3'
         with self.assertRaises(ValueError):validate_protocol(p)
-        p['notification_policy']='noop';self.assertEqual(validate_protocol(p),108)
+        p['notification_policy']='noop';p['maximum_open_fd_growth_per_window']=256;self.assertEqual(validate_protocol(p),108)
+
+    def test_descriptor_guard_rejects_unobserved_or_leaking_counts(self):
+        from analyze_glance import validate_fd_stability
+        validate_fd_stability({'open_fds_start':40,'open_fds_end':44,'open_fds_peak':64},256)
+        with self.assertRaises(ValueError):validate_fd_stability({},256)
+        with self.assertRaises(ValueError):validate_fd_stability({'open_fds_start':40,'open_fds_end':1540,'open_fds_peak':1540},256)

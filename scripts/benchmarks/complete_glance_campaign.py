@@ -141,7 +141,7 @@ def finish(config, status, summary):
     evidence = Path(config['evidence'])
     publish(summary, Path('docs/benchmarks/glance-results.md'))
     with Path('harness/build-log.md').open('a') as log:
-        log.write('\n\n### Glance compact v2: piloto y campaña oficial completados\n\n'
+        log.write('\n\n### ' + summary['protocol']['protocol'] + ': piloto y campaña oficial completados\n\n'
                   '- Piloto36/36 y oficial108/108, bytes/estado/CPU/PSS válidos; Placement Python fijo.\n'
                   '- Restauración, limpieza, controles y apagado normal verificados tras ambas sesiones.\n'
                   '- Datos independientes, n=3 mediana/rango; no atribución exclusiva al lenguaje.\n'
