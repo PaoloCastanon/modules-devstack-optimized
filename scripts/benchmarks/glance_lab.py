@@ -20,6 +20,7 @@ HERE = Path(__file__).resolve().parent
 sys.path[:0] = [str(HERE), str(HERE.parent / 'integration'), str(HERE.parent)]
 import glance_switch
 import lab_identity
+from glance_notifications import Control
 from glance_http import Client, metadata_matches, payload
 from glance_preflight import Session
 from placement_differential import read_token
@@ -58,6 +59,7 @@ class Lab(Session):
         self.closed = False
         self.ledger = []
         self.token_metadata = None
+        self.notifications = Control(self.root)
 
     def refresh(self):
         self.action('identity-refresh', lab_identity, action='refresh', private_root=self.auth)
@@ -69,6 +71,9 @@ class Lab(Session):
         connection, _, _ = sdk_connection()
         require(list(connection.compute.servers(all_projects=True)) == [], 'idle Nova lab required')
         super().prepare()
+        if self.args.notification_policy == 'noop':
+            save_json(self.args.output / 'notification-policy.json', self.notifications.install())
+            glance_switch.wait_auth(self.args.url)
         self.python_store_baseline = sorted(p.name for p in Path('/opt/stack/data/glance/images').iterdir())
         self.original_apparmor_sha = hashlib.sha256(Path('/etc/apparmor.d/usr.sbin.mysqld').read_bytes()).hexdigest()
         self.runtime_state = json.loads((self.runtime / 'state.json').read_text())
@@ -133,6 +138,7 @@ class Lab(Session):
                 'python_sha': cmd(['git', '-C', '/opt/stack/glance', 'rev-parse', 'HEAD']),
                 'binary_sha256': hashlib.sha256(self.args.binary.read_bytes()).hexdigest(),
                 'python_config_explicit_allowlist': settings,
+                'notification_policy': self.args.notification_policy,
                 'uwsgi': {k: uwsgi.get('uwsgi', k) for k in ['processes', 'threads', 'master', 'enable-threads', 'lazy-apps', 'max-requests', 'harakiri'] if uwsgi.has_option('uwsgi', k)},
                 'mysql_python': original_mysql, 'mysql_go': own_mysql,
                 'go_settings': {'transfer_limit': 16, 'metadata_timeout_s': 10, 'binary_timeout_s': 120,
@@ -291,6 +297,9 @@ class Lab(Session):
             self.finish(strict=False)
         finally:
             self.restore_route()
+        if self.notifications.state.exists():
+            save_json(self.args.output / 'notification-restoration.json', self.notifications.restore())
+            glance_switch.wait_auth(self.args.url)
         # Session checks the original catalog/sites/Placement, closes owned
         # runtime and identity, restores apt/log controls, trims guest and exits.
         if hasattr(self, 'original_apparmor_sha'):
@@ -308,6 +317,7 @@ def main():
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--url', default='http://192.168.122.10/image')
     parser.add_argument('--allow-mutations', action='store_true')
+    parser.add_argument('--notification-policy', choices=['original', 'noop'], default='original')
     args = parser.parse_args()
     require(args.allow_mutations and args.work_root.is_absolute() and args.work_root == args.work_root.resolve()
             and re.fullmatch(r'tt-placement-[a-z0-9-]+', args.work_root.name), 'owned canonical private root and opt-in')

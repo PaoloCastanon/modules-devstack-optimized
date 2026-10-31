@@ -138,8 +138,9 @@ def analyze(root):
     return {'schema': 1, 'campaign_id': manifest['campaign_id'], 'stage': manifest['stage'],
             'complete_valid': complete, 'accepted': complete and not pilot, 'pilot_validated': complete and pilot,
             'runs_required': len(expected_ids), 'runs_observed': len(runs), 'errors': errors, 'runs': runs, 'groups': groups,
-            'protocol': p, 'measurement_head': manifest['git_base'], 'protocol_sha256': manifest['protocol_sha256'],
-            'limitations': ['Three independent paired repetitions per cell; median and observed range, no statistical significance claim',
+            'notification_policy': p.get('notification_policy', 'original'), 'protocol': p, 'measurement_head': manifest['git_base'], 'protocol_sha256': manifest['protocol_sha256'],
+            'limitations': ['Notification policy: ' + p.get('notification_policy', 'original') + '; v3 compares API/catalog/bytes without bus notifications; does not validate stock messagingv2 stability',
+                            'Three independent paired repetitions per cell; median and observed range, no statistical significance claim',
                             'Closed-loop complete cycles including drain; upload cycle includes create/verify/delete and is not pure PUT throughput',
                             'Download checks every full payload; upload load verifies active metadata/hash, worker canaries round-trip outside measured windows',
                             'Public Apache path fixed; Python caches/workers/shared DB differ from Go isolated DB/store; no language-only attribution',
@@ -151,7 +152,7 @@ def analyze(root):
 def publish(summary, output):
     if not summary['accepted']:
         raise ValueError('only complete official Glance campaign can be published as accepted')
-    lines = ['# Glance Python frente a Go: campaña compacta v2', '',
+    lines = ['# Glance Python frente a Go: ' + summary['protocol']['protocol'], '',
              f"Resultado: {summary['runs_observed']}/{summary['runs_required']} ventanas válidas; HTTP/bytes/estado y CPU/PSS comprobados.",
              'Tres pares por celda; concurrencias1/16; calentamiento10s y carga30s más drenaje completo.',
              f"Fuente medida: `{summary['measurement_head']}`. Placement Python permanece como control.", '',

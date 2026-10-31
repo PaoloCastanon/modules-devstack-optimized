@@ -89,6 +89,8 @@ def session(config, name, status):
     status.update(stage=name + '_running', completed_runs=0, required_runs=36 if stage else 108, accepted=False)
     save(Path(config['status_file']), status)
     start_vm(config)
+    status.update(vm='running', last_run=None)
+    save(Path(config['status_file']), status)
     if stage:
         deploy(config)
     suffix = config['run_id'] + '-' + name
@@ -150,7 +152,7 @@ def finish(config, status, summary):
     compact(evidence)
     cmd(['git', 'add', '--', str(evidence), 'docs/benchmarks/glance-results.md', 'harness/build-log.md'])
     cmd(['git', 'diff', '--cached', '--check'])
-    cmd(['git', 'commit', '-m', 'test(benchmarks): complete Glance compact v2 pilot and official evaluation'])
+    cmd(['git', 'commit', '-m', 'test(benchmarks): complete Glance compact pilot and official evaluation'])
     head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     cmd(['git', 'push', 'origin', 'HEAD:feat/glance-compact-v2'])
     status.update(stage='ci_pending', head=head, measurement_head=config['frozen_head'])

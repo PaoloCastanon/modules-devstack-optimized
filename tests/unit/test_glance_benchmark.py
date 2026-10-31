@@ -254,3 +254,14 @@ class GlanceCampaignTests(unittest.TestCase):
                 self.assertEqual(result['measurement']['errors'],1)
         finally:
             server.shutdown(); server.server_close(); thread.join()
+
+    def test_noop_policy_only_changes_driver_and_requires_new_declared_protocol(self):
+        from glance_notifications import noop_config
+        from glance_campaign import validate_protocol
+        original='[DEFAULT]\npassword = PRIVATE\n[oslo_messaging_notifications]\ndriver = messagingv2\n[other]\nvalue = keep\n'
+        changed=noop_config(original)
+        self.assertEqual(changed,original.replace('driver = messagingv2','driver = noop'))
+        with self.assertRaises(ValueError):noop_config('[DEFAULT]\nother = keep\n')
+        p=self.protocol();p['protocol']='glance-compact-v3'
+        with self.assertRaises(ValueError):validate_protocol(p)
+        p['notification_policy']='noop';self.assertEqual(validate_protocol(p),108)

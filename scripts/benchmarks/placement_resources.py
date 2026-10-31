@@ -23,6 +23,8 @@ def collect(groups):
         try:
             pids = members(group)
             values = [snapshot(pid) for pid in pids]
+            for value in values:
+                value['open_fds'] = len(list((Path('/proc') / str(value['pid']) / 'fd').iterdir()))
             result[label] = {'processes': values, 'error': None}
         except (OSError, ValueError):
             result[label] = {'processes': [], 'error': 'membership_or_proc_unavailable'}
@@ -79,6 +81,9 @@ def interval_summary(records, service, start_ns, end_ns, correct_completions_ns,
         result['vm_control'] = {'cpu_delta_ticks': delta, 'steal_seconds': delta[7] / ticks,
                                 'minimum_mem_available_kib': min(r['vm_mem_available_kib'] for r in inner),
                                 'maximum_loadavg_1m': max(r['vm_loadavg'][0] for r in inner)}
+    if all('open_fds' in p for r in inner for p in r['groups'][service]['processes']):
+        counts = [sum(p['open_fds'] for p in r['groups'][service]['processes']) for r in inner]
+        result.update(open_fds_start=counts[0], open_fds_end=counts[-1], open_fds_peak=max(counts))
     return result
 
 
