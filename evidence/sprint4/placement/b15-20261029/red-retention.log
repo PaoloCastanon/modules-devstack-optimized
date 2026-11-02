@@ -1,0 +1,24 @@
+test_capacity_outcomes_require_consistent_usage_and_no_extra_errors (test_placement_suite.SuiteTests.test_capacity_outcomes_require_consistent_usage_and_no_extra_errors) ... ok
+test_cleanup_requires_exact_name_and_project (test_placement_suite.SuiteTests.test_cleanup_requires_exact_name_and_project) ... ok
+test_existing_evidence_refused_before_preparation (test_placement_suite.SuiteTests.test_existing_evidence_refused_before_preparation) ... ok
+test_failed_server_cleanup_retains_backend_credentials_and_ledger (test_placement_suite.SuiteTests.test_failed_server_cleanup_retains_backend_credentials_and_ledger) ... FAIL
+test_opt_in_precedes_files_sdk_and_privilege (test_placement_suite.SuiteTests.test_opt_in_precedes_files_sdk_and_privilege) ... ok
+test_partial_or_failed_cleanup_cannot_be_a_pass (test_placement_suite.SuiteTests.test_partial_or_failed_cleanup_cannot_be_a_pass) ... ok
+
+======================================================================
+FAIL: test_failed_server_cleanup_retains_backend_credentials_and_ledger (test_placement_suite.SuiteTests.test_failed_server_cleanup_retains_backend_credentials_and_ledger)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/tests/unit/test_placement_suite.py", line 68, in test_failed_server_cleanup_retains_backend_credentials_and_ledger
+    suite.action.assert_not_called()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/unittest/mock.py", line 947, in assert_not_called
+    raise AssertionError(msg)
+AssertionError: Expected 'mock' to not have been called. Called 2 times.
+Calls: [call('runtime-cleanup', <module 'placement_runtime' from '/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/scripts/integration/placement_runtime.py'>, action='cleanup', root=PosixPath('/tmp/tmp73c0uhw3/tt-placement-private/tt-placement-runtime')),
+ call('identity-cleanup', <module 'lab_identity' from '/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/scripts/integration/lab_identity.py'>, action='cleanup', private_root=PosixPath('/tmp/tmp73c0uhw3/tt-placement-private/tt-placement-auth'))].
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.002s
+
+FAILED (failures=1)

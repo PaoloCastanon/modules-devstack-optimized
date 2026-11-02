@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "protocol": "placement-v1",
+  "date_local": "2026-10-29",
+  "timezone": "America/Santiago",
+  "concurrency": [1, 4, 8, 16],
+  "warmup_s": 30,
+  "measurement_s": 120,
+  "request_timeout_s": 10,
+  "repetitions": 5,
+  "sampling_interval_s": 1,
+  "order_seed": 20261029,
+  "bootstrap_resamples": 10000,
+  "confidence": 0.95,
+  "seed_provider_count": 16,
+  "normal_initial_usage": 0,
+  "load_model": "closed-loop",
+  "scenarios": ["provider", "inventories", "allocations-read", "candidates", "claim-cycle", "nova-mix"],
+  "entry_gates": ["B13", "B14", "B15"],
+  "scope": "Placement Python versus Go; original Glance remains control"
+}

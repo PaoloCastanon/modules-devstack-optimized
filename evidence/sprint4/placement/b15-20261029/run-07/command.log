@@ -1,0 +1,11 @@
+{"case": "preflight_and_isolation", "passed": true}
+{"case": "tracker", "passed": true}
+{"case": "auth_fail_closed", "passed": true}
+{"case": "restart_persistence", "passed": true}
+{"case": "consumer_cas", "passed": true}
+{"case": "capacity_concurrency", "passed": true}
+{"case": "nova_no_capacity", "passed": true}
+{"case": "nova_boot_and_release", "passed": true}
+{"case": "nova_concurrent_boots", "passed": true}
+{"case": "failure_rollback", "passed": true}
+{"run_id": "82901021-2a2f-456b-b3ea-66fadec92573", "passed": true, "cases_passed": 11, "cases_required": 11, "cleanup": {"servers_removed": true, "flavors_removed": true, "allocations_removed": true, "original_restored": true, "original_state_unchanged": true, "runtime_removed": true, "identity_removed": true, "private_root_removed": true}}

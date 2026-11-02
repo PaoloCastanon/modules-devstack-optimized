@@ -1,0 +1,10 @@
+{
+  "timestamp_utc": "2026-10-30T00:48:18.262690+00:00",
+  "state": "shut off",
+  "original_provider_inventory_traits_aggregates_allocations_unchanged": true,
+  "original_mysql_uuid_unchanged": true,
+  "original_site_hash_restored": true,
+  "temporary_runtime_and_identity_removed": true,
+  "temporary_units_and_apparmor_profiles_active": false,
+  "source_for_unit_profile_check": "services-final.txt"
+}

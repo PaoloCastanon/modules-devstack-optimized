@@ -159,7 +159,7 @@ func TestB08ArraySchemaPaths(t *testing.T) {
 	if w.Code != 400 || r.calls != 0 || !strings.Contains(w.Body.String(), "instance['traits'][0]") {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	for version := 0; version <= 7; version++ {
+	for version := 0; version <= 8; version++ {
 		req := httptest.NewRequest("GET", "/", nil)
 		req.Header.Set("OpenStack-API-Version", fmt.Sprintf("placement 1.%d", version))
 		w := httptest.NewRecorder()

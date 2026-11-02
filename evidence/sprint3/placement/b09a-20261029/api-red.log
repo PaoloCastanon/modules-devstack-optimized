@@ -1,0 +1,5 @@
+--- FAIL: TestB09AllocationProtocols (0.00s)
+    allocations_test.go:54: empty consumer: 404 {"errors":[{"detail":"The resource could not be found.\n\n The resource could not be found.  ","request_id":"req-09de90b4-b279-4aae-8bf1-b8479e2578b0","status":404,"title":"Not Found"}]}
+FAIL
+FAIL	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api	0.003s
+FAIL

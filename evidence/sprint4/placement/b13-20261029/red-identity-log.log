@@ -1,0 +1,5 @@
+--- FAIL: TestRequestLogAttributesValidatedIdentity (0.00s)
+    auth_acceptance_test.go:102: missing validated identity: {"time":"2026-10-29T21:22:25.927270552-03:00","level":"INFO","msg":"request completed","request_id":"req-476450d3-90ad-4df4-8c81-5d6949398145","method":"GET","route":"/resource_providers","status":200,"duration_ms":0}
+FAIL
+FAIL	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api	0.003s
+FAIL

@@ -1,0 +1,7 @@
+/etc/placement/placement.conf:30:enforce_new_defaults = True
+/opt/stack/placement/placement/policies/base.py:16:RULE_ADMIN_API = 'rule:admin_api'
+/opt/stack/placement/placement/policies/base.py:25:    name=RULE_ADMIN_API,
+/opt/stack/placement/placement/policies/base.py:35:ADMIN_OR_SERVICE = 'rule:admin_or_service_api'
+/opt/stack/placement/placement/policies/base.py:49:        "role:service",
+/opt/stack/placement/placement/policies/base.py:56:        "role:admin or role:service",
+/opt/stack/placement/placement/policies/base.py:69:        "role:admin or rule:project_reader_api or role:service",

@@ -1,0 +1,8 @@
+{
+  "tracker_republished_provider": true,
+  "logical_inventory_traits_aggregates_equal": true,
+  "nova_report_client_candidates": true,
+  "actual_nova_identity_logged": true,
+  "original_stopped_during_test": true,
+  "boot_attempted": false
+}

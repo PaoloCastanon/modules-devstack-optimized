@@ -1,0 +1,40 @@
+import datetime,json,pathlib,shlex,shutil,subprocess,sys,tempfile
+repo=pathlib.Path('/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized');sys.path.insert(0,str(repo/'scripts'));import placement_differential as base
+out=pathlib.Path(sys.argv[1]);out.mkdir();private=pathlib.Path(tempfile.mkdtemp(prefix='tt-placement-b14-host-'));private.chmod(0o700)
+opts=['-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','UserKnownHostsFile='+str(repo/'infra/lab-vm/.cache/known_hosts'),'-i','/home/paolo/.ssh/id_ed25519']
+root='/home/stack/tt-placement-b13-runtime-20261029';python='/opt/stack/data/venv/bin/python';pre=json.loads(pathlib.Path('/tmp/b13-preflight-02.json').read_text());provider=pre['providers'][0]['provider']['uuid'];attempted=False;failed=False
+
+def remote(args,check=True):
+ p=subprocess.run(['ssh',*opts,'stack@192.168.122.10',shlex.join(args)],capture_output=True,text=True)
+ if check and p.returncode:raise RuntimeError('remote action failed')
+ return p
+try:
+ empty=remote(['bash','-lc','set -e\nset +u\nsource /opt/stack/devstack/openrc admin admin >/dev/null 2>&1\n/opt/stack/data/venv/bin/openstack server list --all-projects -f json'])
+ assert json.loads(empty.stdout)==[];(out/'servers-before.json').write_text(empty.stdout)
+ start=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+ attempted=True
+ activated=remote([python,'/tmp/placement_switch.py','activate','--root',root,'--expected-original-sha',pre['apache_site_sha256'],'--lease-seconds','900','--allow-mutations']);(out/'activation.json').write_text(activated.stdout)
+ remote(['sudo','systemctl','restart','devstack@n-cpu.service','devstack@n-sch.service'])
+ args=[python,'/tmp/placement_boot.py','--provider-id',provider,'--image-id','525c5703-e0a5-4cee-9669-9e57fd89ca32','--flavor-id','1','--network-id','44193c7a-3e3b-4ae2-900e-e1e88856d4e3','--token-file','/tmp/tt-placement-b13-20261029/service.token','--output','/tmp/tt-placement-b14-'+out.name,'--allow-mutations']
+ command='set -e\nset +u\nsource /opt/stack/devstack/openrc admin admin >/dev/null 2>&1\nexec '+shlex.join(args)
+ boot=remote(['bash','-lc',command],False);(out/'boot-command.log').write_text(boot.stdout+boot.stderr)
+ subprocess.run(['scp','-qr',*opts,'stack@192.168.122.10:/tmp/tt-placement-b14-'+out.name,str(out/'boot')],check=True)
+ report=json.loads((out/'boot/report.json').read_text());print({key:report[key] for key in ['server_id','boot_active','allocation_verified','server_deleted','allocations_released','usages_restored','execution_error','cleanup_error']},flush=True)
+ assert boot.returncode==0
+ unit=json.loads(pathlib.Path('/tmp/b13-runtime-prepare-03.log').read_text())['go_unit'];logs=remote(['sudo','journalctl','-u',unit,'--since',start,'--no-pager','-o','cat']).stdout;selected=[]
+ for line in logs.splitlines():
+  try:
+   j=json.loads(line)
+   if j.get('msg')=='request completed':selected.append(j)
+  except ValueError:pass
+ (out/'go-requests.json').write_text(json.dumps(selected,indent=2)+'\n')
+ for method in ['PUT','DELETE']:assert any(j['route']=='/allocations/{consumer}' and j['method']==method and j['status']==204 and j.get('user_id')=='c40c4337691f4a94a519104114abb32f' for j in selected)
+ (out/'result.json').write_text(json.dumps({'real_server_active':True,'nova_claim_and_release_logged':True,'allocation_owner_resources_verified':True,'server_deleted':True,'provider_usage_restored':True,'original_stopped_during_boot':True},indent=2)+'\n')
+except Exception as error:
+ failed=True;(out/'error.json').write_text(json.dumps({'error':type(error).__name__})+'\n');print(type(error).__name__,flush=True)
+finally:
+ if attempted:
+  restore=remote([python,'/tmp/placement_switch.py','restore','--root',root,'--allow-mutations'],False);(out/'restoration.log').write_text(restore.stdout+restore.stderr)
+  if restore.returncode:failed=True
+ shutil.rmtree(private)
+print('B14 complete; failed='+str(failed),flush=True);sys.exit(1 if failed else 0)

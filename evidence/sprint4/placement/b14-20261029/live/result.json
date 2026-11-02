@@ -1,0 +1,8 @@
+{
+  "real_server_active": true,
+  "nova_claim_and_release_logged": true,
+  "allocation_owner_resources_verified": true,
+  "server_deleted": true,
+  "provider_usage_restored": true,
+  "original_stopped_during_boot": true
+}

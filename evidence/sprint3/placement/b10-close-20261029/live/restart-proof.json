@@ -1,0 +1,102 @@
+{
+  "provider_uuid": "125f35fb-9a27-41c8-aa36-b49e5e5e2fa2",
+  "consumer_uuid": "edb388df-1578-4936-8f5e-04eed82da9e4",
+  "before": {
+    "provider": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.8",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"generation\":2,\"links\":[{\"href\":\"/placement/resource_providers/125f35fb-9a27-41c8-aa36-b49e5e5e2fa2\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/125f35fb-9a27-41c8-aa36-b49e5e5e2fa2/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/125f35fb-9a27-41c8-aa36-b49e5e5e2fa2/usages\",\"rel\":\"usages\"},{\"href\":\"/placement/resource_providers/125f35fb-9a27-41c8-aa36-b49e5e5e2fa2/aggregates\",\"rel\":\"aggregates\"},{\"href\":\"/placement/resource_providers/125f35fb-9a27-41c8-aa36-b49e5e5e2fa2/traits\",\"rel\":\"traits\"}],\"name\":\"tt-b09-restart-125f35fb-9a27-41c8-aa36-b49e5e5e2fa2\",\"uuid\":\"125f35fb-9a27-41c8-aa36-b49e5e5e2fa2\"}\n"
+    },
+    "inventories": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.8",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"resource_provider_generation\":2,\"inventories\":{\"VCPU\":{\"total\":8,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+    },
+    "consumer": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.8",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"allocations\":{\"125f35fb-9a27-41c8-aa36-b49e5e5e2fa2\":{\"generation\":2,\"resources\":{\"VCPU\":6}}}}\n"
+    },
+    "allocations": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.8",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"resource_provider_generation\":2,\"allocations\":{\"edb388df-1578-4936-8f5e-04eed82da9e4\":{\"resources\":{\"VCPU\":6}}}}\n"
+    },
+    "usages": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.8",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"resource_provider_generation\":2,\"usages\":{\"VCPU\":6}}\n"
+    }
+  },
+  "after": {
+    "provider": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.8",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"generation\":2,\"links\":[{\"href\":\"/placement/resource_providers/125f35fb-9a27-41c8-aa36-b49e5e5e2fa2\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/125f35fb-9a27-41c8-aa36-b49e5e5e2fa2/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/125f35fb-9a27-41c8-aa36-b49e5e5e2fa2/usages\",\"rel\":\"usages\"},{\"href\":\"/placement/resource_providers/125f35fb-9a27-41c8-aa36-b49e5e5e2fa2/aggregates\",\"rel\":\"aggregates\"},{\"href\":\"/placement/resource_providers/125f35fb-9a27-41c8-aa36-b49e5e5e2fa2/traits\",\"rel\":\"traits\"}],\"name\":\"tt-b09-restart-125f35fb-9a27-41c8-aa36-b49e5e5e2fa2\",\"uuid\":\"125f35fb-9a27-41c8-aa36-b49e5e5e2fa2\"}\n"
+    },
+    "inventories": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.8",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"resource_provider_generation\":2,\"inventories\":{\"VCPU\":{\"total\":8,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+    },
+    "consumer": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.8",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"allocations\":{\"125f35fb-9a27-41c8-aa36-b49e5e5e2fa2\":{\"generation\":2,\"resources\":{\"VCPU\":6}}}}\n"
+    },
+    "allocations": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.8",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"resource_provider_generation\":2,\"allocations\":{\"edb388df-1578-4936-8f5e-04eed82da9e4\":{\"resources\":{\"VCPU\":6}}}}\n"
+    },
+    "usages": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.8",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"resource_provider_generation\":2,\"usages\":{\"VCPU\":6}}\n"
+    }
+  },
+  "shutdown_exit": 0,
+  "same_state": true,
+  "cleanup_verified": true,
+  "mysql_server_restart": false
+}

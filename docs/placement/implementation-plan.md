@@ -19,7 +19,9 @@ compara 57 casos contra Python y Keystone reales: **57/57 status, respuestas y
 estados coinciden**, con limpieza y reinicio verificados. La implementación está
 integrada mediante PR #6 en b4d8300. [B08](b08-development.md) añade catálogos y
 asociaciones con 82/82 comparaciones estrictas, regresión B07 57/57 y reinicio
-verificado. B09/B10 siguen pendientes y B11/B12 tienen avance parcial; no se cierra el conjunto Placement ni la integración Nova.
+verificado. [B09-A](b09-development.md) añade la base de allocations con 60/60 casos vivos y
+regresiones B07/B08 aprobadas. El [cierre B09](b09-development.md) añade 24/24 casos modernos y CAS de consumer.
+B10 completó 44/44 casos; B11 cerró durabilidad/restore con 9/9 verificaciones. B12 cerró Keystone/políticas con 143/143 y regresiones 267/267; no se cierra el conjunto Placement ni la integración Nova.
 [Resultados y ensayos previos](../../evidence/sprint3/placement/b07-close-20261029/README.md).
 
 No cambiar estados, fechas, puntos del Excel ni informes históricos. Este plan
@@ -121,7 +123,10 @@ contrastado de la revisión Python fijada para la comparación experimental.
 - Reemplazar allocations considera la reserva previa del mismo consumer.
   Un fallo en cualquier provider/clase revierte todo; dos solicitudes concurrentes
   no pueden reclamar más capacidad que la disponible.
-- Inventario o provider en uso no se elimina ni se reduce por debajo de lo usado.
+- Inventario o provider en uso no se elimina. La reducción de capacidad conserva
+  reservas aunque quede sobrecapacidad, como el original contrastado en B09-A.
+  Una reserva que empeora esa sobrecapacidad falla; una igual o menor se admite
+  si cumple constraints. El filtro resources descuenta el uso persistido.
 - Consumer generation conserva la diferencia entre ausente, null, cero y obsoleta
   según microversión. DELETE y repetición siguen el contrato observado.
 - Candidates y provider_summaries proceden de inventarios, usos y traits reales.
@@ -151,12 +156,28 @@ sus tareas posteriores y su metodología; no condicionan el primer B07.
 
 ## Próximo paso concreto
 
-Comenzar B09: fijar el contrato de allocations por consumer/provider que usa
-Nova, generaciones de consumer, proyecto/usuario y las microversiones necesarias.
-Implementar reserva/reemplazo/liberación atómica sobre el inventario y restar el
-uso al filtro resources de B08. Probar capacidad agotada, conflicto concurrente,
-rollback y liberación con MySQL antes de habilitar claims. Ampliar versiones sólo
-tras cubrir sus dependencias en las rutas seleccionadas. B10 añade candidates;
-B13–B15 conservan la sustitución reversible y el boot ACTIVE con Nova original.
-B08 queda documentado en su [guía y límites](b08-development.md), sin cambiar
-el Excel ni la evidencia histórica.
+B07–B12 están completados para el subconjunto y perfiles explícitos descritos en
+sus entregas. [B10](b10-development.md) cierra candidates planos y resource tracker;
+[B11](b11-acceptance.md) cierra durabilidad/restore y [B12](b12-acceptance.md)
+identidad/políticas reales. Las regresiones B07–B10 pasan 267/267 sobre el binario
+final; Keystone/políticas 143/143 y durabilidad 9/9. Laboratorio limpio y VM apagada.
+
+El siguiente bloque es B13–B15: preparar sustitución reversible de Placement,
+publicación del compute y boot ACTIVE con Nova original; verificar claims,
+liberación, capacidad agotada y restauración del endpoint. Requiere contrastar
+primero que los perfiles seleccionados cubren las llamadas reales del lab.
+El soporte actual no incluye árboles/sharing, autenticación compuesta ni toda
+la API upstream. No cambiar Excel ni evidencia histórica S2.
+
+El [plan B13–B18](b13-b18-plan.md) detalla sustitución, boot, suite y metodología/
+mediciones. Su orden operativo comienza por B16 y prepara B15 durante B13/B14.
+
+Avance posterior: [B13](b13-integration.md) verifica sustitución/publicación y
+[B14](b14-acceptance.md) el boot real y liberación. [B16](../benchmarks/methodology.md)
+define el protocolo. [B15](b15-integration.md) cerró la suite con dos corridas finales 11/11 y limpieza
+completa. El siguiente bloque pendiente es medir B17/B18 con el protocolo B16.
+
+Preparación2026-10-30: [instrumentación completa](../benchmarks/campaign-runbook.md)
+y tres pilotos24/24 válidos HTTP/CPU/PSS. El coordinador ejecuta las240 ventanas
+oficiales B16 sin recortar duraciones/repeticiones. El piloto no cierra B17/B18;
+el cierre exige datos oficiales, análisis, limpieza y restauración.

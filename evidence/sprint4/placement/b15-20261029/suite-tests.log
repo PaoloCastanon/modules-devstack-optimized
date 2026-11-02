@@ -1,0 +1,12 @@
+test_capacity_outcomes_require_consistent_usage_and_no_extra_errors (test_placement_suite.SuiteTests.test_capacity_outcomes_require_consistent_usage_and_no_extra_errors) ... ok
+test_cleanup_requires_exact_name_and_project (test_placement_suite.SuiteTests.test_cleanup_requires_exact_name_and_project) ... ok
+test_existing_evidence_refused_before_preparation (test_placement_suite.SuiteTests.test_existing_evidence_refused_before_preparation) ... ok
+test_failed_server_cleanup_retains_backend_credentials_and_ledger (test_placement_suite.SuiteTests.test_failed_server_cleanup_retains_backend_credentials_and_ledger) ... ok
+test_opt_in_precedes_files_sdk_and_privilege (test_placement_suite.SuiteTests.test_opt_in_precedes_files_sdk_and_privilege) ... ok
+test_partial_or_failed_cleanup_cannot_be_a_pass (test_placement_suite.SuiteTests.test_partial_or_failed_cleanup_cannot_be_a_pass) ... ok
+test_two_coordinators_cannot_hold_the_same_lab_lease (test_placement_suite.SuiteTests.test_two_coordinators_cannot_hold_the_same_lab_lease) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.001s
+
+OK

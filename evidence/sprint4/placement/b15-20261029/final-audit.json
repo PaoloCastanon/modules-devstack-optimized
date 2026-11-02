@@ -1,0 +1,22 @@
+{
+  "servers_remaining": 0,
+  "owned_users_remaining": 0,
+  "owned_projects_remaining": 0,
+  "owned_flavors_remaining": 0,
+  "original_services": {
+    "devstack@placement-api.service": true,
+    "devstack@n-cpu.service": true,
+    "devstack@n-sch.service": true,
+    "devstack@keystone.service": true,
+    "devstack@g-api.service": true
+  },
+  "own_units_remaining": "",
+  "own_apparmor_profiles": [],
+  "own_profile_files": [],
+  "work_roots_remaining": [],
+  "nested_domains_remaining": "",
+  "image_original_active": true,
+  "apache_sha256": "07fab01f3c097319f9ab9d86bb22cf8fc0432381bb4c50e5fd58948c3b29f65f",
+  "original_apparmor_sha256": "0c242ac102a58b00c9e879cef5671dec35fe0c8ec45d85fa01bbea926d63775d",
+  "coordinator_lock_bytes": 0
+}

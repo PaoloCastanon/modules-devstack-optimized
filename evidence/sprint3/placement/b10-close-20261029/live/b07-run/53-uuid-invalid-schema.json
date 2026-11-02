@@ -1,0 +1,124 @@
+{
+  "name": "uuid-invalid-schema",
+  "provider_uuid": "86ac3dfa-c575-4cf4-aa2d-2095d595cf3b",
+  "request": {
+    "method": "POST",
+    "path": "/resource_providers",
+    "body": {
+      "uuid": "bad",
+      "name": "tt-b07-diff-86ac3dfa-c575-4cf4-aa2d-2095d595cf3b"
+    },
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0",
+      "Content-Type": "application/json"
+    },
+    "body_text": "{\"uuid\": \"bad\", \"name\": \"tt-b07-diff-86ac3dfa-c575-4cf4-aa2d-2095d595cf3b\"}",
+    "auth_role": "admin"
+  },
+  "seed": {},
+  "before": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found  \", \"request_id\": \"req-caff30bd-dc30-4feb-860b-cde46ef364f1\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found : No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found  \", \"request_id\": \"req-73cbb3e0-6c89-4d59-b23f-612d55103eaf\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found  \",\"request_id\":\"req-1cc168ed-a881-48db-9dd6-d97ddc1ba9db\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found : No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found  \",\"request_id\":\"req-ef3bc877-9f2c-4d75-a609-d94d82d80a2e\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"errors\": [{\"status\": 400, \"title\": \"Bad Request\", \"detail\": \"The server could not comply with the request since it is either malformed or otherwise incorrect.\\n\\n JSON does not validate: 'bad' is not a 'uuid'  Failed validating 'format' in schema['properties']['uuid']:     {'type': 'string', 'format': 'uuid'}  On instance['uuid']:     'bad'  \", \"request_id\": \"req-f2e94db1-d583-495c-bf7d-d5bced4364cc\"}]}"
+    },
+    "go": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"errors\":[{\"detail\":\"The server could not comply with the request since it is either malformed or otherwise incorrect.\\n\\n JSON does not validate: 'bad' is not a 'uuid'  Failed validating 'format' in schema['properties']['uuid']:     {'type': 'string', 'format': 'uuid'}  On instance['uuid']:     'bad'  \",\"request_id\":\"req-5be6a8ab-3802-43f5-a441-faebe2fa75a8\",\"status\":400,\"title\":\"Bad Request\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found  \", \"request_id\": \"req-4ef01250-a427-4a90-b30b-32e28e00a8aa\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found : No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found  \", \"request_id\": \"req-d994fef0-6959-41fa-a4cb-6db71b42b9b5\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found  \",\"request_id\":\"req-c9ae4fdc-b5ac-4a9f-b9a3-aecf0d677c3f\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found : No resource provider with uuid 86ac3dfa-c575-4cf4-aa2d-2095d595cf3b found  \",\"request_id\":\"req-c1e902af-293e-48af-b71f-97387c02fadd\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}

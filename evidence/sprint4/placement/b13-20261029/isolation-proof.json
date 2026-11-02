@@ -1,0 +1,10 @@
+{
+  "original_server_uuid": "c8843da1-be7d-11f1-add6-525400241002",
+  "go_server_uuid": "68ed5a00-d3f7-11f1-9a9b-525400241002",
+  "different_servers": true,
+  "go_mysql_port": 13316,
+  "schema": "placement_go_test_b13_e852f43430",
+  "original_write_sql_executed": false,
+  "initial_cli_extra_config_was_ambiguous": true,
+  "corrected_cli_uses_defaults_file_and_socket": true
+}

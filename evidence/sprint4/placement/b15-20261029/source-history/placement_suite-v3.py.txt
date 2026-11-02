@@ -1,0 +1,653 @@
+#!/usr/bin/env python3
+"""B15 opt-in integration suite inside the lab VM; creates/destroys its own runtime.
+
+Requires the deployed SDKs, admin openrc, a Go binary and explicit existing lab
+resource IDs. Never starts the VM or writes SQL to the original Placement DB.
+"""
+import argparse
+from concurrent.futures import ThreadPoolExecutor
+import contextlib
+import datetime
+from decimal import Decimal, ROUND_FLOOR
+import fcntl
+import hashlib
+import io
+import json
+import logging
+import os
+from pathlib import Path
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import threading
+import time
+from types import SimpleNamespace
+import uuid
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from placement_differential import Target, read_token
+import lab_identity
+import placement_boot
+import placement_preflight
+import placement_runtime
+import placement_switch
+
+CASES = ('preflight_and_isolation', 'tracker', 'auth_fail_closed', 'restart_persistence',
+         'consumer_cas', 'capacity_concurrency', 'nova_no_capacity', 'nova_boot_and_release',
+         'nova_concurrent_boots', 'failure_rollback', 'original_restoration')
+CLEANUP = ('servers_removed', 'flavors_removed', 'allocations_removed', 'original_restored',
+           'original_state_unchanged', 'runtime_removed', 'identity_removed', 'private_root_removed')
+
+
+@contextlib.contextmanager
+def exclusive_run(path):
+    # Keep the empty lock inode between runs; unlinking it creates a lock race.
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise ValueError('lab lock ownership/mode mismatch')
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield
+    finally:
+        os.close(fd)
+
+
+def suite_passed(report):
+    return (report.get('execution_error') is None and
+            all(report.get('cases', {}).get(name, {}).get('passed') is True for name in CASES) and
+            all(report.get('cleanup', {}).get(name) is True for name in CLEANUP))
+
+
+def capacity_outcome(statuses, capacity, amount, used):
+    return (amount > 0 and len(statuses) == capacity // amount + 1 and
+            statuses.count(204) == capacity // amount and statuses.count(409) == 1 and
+            used == statuses.count(204) * amount and used <= capacity)
+
+
+def verified_server(connection, ident, name, project):
+    server = connection.compute.get_server(ident)
+    if server.name != name or server.project_id != project:
+        raise ValueError('server ownership mismatch')
+    return server
+
+
+def save_json(path, value, private=False):
+    path.write_text(json.dumps(value, indent=2) + '\n')
+    if private:
+        path.chmod(0o600)
+
+
+def require(condition, label):
+    if not condition:
+        raise AssertionError(label)
+
+
+def sdk_connection():
+    from keystoneauth1 import session
+    from keystoneauth1.identity import v3
+    from openstack.connection import Connection
+    url = os.environ['OS_AUTH_URL'].rstrip('/')
+    if not url.endswith('/v3'):
+        url += '/v3'
+    auth = v3.Password(auth_url=url, username=os.environ['OS_USERNAME'], password=os.environ['OS_PASSWORD'],
+                       project_name=os.environ['OS_PROJECT_NAME'], user_domain_name=os.environ.get('OS_USER_DOMAIN_NAME', 'Default'),
+                       project_domain_name=os.environ.get('OS_PROJECT_DOMAIN_NAME', 'Default'))
+    scoped = session.Session(auth=auth, timeout=20)
+    access = auth.get_access(scoped)
+    connection = Connection(session=scoped, region_name=os.environ.get('OS_REGION_NAME', 'RegionOne'))
+    return connection, access.project_id, access.user_id
+
+
+class Suite:
+    def __init__(self, args):
+        self.args = args
+        self.auth_root = args.work_root / 'tt-placement-auth'
+        self.runtime_root = args.work_root / 'tt-placement-runtime'
+        self.connection = None
+        self.public = self.direct = None
+        self.original = None
+        self.servers, self.flavors, self.consumers = [], [], []
+        self.ledger_lock = threading.Lock()
+        self.started = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+        self.report = {'schema': 1, 'run_id': str(uuid.uuid4()), 'timestamp_utc': self.started,
+                       'cases': {}, 'cleanup': {name: False for name in CLEANUP},
+                       'execution_error': None, 'cleanup_errors': [],
+                       'binary_sha256': hashlib.sha256(args.binary.read_bytes()).hexdigest(),
+                       'instrument_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                       'resource_ids': {key: getattr(args, key) for key in ['provider_id', 'image_id', 'flavor_id', 'network_id']}}
+
+    def checkpoint(self):
+        save_json(self.args.output / 'report.json', self.report)
+
+    def ledger(self):
+        with self.ledger_lock:
+            save_json(self.args.work_root / 'ledger.json', {'servers': self.servers, 'flavors': self.flavors,
+                                                         'consumers': self.consumers}, private=True)
+
+    def action(self, name, module, **kwargs):
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            result = module.run(SimpleNamespace(allow_mutations=True, **kwargs))
+        # Helpers emit public metadata only, never credentials/DSN/environment.
+        (self.args.output / (name + '.log')).write_text(stream.getvalue())
+        require(result == 0, name)
+
+    def step(self, name, function):
+        self.report['cases'][name] = {'passed': False}
+        start = time.monotonic()
+        try:
+            details = function()
+            self.report['cases'][name].update(passed=True, details=details)
+        except Exception as error:
+            self.report['cases'][name]['error'] = type(error).__name__
+            raise
+        finally:
+            self.report['cases'][name]['elapsed_s'] = time.monotonic() - start
+            self.checkpoint()
+        print(json.dumps({'case': name, 'passed': True}), flush=True)
+
+    def call(self, method, path, body=None, version='1.36', role='admin', direct=False, headers=None):
+        selected = {'OpenStack-API-Version': 'placement ' + version}
+        selected.update(headers or {})
+        return (self.direct if direct else self.public).call(method, path, body, selected, role)
+
+    def get(self, path, version='1.36', direct=False):
+        response = self.call('GET', path, version=version, direct=direct)
+        require(response['status'] == 200, 'GET status')
+        return json.loads(response['body_text'])
+
+    def provider_snapshot(self, direct=False):
+        prefix = '/resource_providers/' + self.args.provider_id
+        return {key: self.get(prefix + suffix, version, direct) for key, suffix, version in
+                [('provider', '', '1.14'), ('inventories', '/inventories', '1.26'),
+                 ('traits', '/traits', '1.6'), ('aggregates', '/aggregates', '1.19'),
+                 ('allocations', '/allocations', '1.36'), ('usages', '/usages', '1.0')]}
+
+    def new_consumer(self):
+        ident = str(uuid.uuid4())
+        require(self.get('/allocations/' + ident, direct=True) == {'allocations': {}}, 'fresh consumer')
+        self.consumers.append(ident)
+        self.ledger()
+        return ident
+
+    def claim_body(self, amount=1):
+        return {'consumer_generation': None, 'project_id': self.project_id, 'user_id': self.user_id,
+                'allocations': {self.args.provider_id: {'resources': {'VCPU': amount}}}}
+
+    def clear_consumer(self, ident):
+        current = self.get('/allocations/' + ident, direct=True)
+        if current.get('allocations'):
+            require(current.get('project_id') == self.project_id and current.get('user_id') == self.user_id,
+                    'allocation ownership')
+            result = self.call('DELETE', '/allocations/' + ident, version='1.0', direct=True)
+            require(result['status'] == 204, 'consumer cleanup status')
+        require(self.get('/allocations/' + ident, '1.0', True) == {'allocations': {}}, 'consumer cleanup state')
+
+    def probe(self, label):
+        script = Path(__file__).with_name('nova_candidates_probe.py')
+        result = subprocess.run([sys.executable, str(script), '--provider-id', self.args.provider_id,
+                                 '--output', str(self.args.output / label)], capture_output=True, text=True)
+        # Only public result/error types and dependency warnings are emitted.
+        (self.args.output / (label + '.log')).write_text(result.stdout + result.stderr)
+        require(result.returncode == 0, 'Nova client probe')
+        return json.loads((self.args.output / label / 'report.json').read_text())
+
+    def preflight(self):
+        self.connection, self.project_id, self.user_id = sdk_connection()
+        require(list(self.connection.compute.servers(all_projects=True)) == [], 'lab must have no existing servers')
+        require(self.connection.image.get_image(self.args.image_id).status.lower() == 'active', 'image active')
+        require(self.connection.network.get_network(self.args.network_id).id == self.args.network_id, 'network exists')
+        self.flavor = self.connection.compute.get_flavor(self.args.flavor_id)
+        require(int(self.flavor.vcpus) > 0 and int(self.flavor.disk) > 0, 'selected non-BFV flavor')
+        self.action('identity-prepare', lab_identity, action='prepare', private_root=self.auth_root)
+        tokens = {role: read_token(self.auth_root / (role + '.token')) for role in ['service', 'reader']}
+        self.tokens = {'admin': tokens['service'], 'reader': tokens['reader']}
+        self.public = Target(self.args.placement_url, self.tokens)
+        self.action('original-preflight', placement_preflight, url=self.args.placement_url,
+                    token_file=self.auth_root / 'service.token', output=self.args.output / 'original-before')
+        self.original = json.loads((self.args.output / 'original-before/report.json').read_text())
+        require(len(self.original['providers']) == 1 and
+                self.original['providers'][0]['provider']['uuid'] == self.args.provider_id, 'explicit single flat provider')
+        username = self.original['config']['nova_placement']['username']
+        self.nova_user_id = self.connection.identity.find_user(username, ignore_missing=False).id
+        self.action('runtime-prepare', placement_runtime, action='prepare', root=self.runtime_root,
+                    auth_root=self.auth_root, binary=self.args.binary, mysql_port=self.args.mysql_port,
+                    listen_port=self.args.listen_port, public_url=self.args.placement_url, keystone_url=self.args.keystone_url)
+        self.runtime = json.loads((self.runtime_root / 'state.json').read_text())
+        self.direct = Target('http://127.0.0.1:' + str(self.args.listen_port), self.tokens)
+        # Inspect the actual application connection, not mysql's implicit ~/.my.cnf.
+        import pymysql
+        dsn = (self.runtime_root / 'app.dsn').read_text().strip()
+        match = re.fullmatch(r'([a-z0-9_]+):([a-f0-9]+)@tcp\(127\.0\.0\.1:([0-9]+)\)/(placement_go_test_[a-z0-9_]+)\?parseTime=true', dsn)
+        require(match is not None, 'owned explicit application DSN')
+        user, password, port, schema = match.groups()
+        with pymysql.connect(host='127.0.0.1', port=int(port), user=user, password=password, database=schema) as db:
+            with db.cursor() as cur:
+                cur.execute('SELECT @@server_uuid, DATABASE(), @@port')
+                server_uuid, actual_schema, actual_port = cur.fetchone()
+        require(server_uuid != self.original['original_mysql']['server_uuid'] and actual_schema == schema and actual_port == self.args.mysql_port,
+                'independent MySQL application backend')
+        self.report['owner'] = {'project_id': self.project_id, 'user_id': self.user_id}
+        self.report['runtime'] = {'server_uuid': server_uuid, 'schema': schema, 'go_unit': self.runtime['go_unit'],
+                                  'db_unit': self.runtime['db_unit'], 'nova_user_id': self.nova_user_id}
+        return {'flat_idle_compute': True, 'independent_mysql_uuid': server_uuid, 'no_existing_servers': True}
+
+    def switch(self, action, lease=900, label=None):
+        self.action(label or ('switch-' + action), placement_switch, action=action, root=self.runtime_root,
+                    expected_original_sha=self.original['apache_site_sha256'], public_url=self.args.placement_url,
+                    lease_seconds=lease)
+
+    def tracker(self):
+        self.switch('activate')
+        subprocess.run(['sudo', 'systemctl', 'restart', 'devstack@n-cpu.service', 'devstack@n-sch.service'], check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        deadline = time.monotonic() + 120
+        while time.monotonic() < deadline:
+            response = self.call('GET', '/resource_providers/' + self.args.provider_id, version='1.14')
+            if response['status'] == 200:
+                state = self.provider_snapshot()
+                if 'OWNER_NOVA' in state['traits']['traits']:
+                    break
+            time.sleep(1)
+        else:
+            raise TimeoutError('tracker publication')
+        original = self.original['providers'][0]
+        for key, field in [('inventories', 'inventories'), ('traits', 'traits'), ('aggregates', 'aggregates'), ('allocations', 'allocations')]:
+            a, b = original[key][field], state[key][field]
+            if isinstance(a, list):
+                a, b = sorted(a), sorted(b)
+            require(a == b, 'tracker logical ' + key)
+        for field in ['uuid', 'name', 'root_provider_uuid', 'parent_provider_uuid']:
+            require(original['provider'][field] == state['provider'][field], 'provider identity/root')
+        require(not any(state['usages']['usages'].values()), 'idle Go provider')
+        save_json(self.args.output / 'go-tracker.json', state)
+        self.probe('nova-probe-initial')
+        return {'published': True, 'original_generation': original['provider']['generation'],
+                'go_generation': state['provider']['generation'], 'generation_note': 'independent histories retained, not normalized'}
+
+    def auth(self):
+        ident = self.new_consumer()
+        require(self.call('PUT', '/allocations/' + ident, self.claim_body())['status'] == 204, 'service claim')
+        before = {'consumer': self.get('/allocations/' + ident), 'provider': self.provider_snapshot()}
+        responses = []
+        for role, method, path, body, expected, headers in [
+                ('reader', 'PUT', '/allocations/' + ident, self.claim_body(2), 403, {}),
+                ('reader', 'DELETE', '/allocations/' + ident, None, 403, {}),
+                ('reader', 'GET', '/allocations/' + ident, None, 403, {'X-Roles': 'admin,service', 'X-User-Id': self.nova_user_id}),
+                ('invalid', 'GET', '/allocations/' + ident, None, 401, {}),
+                ('missing', 'GET', '/allocations/' + ident, None, 401, {})]:
+            response = self.call(method, path, body, role=role, headers=headers)
+            responses.append({'role': role, 'method': method, 'response': response})
+            require(response['status'] == expected, 'auth rejection')
+            require({'consumer': self.get('/allocations/' + ident), 'provider': self.provider_snapshot()} == before,
+                    'denied request has no effects')
+        save_json(self.args.output / 'auth-cases.json', responses)
+        self.persisted_consumer = ident
+        return {'service_accepted': True, 'denied_cases': len(responses), 'no_effects': True}
+
+    def restart(self):
+        ident = self.persisted_consumer
+        before = {'provider': self.provider_snapshot(), 'consumer': self.get('/allocations/' + ident)}
+        pid = subprocess.check_output(['systemctl', 'show', '--value', '-p', 'MainPID', self.runtime['go_unit']], text=True).strip()
+        self.action('go-restart', placement_runtime, action='restart-go', root=self.runtime_root)
+        placement_switch.wait_version(self.args.placement_url, '1.36')
+        after = {'provider': self.provider_snapshot(), 'consumer': self.get('/allocations/' + ident)}
+        next_pid = subprocess.check_output(['systemctl', 'show', '--value', '-p', 'MainPID', self.runtime['go_unit']], text=True).strip()
+        require(pid != next_pid and next_pid != '0' and before == after, 'restart persistent state')
+        save_json(self.args.output / 'restart-state.json', {'before': before, 'after': after, 'pid_before': pid, 'pid_after': next_pid})
+        self.probe('nova-probe-after-restart')
+        self.clear_consumer(ident)
+        return {'same_domain_state': True, 'new_process': True, 'next_nova_client_operation': True}
+
+    def cas(self):
+        ident = self.new_consumer()
+        def claim(_):
+            return Target(self.args.placement_url, self.tokens).call('PUT', '/allocations/' + ident, self.claim_body(),
+                                                                   {'OpenStack-API-Version': 'placement 1.36'})
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(claim, range(2)))
+        require(sorted(r['status'] for r in results) == [204, 409], 'single consumer CAS winner')
+        conflict = next(r for r in results if r['status'] == 409)
+        require(json.loads(conflict['body_text'])['errors'][0]['code'] == 'placement.concurrent_update', 'CAS error code')
+        current = self.get('/allocations/' + ident)
+        require(current['allocations'][self.args.provider_id]['resources'] == {'VCPU': 1}, 'one CAS reservation')
+        require(self.get('/resource_providers/' + self.args.provider_id + '/usages', '1.0')['usages']['VCPU'] == 1, 'CAS no over-allocation')
+        save_json(self.args.output / 'consumer-cas.json', {'responses': results, 'consumer': ident, 'after': current})
+        self.clear_consumer(ident)
+        return {'statuses': [r['status'] for r in results], 'one_reservation': True}
+
+    def capacity(self):
+        inv = self.get('/resource_providers/' + self.args.provider_id + '/inventories', '1.26')['inventories']['VCPU']
+        capacity = int((Decimal(inv['total'] - inv['reserved']) * Decimal(str(inv['allocation_ratio']))).to_integral_value(rounding=ROUND_FLOOR))
+        amount = min(inv['max_unit'], capacity) // inv['step_size'] * inv['step_size']
+        require(amount >= inv['min_unit'] and 2 <= capacity // amount + 1 <= 8, 'bounded live capacity race')
+        identities = [self.new_consumer() for _ in range(capacity // amount + 1)]
+        def claim(ident):
+            return Target(self.args.placement_url, self.tokens).call('PUT', '/allocations/' + ident, self.claim_body(amount),
+                                                                   {'OpenStack-API-Version': 'placement 1.36'})
+        with ThreadPoolExecutor(max_workers=len(identities)) as pool:
+            responses = list(pool.map(claim, identities))
+        used = self.get('/resource_providers/' + self.args.provider_id + '/usages', '1.0')['usages']['VCPU']
+        statuses = [r['status'] for r in responses]
+        require(capacity_outcome(statuses, capacity, amount, used), 'bounded capacity with one conflict')
+        for ident, response in zip(identities, responses):
+            value = self.get('/allocations/' + ident)
+            if response['status'] == 204:
+                require(value['allocations'][self.args.provider_id]['resources'] == {'VCPU': amount}, 'capacity allocation')
+            else:
+                require(value == {'allocations': {}}, 'failed claim rollback')
+            self.clear_consumer(ident)
+        require(not any(self.get('/resource_providers/' + self.args.provider_id + '/usages', '1.0')['usages'].values()), 'capacity race cleanup')
+        save_json(self.args.output / 'capacity-race.json', {'consumers': identities, 'responses': responses,
+                                                         'capacity': capacity, 'amount': amount, 'peak_usage': used})
+        return {'capacity': capacity, 'per_claim': amount, 'statuses': statuses, 'no_overallocation': True}
+
+    def remove_server(self, entry):
+        from openstack import exceptions
+        if not entry.get('id'):
+            matches = [server for server in self.connection.compute.servers(name=entry['name'], all_projects=True)
+                       if server.name == entry['name']]
+            require(len(matches) <= 1, 'uncertain create is unambiguous')
+            if not matches:
+                entry['deleted'] = True
+                self.ledger()
+                return
+            entry['id'] = matches[0].id
+            self.ledger()
+        try:
+            server = verified_server(self.connection, entry['id'], entry['name'], self.project_id)
+        except exceptions.ResourceNotFound:
+            entry['deleted'] = True
+            self.ledger()
+            return
+        self.connection.compute.delete_server(entry['id'], ignore_missing=False)
+        self.connection.compute.wait_for_delete(server, interval=2, wait=self.args.wait_seconds)
+        entry['deleted'] = True
+        self.ledger()
+
+    def servers_scenario(self, count, flavor_id, negative=False):
+        baseline = self.get('/resource_providers/' + self.args.provider_id + '/usages', '1.0')
+        entries = [{'id': None, 'name': 'tt-placement-b15-' + uuid.uuid4().hex, 'deleted': False} for _ in range(count)]
+        self.servers.extend(entries)
+        self.ledger()
+        for entry in entries:
+            require(list(self.connection.compute.servers(name=entry['name'], all_projects=True)) == [], 'fresh server name')
+
+        def create(entry):
+            # Independent sessions avoid sharing mutable SDK transport/auth state.
+            connection, _, _ = sdk_connection()
+            try:
+                server = connection.compute.create_server(name=entry['name'], image_id=self.args.image_id,
+                                                          flavor_id=flavor_id, networks=[{'uuid': self.args.network_id}])
+                entry['id'] = server.id
+                self.ledger()
+            finally:
+                connection.close()
+
+        observations, allocations = [], {}
+        try:
+            with ThreadPoolExecutor(max_workers=count) as pool:
+                list(pool.map(create, entries))
+            deadline = time.monotonic() + self.args.wait_seconds
+            while time.monotonic() < deadline:
+                current = [verified_server(self.connection, e['id'], e['name'], self.project_id) for e in entries]
+                statuses = [server.status for server in current]
+                observations.append({'timestamp_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'statuses': statuses})
+                if negative and statuses == ['ERROR']:
+                    fault = current[0].fault or {}
+                    require('no valid host' in str(fault.get('message', '')).lower(), 'NoValidHost, not unrelated failure')
+                    require(self.get('/allocations/' + entries[0]['id'], '1.0') == {'allocations': {}}, 'failed boot has no allocations')
+                    break
+                if not negative and all(status == 'ACTIVE' for status in statuses):
+                    break
+                require(negative or 'ERROR' not in statuses, 'concurrent boot must not reach ERROR')
+                time.sleep(2)
+            else:
+                raise TimeoutError('server scenario did not reach expected state')
+            if not negative:
+                expected = {'VCPU': int(self.flavor.vcpus), 'MEMORY_MB': int(self.flavor.ram), 'DISK_GB': int(self.flavor.disk)}
+                for entry, server in zip(entries, current):
+                    value = self.get('/allocations/' + entry['id'])
+                    require(set(value['allocations']) == {self.args.provider_id} and
+                            value['allocations'][self.args.provider_id]['resources'] == expected, 'concurrent server resources')
+                    require(value['project_id'] == server.project_id and value['user_id'] == server.user_id and
+                            type(value.get('consumer_generation')) is int, 'concurrent server owner/generation')
+                    allocations[entry['id']] = value
+                used = self.get('/resource_providers/' + self.args.provider_id + '/usages', '1.0')
+                for resource, amount in expected.items():
+                    require(used['usages'].get(resource, 0) == baseline['usages'].get(resource, 0) + count * amount, 'concurrent summed usage')
+            return {'server_ids': [e['id'] for e in entries], 'states': observations, 'allocations_active': allocations,
+                    'expected_final_status': 'ERROR/NoValidHost' if negative else 'ACTIVE', 'submitted_concurrently': count > 1}
+        finally:
+            # Still enforce release caused by Nova; emergency cleanup below may
+            # remove an orphan, but it cannot turn this failed case into PASS.
+            for entry in entries:
+                self.remove_server(entry)
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline:
+                if all(not e['id'] or self.get('/allocations/' + e['id'], '1.0') == {'allocations': {}} for e in entries):
+                    break
+                time.sleep(1)
+            else:
+                raise TimeoutError('Nova did not release server allocations')
+            require(self.get('/resource_providers/' + self.args.provider_id + '/usages', '1.0')['usages'] == baseline['usages'], 'scenario usages restored')
+
+    def no_capacity(self):
+        inv = self.get('/resource_providers/' + self.args.provider_id + '/inventories', '1.26')['inventories']['DISK_GB']
+        disk = int((Decimal(inv['total'] - inv['reserved']) * Decimal(str(inv['allocation_ratio']))).to_integral_value(rounding=ROUND_FLOOR)) + 1
+        query = '/allocation_candidates?resources=VCPU:1,MEMORY_MB:' + str(int(self.flavor.ram)) + ',DISK_GB:' + str(disk) + '&root_required=OWNER_NOVA,!COMPUTE_STATUS_DISABLED'
+        candidates = self.get(query)
+        require(candidates['allocation_requests'] == [], 'no disk candidates')
+        entry = {'id': str(uuid.uuid4()), 'name': 'tt-placement-b15-flavor-' + uuid.uuid4().hex}
+        self.flavors.append(entry)
+        self.ledger()
+        require(self.connection.compute.find_flavor(entry['id'], ignore_missing=True) is None, 'fresh flavor')
+        self.connection.compute.create_flavor(id=entry['id'], name=entry['name'], ram=int(self.flavor.ram), vcpus=1, disk=disk)
+        result = self.servers_scenario(1, entry['id'], negative=True)
+        result['requested_disk_gb'] = disk
+        result['candidates_empty'] = True
+        return result
+
+    def normal_boot(self):
+        output = self.args.output / 'normal-boot'
+        try:
+            self.action('normal-boot-command', placement_boot, provider_id=self.args.provider_id,
+                        image_id=self.args.image_id, flavor_id=self.args.flavor_id, network_id=self.args.network_id,
+                        placement_url=self.args.placement_url, token_file=self.auth_root / 'service.token',
+                        output=output, wait_seconds=self.args.wait_seconds)
+        finally:
+            report_path = output / 'report.json'
+            if report_path.exists():
+                data = json.loads(report_path.read_text())
+                self.servers.append({'id': data.get('server_id'), 'name': data['name'], 'deleted': data.get('server_deleted', False)})
+                self.ledger()
+        data = json.loads(report_path.read_text())
+        require(all(data.get(k) is True for k in ['boot_active', 'allocation_verified', 'server_deleted', 'allocations_released', 'usages_restored']), 'complete normal boot checks')
+        return {'server_id': data['server_id'], 'active_and_released': True}
+
+    def fault_rollback(self):
+        self.switch('restore', label='normal-restoration')
+        self.switch('activate', lease=5, label='fault-activation')
+        ident = self.new_consumer()
+        require(self.call('PUT', '/allocations/' + ident, self.claim_body())['status'] == 204, 'owned claim before fault')
+        try:
+            raise RuntimeError('deliberate coordinator failure after activation')
+        except RuntimeError:
+            pass  # Intentionally omit manual restore to exercise the timer.
+        deadline = time.monotonic() + 35
+        while time.monotonic() < deadline:
+            root = self.call('GET', '/', version='1.0')
+            state = json.loads((self.runtime_root / 'switch-state.json').read_text())
+            if root['status'] == 200 and json.loads(root['body_text'])['versions'][0]['max_version'] == '1.39' and not state['active']:
+                break
+            time.sleep(.5)
+        else:
+            raise TimeoutError('automatic rollback lease')
+        require(placement_switch.active(placement_switch.ORIGINAL_UNIT), 'original active after timer')
+        self.clear_consumer(ident)  # Own loopback Go backend, never the restored Python endpoint.
+        require(not any(self.get('/resource_providers/' + self.args.provider_id + '/usages', '1.0', True)['usages'].values()), 'fault claim cleanup')
+        return {'injected_exception': True, 'automatic_original_restore': True, 'owned_claim_removed_directly_from_go': ident}
+
+    def capture_go_log(self):
+        if not hasattr(self, 'runtime'):
+            return
+        raw = subprocess.check_output(['sudo', 'journalctl', '-u', self.runtime['go_unit'], '--since', self.started, '--no-pager', '-o', 'cat'], text=True)
+        items = []
+        for line in raw.splitlines():
+            try:
+                item = json.loads(line)
+                if item.get('msg') == 'request completed':
+                    items.append(item)
+            except ValueError:
+                pass
+        save_json(self.args.output / 'go-requests.json', items)
+        self.report['nova_methods_observed'] = {method: any(item['route'] == '/allocations/{consumer}' and item['method'] == method and
+                                                         item['status'] == 204 and item.get('user_id') == self.nova_user_id for item in items)
+                                                for method in ['PUT', 'DELETE']}
+        require(all(self.report['nova_methods_observed'].values()), 'Nova claim and release identity in Go logs')
+
+    def cleanup_stage(self, name, function):
+        try:
+            function()
+            self.report['cleanup'][name] = True
+        except Exception as error:
+            self.report['cleanup_errors'].append({'stage': name, 'error': type(error).__name__})
+        self.checkpoint()
+
+    def cleanup(self):
+        def servers():
+            if self.connection is not None:
+                for entry in self.servers:
+                    self.remove_server(entry)
+                require(list(self.connection.compute.servers(all_projects=True)) == [], 'no servers left')
+        self.cleanup_stage('servers_removed', servers)
+
+        def flavors():
+            require(self.report['cleanup']['servers_removed'], 'retain flavor while owned server cleanup is incomplete')
+            for entry in self.flavors:
+                actual = self.connection.compute.find_flavor(entry['id'], ignore_missing=True)
+                if actual is not None:
+                    require(actual.name == entry['name'], 'flavor ownership')
+                    self.connection.compute.delete_flavor(entry['id'], ignore_missing=False)
+                require(self.connection.compute.find_flavor(entry['id'], ignore_missing=True) is None, 'flavor removed')
+        self.cleanup_stage('flavors_removed', flavors)
+
+        def consumers():
+            if self.direct is not None:
+                for ident in self.consumers + [e['id'] for e in self.servers if e.get('id') and e.get('deleted')]:
+                    self.clear_consumer(ident)
+                require(self.get('/resource_providers/' + self.args.provider_id + '/allocations', direct=True)['allocations'] == {}, 'no Go provider allocations')
+        self.cleanup_stage('allocations_removed', consumers)
+
+        def restore():
+            if (self.runtime_root / 'switch-state.json').exists():
+                self.switch('restore', label='final-restoration')
+            require(placement_switch.active(placement_switch.ORIGINAL_UNIT), 'original unit restored')
+            if self.public is not None:
+                require(self.get('/', '1.0')['versions'][0]['max_version'] == '1.39', 'original route restored')
+        self.cleanup_stage('original_restored', restore)
+
+        def original_state():
+            require(self.original is not None, 'original baseline captured')
+            self.action('original-final-preflight', placement_preflight, url=self.args.placement_url,
+                        token_file=self.auth_root / 'service.token', output=self.args.output / 'original-after')
+            final = json.loads((self.args.output / 'original-after/report.json').read_text())
+            require(final['providers'] == self.original['providers'] and
+                    final['apache_site_sha256'] == self.original['apache_site_sha256'] and
+                    final['original_mysql']['server_uuid'] == self.original['original_mysql']['server_uuid'], 'original state unchanged')
+            self.probe('nova-probe-restored-original')
+            self.report['cases']['original_restoration'] = {'passed': True, 'details': {'same_original_state': True, 'next_nova_client_operation': True}}
+        self.cleanup_stage('original_state_unchanged', original_state)
+
+        def runtime():
+            require(all(self.report['cleanup'].get(key) for key in ['servers_removed', 'allocations_removed', 'original_restored']),
+                    'retain backend and ledger until owned server/allocation cleanup and rollback complete')
+            if self.runtime_root.exists():
+                self.action('runtime-cleanup', placement_runtime, action='cleanup', root=self.runtime_root)
+            require(not self.runtime_root.exists(), 'runtime root removed')
+        self.cleanup_stage('runtime_removed', runtime)
+
+        def identity():
+            require(self.report['cleanup']['runtime_removed'], 'retain validator credentials for unresolved runtime')
+            if self.auth_root.exists():
+                self.action('identity-cleanup', lab_identity, action='cleanup', private_root=self.auth_root)
+            require(not self.auth_root.exists(), 'identity root removed')
+        self.cleanup_stage('identity_removed', identity)
+
+        def private_root():
+            require(all(self.report['cleanup'].get(name) for name in ['servers_removed', 'flavors_removed', 'allocations_removed', 'original_restored', 'runtime_removed', 'identity_removed']), 'retain ledger on incomplete cleanup')
+            # Public resource identities are retained; private credentials/backups are gone.
+            save_json(self.args.output / 'owned-resources.json', {'servers': self.servers, 'flavors': self.flavors, 'consumers': self.consumers})
+            shutil.rmtree(self.args.work_root)
+        self.cleanup_stage('private_root_removed', private_root)
+        if self.connection is not None:
+            self.connection.close()
+
+    def execute(self):
+        try:
+            self.step('preflight_and_isolation', self.preflight)
+            self.step('tracker', self.tracker)
+            self.step('auth_fail_closed', self.auth)
+            self.step('restart_persistence', self.restart)
+            self.step('consumer_cas', self.cas)
+            self.step('capacity_concurrency', self.capacity)
+            self.step('nova_no_capacity', self.no_capacity)
+            self.step('nova_boot_and_release', self.normal_boot)
+            self.step('nova_concurrent_boots', lambda: self.servers_scenario(2, self.args.flavor_id))
+            self.capture_go_log()
+            self.step('failure_rollback', self.fault_rollback)
+        except Exception as error:
+            self.report['execution_error'] = type(error).__name__
+        finally:
+            self.cleanup()
+        self.report['passed'] = suite_passed(self.report)
+        self.checkpoint()
+        print(json.dumps({'run_id': self.report['run_id'], 'passed': self.report['passed'],
+                          'cases_passed': sum(v['passed'] for v in self.report['cases'].values()),
+                          'cases_required': len(CASES), 'cleanup': self.report['cleanup']}), flush=True)
+        return 0 if self.report['passed'] else 1
+
+
+def run(args):
+    if not args.allow_mutations:
+        raise ValueError('explicit mutation opt-in required')
+    args.output.mkdir(parents=True, exist_ok=False)
+    if not args.work_root.is_absolute() or args.work_root != args.work_root.resolve() or not re.fullmatch(r'tt-placement-[a-z0-9-]+', args.work_root.name):
+        raise ValueError('canonical owned private work root required')
+    if not args.binary.is_file() or not 10 <= args.wait_seconds <= 300:
+        raise ValueError('binary and bounded wait required')
+    with exclusive_run(Path('/run/lock/tt-placement-integration.lock')):
+        args.work_root.mkdir(mode=0o700, parents=False, exist_ok=False)
+        logging.disable(logging.CRITICAL)
+        suite = Suite(args)
+        suite.ledger()
+        return suite.execute()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ['provider-id', 'image-id', 'flavor-id', 'network-id']:
+        parser.add_argument('--' + name, required=True)
+    parser.add_argument('--binary', type=Path, required=True)
+    parser.add_argument('--work-root', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--placement-url', default='http://192.168.122.10/placement')
+    parser.add_argument('--keystone-url', default='http://192.168.122.10/identity/v3')
+    parser.add_argument('--mysql-port', type=int, default=13316)
+    parser.add_argument('--listen-port', type=int, default=18779)
+    parser.add_argument('--wait-seconds', type=int, default=180)
+    parser.add_argument('--allow-mutations', action='store_true')
+    args = parser.parse_args()
+    try:
+        return run(args)
+    except Exception as error:
+        print('integration suite failed: ' + type(error).__name__, file=sys.stderr)
+        return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main())

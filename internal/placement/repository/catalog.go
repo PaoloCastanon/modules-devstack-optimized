@@ -27,5 +27,7 @@ type Catalog interface {
 	ReplaceTraits(context.Context, string, int64, []string) (model.TraitSet, error)
 	Aggregates(context.Context, string) ([]string, error)
 	ReplaceAggregates(context.Context, string, []string) ([]string, error)
+	AggregateState(context.Context, string) (model.AggregateSet, error)
+	ReplaceAggregatesGeneration(context.Context, string, int64, []string) (model.AggregateSet, error)
 	DeleteInventories(context.Context, string) error
 }

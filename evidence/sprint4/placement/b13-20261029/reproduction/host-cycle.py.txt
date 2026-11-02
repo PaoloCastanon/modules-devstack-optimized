@@ -1,0 +1,70 @@
+import datetime,importlib.util,json,pathlib,shlex,shutil,subprocess,sys,tempfile,time
+repo=pathlib.Path('/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized');sys.path.insert(0,str(repo/'scripts'))
+import placement_differential as base
+out=pathlib.Path(sys.argv[1]);out.mkdir()
+private=pathlib.Path(tempfile.mkdtemp(prefix='tt-placement-b13-host-'));private.chmod(0o700)
+opts=['-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','UserKnownHostsFile='+str(repo/'infra/lab-vm/.cache/known_hosts'),'-i','/home/paolo/.ssh/id_ed25519']
+root='/home/stack/tt-placement-b13-runtime-20261029';python='/opt/stack/data/venv/bin/python';pre=json.loads(pathlib.Path('/tmp/b13-preflight.json').read_text());pid=pre['providers'][0]['provider']['uuid'];pp='/resource_providers/'+pid
+attempted=False;failed=False
+
+def remote(args,check=True):
+ p=subprocess.run(['ssh',*opts,'stack@192.168.122.10',shlex.join(args)],capture_output=True,text=True)
+ if check and p.returncode:raise RuntimeError('remote operation failed: '+args[1] if len(args)>1 else 'remote failed')
+ return p
+
+def snap(target):
+ return {key:target.call('GET',pp+suffix,headers={'OpenStack-API-Version':'placement '+version}) for key,suffix,version in [('provider','','1.14'),('inventories','/inventories','1.26'),('traits','/traits','1.6'),('aggregates','/aggregates','1.19'),('allocations','/allocations','1.36')]}
+try:
+ subprocess.run(['scp','-q',*opts,'stack@192.168.122.10:/tmp/tt-placement-b13-20261029/service.token',str(private/'service.token')],check=True);(private/'service.token').chmod(0o600)
+ target=base.Target('http://192.168.122.10/placement',{'admin':base.read_token(private/'service.token')})
+ before=snap(target);assert all(v['status']==200 for v in before.values());assert json.loads(before['allocations']['body_text'])['allocations']=={}
+ (out/'original-before.json').write_text(json.dumps(before,indent=2)+'\n')
+ start=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+ attempted=True
+ activation=remote([python,'/tmp/placement_switch.py','activate','--root',root,'--expected-original-sha',pre['apache_site_sha256'],'--allow-mutations']);(out/'activation.json').write_text(activation.stdout)
+ remote(['sudo','systemctl','restart','devstack@n-cpu.service','devstack@n-sch.service'])
+ for _ in range(120):
+  response=target.call('GET',pp,headers={'OpenStack-API-Version':'placement 1.14'})
+  if response['status']==200:
+   current=snap(target)
+   if all(v['status']==200 for v in current.values()) and 'OWNER_NOVA' in json.loads(current['traits']['body_text'])['traits']:break
+  time.sleep(1)
+ else:raise RuntimeError('Nova tracker did not republish provider')
+ (out/'go-state.json').write_text(json.dumps(current,indent=2)+'\n')
+ differences=[]
+ for key,field in [('inventories','inventories'),('traits','traits'),('aggregates','aggregates'),('allocations','allocations')]:
+  a=json.loads(before[key]['body_text'])[field];b=json.loads(current[key]['body_text'])[field]
+  if isinstance(a,list):a,b=sorted(a),sorted(b)
+  differences+=base.differences(a,b,'$.'+key)
+ a=json.loads(before['provider']['body_text']);b=json.loads(current['provider']['body_text'])
+ for field in ['uuid','name','parent_provider_uuid','root_provider_uuid']:differences+=base.differences(a[field],b[field],'$.provider.'+field)
+ (out/'logical-diff.json').write_text(json.dumps({'differences':differences,'original_generation':a['generation'],'go_generation':b['generation'],'generation_note':'independent histories; raw values retained, no strict equality claimed'},indent=2)+'\n')
+ assert not differences
+ probe_output='/tmp/tt-placement-b13-probe-'+out.name
+ probe=remote([python,'/tmp/nova_candidates_probe.py','--provider-id',pid,'--output',probe_output],False)
+ (out/'nova-probe.log').write_text(probe.stdout+probe.stderr)
+ subprocess.run(['scp','-qr',*opts,'stack@192.168.122.10:'+probe_output,str(out/'nova-probe')],check=True)
+ assert probe.returncode==0
+ go_unit=json.loads(pathlib.Path('/tmp/b13-runtime-prepare-03.log').read_text())['go_unit']
+ logs=remote(['sudo','journalctl','-u',go_unit,'--since',start,'--no-pager','-o','cat']).stdout
+ selected=[]
+ for line in logs.splitlines():
+  try:
+   item=json.loads(line)
+   if item.get('msg')=='request completed':selected.append(item)
+  except ValueError:pass
+ (out/'go-requests.json').write_text(json.dumps(selected,indent=2)+'\n')
+ assert any(x['method']=='POST' and x['route']=='/resource_providers' and x['status']==200 and x.get('user_id')=='c40c4337691f4a94a519104114abb32f' for x in selected)
+ assert any(x['route']=='/allocation_candidates' and x['status']==200 and x.get('user_id')=='c40c4337691f4a94a519104114abb32f' for x in selected)
+ (out/'result.json').write_text(json.dumps({'tracker_republished_provider':True,'logical_inventory_traits_aggregates_equal':True,'nova_report_client_candidates':True,'actual_nova_identity_logged':True,'original_stopped_during_test':True,'boot_attempted':False},indent=2)+'\n')
+except Exception as error:
+ failed=True;(out/'error.json').write_text(json.dumps({'error':type(error).__name__,'message':str(error)})+'\n');print(type(error).__name__,str(error),flush=True)
+finally:
+ if attempted:
+  restored=remote([python,'/tmp/placement_switch.py','restore','--root',root,'--allow-mutations'],False);(out/'restoration.log').write_text(restored.stdout+restored.stderr)
+  if restored.returncode:failed=True;print('Restoration failed',flush=True)
+  else:
+   after=snap(target);(out/'original-after.json').write_text(json.dumps(after,indent=2)+'\n');assert all(v['status']==200 for v in after.values())
+ shutil.rmtree(private)
+print('B13 cycle complete; failed='+str(failed),flush=True)
+sys.exit(1 if failed else 0)

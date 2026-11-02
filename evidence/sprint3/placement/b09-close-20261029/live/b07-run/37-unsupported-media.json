@@ -1,0 +1,124 @@
+{
+  "name": "unsupported-media",
+  "provider_uuid": "958d0edd-f5fb-4499-bfa1-f0b9bc458cd4",
+  "request": {
+    "method": "POST",
+    "path": "/resource_providers",
+    "body": {
+      "uuid": "958d0edd-f5fb-4499-bfa1-f0b9bc458cd4",
+      "name": "tt-b07-diff-958d0edd-f5fb-4499-bfa1-f0b9bc458cd4"
+    },
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0",
+      "Content-Type": "text/plain"
+    },
+    "body_text": "{\"uuid\": \"958d0edd-f5fb-4499-bfa1-f0b9bc458cd4\", \"name\": \"tt-b07-diff-958d0edd-f5fb-4499-bfa1-f0b9bc458cd4\"}",
+    "auth_role": "admin"
+  },
+  "seed": {},
+  "before": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found  \", \"request_id\": \"req-14581ccb-3ecb-4d3a-b3a3-ed739b293cd3\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found : No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found  \", \"request_id\": \"req-10c345cf-d6e0-46ba-aa02-fe917ba3b2b8\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found  \",\"request_id\":\"req-70da99fe-b7c7-46a5-bbfc-7e05bc584754\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found : No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found  \",\"request_id\":\"req-8d06e1a7-7840-4087-9d42-f5df510491c0\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 415,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"errors\": [{\"status\": 415, \"title\": \"Unsupported Media Type\", \"detail\": \"The request media type text/plain is not supported by this server. \\n\\n The media type text/plain is not supported, use application/json\", \"request_id\": \"req-05384470-5bdb-4d95-b869-17fc98f7b869\"}]}"
+    },
+    "go": {
+      "status": 415,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"errors\":[{\"detail\":\"The request media type text/plain is not supported by this server. \\n\\n The media type text/plain is not supported, use application/json\",\"request_id\":\"req-d7fe2b26-1318-4e0e-af58-b38d10e24d5c\",\"status\":415,\"title\":\"Unsupported Media Type\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found  \", \"request_id\": \"req-1d080c23-3c3e-4421-9188-1aae8e29f16e\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found : No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found  \", \"request_id\": \"req-13e74901-966f-471d-aa2f-15eff61fc297\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found  \",\"request_id\":\"req-2b1b97e4-e23e-4b92-a1c8-010bdc46a760\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found : No resource provider with uuid 958d0edd-f5fb-4499-bfa1-f0b9bc458cd4 found  \",\"request_id\":\"req-e0c2b5ca-ec6b-4b31-9be5-fcce3036a1e8\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}

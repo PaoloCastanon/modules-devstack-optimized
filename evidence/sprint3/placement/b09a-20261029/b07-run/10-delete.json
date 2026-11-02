@@ -1,0 +1,161 @@
+{
+  "name": "delete",
+  "provider_uuid": "208f5409-7588-41ff-8051-09258b390455",
+  "request": {
+    "method": "DELETE",
+    "path": "/resource_providers/208f5409-7588-41ff-8051-09258b390455",
+    "body": null,
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0"
+    },
+    "body_text": null,
+    "auth_role": "admin"
+  },
+  "seed": {
+    "python": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version",
+          "location": "http://192.168.122.10/placement/resource_providers/208f5409-7588-41ff-8051-09258b390455"
+        },
+        "body_text": ""
+      },
+      {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 1, \"inventories\": {\"VCPU\": {\"total\": 4, \"reserved\": 0, \"min_unit\": 1, \"max_unit\": 2147483647, \"step_size\": 1, \"allocation_ratio\": 1.0}}}"
+      }
+    ],
+    "go": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version",
+          "location": "http://127.0.0.1:38443/placement/resource_providers/208f5409-7588-41ff-8051-09258b390455"
+        },
+        "body_text": ""
+      },
+      {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":1,\"inventories\":{\"VCPU\":{\"total\":4,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+      }
+    ]
+  },
+  "before": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"208f5409-7588-41ff-8051-09258b390455\", \"name\": \"tt-b07-diff-208f5409-7588-41ff-8051-09258b390455\", \"generation\": 1, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/208f5409-7588-41ff-8051-09258b390455\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/208f5409-7588-41ff-8051-09258b390455/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/208f5409-7588-41ff-8051-09258b390455/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 1, \"inventories\": {\"VCPU\": {\"total\": 4, \"reserved\": 0, \"min_unit\": 1, \"max_unit\": 2147483647, \"step_size\": 1, \"allocation_ratio\": 1.0}}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":1,\"links\":[{\"href\":\"/placement/resource_providers/208f5409-7588-41ff-8051-09258b390455\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/208f5409-7588-41ff-8051-09258b390455/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/208f5409-7588-41ff-8051-09258b390455/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-208f5409-7588-41ff-8051-09258b390455\",\"uuid\":\"208f5409-7588-41ff-8051-09258b390455\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":1,\"inventories\":{\"VCPU\":{\"total\":4,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 204,
+      "headers": {
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": ""
+    },
+    "go": {
+      "status": 204,
+      "headers": {
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": ""
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 208f5409-7588-41ff-8051-09258b390455 found  \", \"request_id\": \"req-d8875678-2285-4199-8eb7-716e1967ab05\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid 208f5409-7588-41ff-8051-09258b390455 found : No resource provider with uuid 208f5409-7588-41ff-8051-09258b390455 found  \", \"request_id\": \"req-376e1393-ae31-4243-b520-913d1a1a00a2\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 208f5409-7588-41ff-8051-09258b390455 found  \",\"request_id\":\"req-85aae767-61ac-4554-bfb8-ac391db501c4\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid 208f5409-7588-41ff-8051-09258b390455 found : No resource provider with uuid 208f5409-7588-41ff-8051-09258b390455 found  \",\"request_id\":\"req-97beebdd-20aa-43ed-b9e5-0ed55136ac69\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}

@@ -1,0 +1,125 @@
+{
+  "name": "unknown-field",
+  "provider_uuid": "dae483a0-0e81-4e46-b5b9-0d93a3ef7922",
+  "request": {
+    "method": "POST",
+    "path": "/resource_providers",
+    "body": {
+      "uuid": "dae483a0-0e81-4e46-b5b9-0d93a3ef7922",
+      "name": "tt-b07-diff-dae483a0-0e81-4e46-b5b9-0d93a3ef7922",
+      "extra": 1
+    },
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0",
+      "Content-Type": "application/json"
+    },
+    "body_text": "{\"uuid\": \"dae483a0-0e81-4e46-b5b9-0d93a3ef7922\", \"name\": \"tt-b07-diff-dae483a0-0e81-4e46-b5b9-0d93a3ef7922\", \"extra\": 1}",
+    "auth_role": "admin"
+  },
+  "seed": {},
+  "before": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found  \", \"request_id\": \"req-6c2daeab-f3b4-457e-8bc5-c56a875070b5\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found : No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found  \", \"request_id\": \"req-d37046ae-4eb8-4c83-9237-218a643c9bfa\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found  \",\"request_id\":\"req-411774ce-0f8a-4e82-a820-aa7fe6c3a8c1\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found : No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found  \",\"request_id\":\"req-db5b0585-1f6f-49d7-8dca-9add6c98d46b\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"errors\": [{\"status\": 400, \"title\": \"Bad Request\", \"detail\": \"The server could not comply with the request since it is either malformed or otherwise incorrect.\\n\\n JSON does not validate: Additional properties are not allowed ('extra' was unexpected)  Failed validating 'additionalProperties' in schema:     {'type': 'object',      'properties': {'name': {'type': 'string', 'maxLength': 200},                     'uuid': {'type': 'string', 'format': 'uuid'}},      'required': ['name'],      'additionalProperties': False}  On instance:     {'uuid': 'dae483a0-0e81-4e46-b5b9-0d93a3ef7922',      'name': 'tt-b07-diff-dae483a0-0e81-4e46-b5b9-0d93a3ef7922',      'extra': 1}  \", \"request_id\": \"req-2f258e9e-1ec8-4a59-8ba8-7bbd8ffbaf54\"}]}"
+    },
+    "go": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"errors\":[{\"detail\":\"The server could not comply with the request since it is either malformed or otherwise incorrect.\\n\\n JSON does not validate: Additional properties are not allowed ('extra' was unexpected)  Failed validating 'additionalProperties' in schema:     {'type': 'object',      'properties': {'name': {'type': 'string', 'maxLength': 200},                     'uuid': {'type': 'string', 'format': 'uuid'}},      'required': ['name'],      'additionalProperties': False}  On instance:     {'uuid': 'dae483a0-0e81-4e46-b5b9-0d93a3ef7922',      'name': 'tt-b07-diff-dae483a0-0e81-4e46-b5b9-0d93a3ef7922',      'extra': 1}  \",\"request_id\":\"req-d9024192-6289-463b-8ce2-35dd4af0dafc\",\"status\":400,\"title\":\"Bad Request\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found  \", \"request_id\": \"req-018cbde6-0f60-4925-80a6-48ddf348753a\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found : No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found  \", \"request_id\": \"req-9c9d6820-ca96-45aa-960a-6e744b5f581a\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found  \",\"request_id\":\"req-55fe5bb2-b491-4f15-8496-7206442c2158\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found : No resource provider with uuid dae483a0-0e81-4e46-b5b9-0d93a3ef7922 found  \",\"request_id\":\"req-9690a3d0-5016-4c1f-9ec0-eddb8139ea52\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}

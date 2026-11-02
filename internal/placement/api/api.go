@@ -25,7 +25,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const Version = "1.7"
+const Version = "1.36"
 const MinVersion = "1.0"
 
 type identityKey struct{}
@@ -51,6 +51,10 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 	base, _ := url.Parse(strings.TrimRight(publicURL, "/"))
 	h := &Handler{s, a, base, "Keystone uri=" + strconv.Quote(strings.TrimSuffix(strings.TrimRight(keystoneURL, "/"), "/v3")), limit, logger}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/allocation_candidates", h.candidates)
+	mux.HandleFunc("/allocations/{consumer}", h.consumerAllocations)
+	mux.HandleFunc("/resource_providers/{id}/allocations", h.providerAllocations)
+	mux.HandleFunc("/resource_providers/{id}/usages", h.usages)
 	mux.HandleFunc("/resource_classes", h.classes)
 	mux.HandleFunc("/resource_classes/{name}", h.class)
 	mux.HandleFunc("/traits", h.traits)
@@ -87,7 +91,8 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 			default:
 				method = "OTHER"
 			}
-			h.logger.Info("request completed", "request_id", "req-"+id.String(), "method", method, "route", route(r.URL.Path), "status", out.status, "duration_ms", time.Since(start).Milliseconds())
+			who, _ := r.Context().Value(identityKey{}).(auth.Identity)
+			h.logger.Info("request completed", "request_id", "req-"+id.String(), "method", method, "route", route(r.URL.Path), "status", out.status, "duration_ms", time.Since(start).Milliseconds(), "user_id", who.UserID, "project_id", who.ProjectID)
 		}()
 		if r.URL.Path != "/" {
 			tokens := r.Header.Values("X-Auth-Token")
@@ -97,6 +102,17 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 			}
 			who, err := h.auth.Authenticate(r.Context(), tokens[0])
 			if err != nil {
+				// A validated token without project scope still receives the
+				// versioned policy denial. It never reaches the repository.
+				if errors.Is(err, auth.ErrForbidden) {
+					version, versionErr := negotiate(r.Header.Values("OpenStack-API-Version"))
+					if versionErr != nil {
+						h.failure(w, r, versionErr)
+						return
+					}
+					r = r.WithContext(context.WithValue(r.Context(), versionKey{}, version))
+					w.Header().Set("OpenStack-API-Version", fmt.Sprintf("placement 1.%d", version))
+				}
 				h.failure(w, r, err)
 				return
 			}
@@ -117,6 +133,11 @@ func New(s *service.Service, a auth.Authenticator, publicURL, keystoneURL string
 		}
 		r = r.WithContext(context.WithValue(r.Context(), versionKey{}, version))
 		w.Header().Set("OpenStack-API-Version", fmt.Sprintf("placement 1.%d", version))
+		if version > profileMaximum(r) {
+			h.failure(w, r, model.Fail(406, fmt.Sprintf("This route currently supports microversions 1.0 - 1.%d.", profileMaximum(r))))
+			return
+		}
+
 		if route(r.URL.Path) != "/resource_providers/{id}/aggregates" && version < routeMinimum(r) {
 			h.failure(w, r, model.Fail(404, ""))
 			return
@@ -151,6 +172,8 @@ type versionKey struct{}
 func microversion(r *http.Request) int { v, _ := r.Context().Value(versionKey{}).(int); return v }
 func routeMinimum(r *http.Request) int {
 	switch route(r.URL.Path) {
+	case "/allocation_candidates":
+		return 10
 	case "/resource_classes", "/resource_classes/{name}":
 		return 2
 	case "/traits", "/traits/{name}", "/resource_providers/{id}/traits":
@@ -172,7 +195,7 @@ func negotiate(values []string) (int, error) {
 		return 0, model.Fail(400, "Invalid microversion header.")
 	}
 	if parts[1] == "latest" {
-		return 7, nil
+		return 36, nil
 	}
 	v := strings.Split(parts[1], ".")
 	if len(v) != 2 {
@@ -190,7 +213,7 @@ func negotiate(values []string) (int, error) {
 	}
 	major, e1 := strconv.Atoi(v[0])
 	minor, e2 := strconv.Atoi(v[1])
-	if e1 != nil || e2 != nil || major != 1 || minor > 7 {
+	if e1 != nil || e2 != nil || major != 1 || minor > 36 {
 		return 0, model.Fail(406, "Requested microversion is outside the supported range 1.0 - "+Version+".")
 	}
 	return minor, nil
@@ -230,6 +253,9 @@ func acceptsJSON(header string) bool {
 	return bestSpecificity >= 0 && quality > 0
 }
 func permission(r *http.Request) string {
+	if p := allocationPermission(r); p != "" {
+		return p
+	}
 	if p := catalogPermission(r); p != "" {
 		return p
 	}
@@ -280,6 +306,9 @@ func route(path string) string {
 	if path == "/" {
 		return "/"
 	}
+	if path == "/allocation_candidates" {
+		return path
+	}
 	if parts[0] == "resource_classes" || parts[0] == "traits" {
 		if len(parts) == 1 {
 			return "/" + parts[0]
@@ -287,6 +316,9 @@ func route(path string) string {
 		if len(parts) == 2 {
 			return "/" + parts[0] + "/{name}"
 		}
+	}
+	if parts[0] == "allocations" && len(parts) == 2 {
+		return "/allocations/{consumer}"
 	}
 	if parts[0] != "resource_providers" {
 		return "unmatched"
@@ -297,7 +329,7 @@ func route(path string) string {
 	case 2:
 		return "/resource_providers/{id}"
 	case 3:
-		if parts[2] == "traits" || parts[2] == "aggregates" {
+		if parts[2] == "traits" || parts[2] == "aggregates" || parts[2] == "allocations" || parts[2] == "usages" {
 			return "/resource_providers/{id}/" + parts[2]
 		}
 		if parts[2] == "inventories" {
@@ -349,6 +381,9 @@ func (h *Handler) failure(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, auth.ErrForbidden):
 		status = 403
 		detail = "Project scope is required."
+		if policy := permission(r); policy != "" {
+			detail = "Policy does not allow " + policy + " to be performed."
+		}
 	case errors.As(err, &e):
 		detail = e.Detail
 	}
@@ -375,6 +410,13 @@ func (h *Handler) failure(w http.ResponseWriter, r *http.Request, err error) {
 		}
 	}
 	body := map[string]any{"status": status, "title": http.StatusText(status), "detail": detail}
+	if microversion(r) >= 23 {
+		code := "placement.undefined_code"
+		if e != nil && e.Code != "" {
+			code = e.Code
+		}
+		body["code"] = code
+	}
 	if id := w.Header().Get("X-Openstack-Request-Id"); id != "" {
 		body["request_id"] = id
 	}
@@ -395,7 +437,7 @@ func (h *Handler) notAcceptable(w http.ResponseWriter, r *http.Request) {
 
 func requiresJSON(r *http.Request) bool {
 	path := route(r.URL.Path)
-	return r.Method == "POST" && (path == "/resource_providers" || path == "/resource_classes") || r.Method == "PUT" && (path == "/resource_providers/{id}" || path == "/resource_providers/{id}/inventories" || path == "/resource_providers/{id}/traits" || path == "/resource_providers/{id}/aggregates" || path == "/resource_classes/{name}" && microversion(r) < 7)
+	return r.Method == "POST" && (path == "/resource_providers" || path == "/resource_classes") || r.Method == "PUT" && (path == "/allocations/{consumer}" || path == "/resource_providers/{id}" || path == "/resource_providers/{id}/inventories" || path == "/resource_providers/{id}/traits" || path == "/resource_providers/{id}/aggregates" || path == "/resource_classes/{name}" && microversion(r) < 7)
 }
 
 func requireJSON(r *http.Request) error {
@@ -450,9 +492,15 @@ func (h *Handler) decode(w http.ResponseWriter, r *http.Request, target any, inv
 	schema := bodySchema(r)
 	if route(r.URL.Path) == "/resource_providers" {
 		schema = "create"
+		if microversion(r) >= 14 {
+			schema = "create_1_14"
+		}
 	}
 	if route(r.URL.Path) == "/resource_providers/{id}" {
 		schema = "rename"
+		if microversion(r) >= 14 {
+			schema = "rename_1_14"
+		}
 	}
 	if err := validateRequest(raw, schema, "JSON does not validate: "); err != nil {
 		return err
@@ -496,6 +544,9 @@ func (h *Handler) representation(r *http.Request, p model.Provider) map[string]a
 	if microversion(r) >= 6 {
 		rels = append(rels, "traits")
 	}
+	if microversion(r) >= 11 {
+		rels = append(rels, "allocations")
+	}
 	for _, rel := range rels {
 		link := href
 		if rel != "self" {
@@ -503,17 +554,27 @@ func (h *Handler) representation(r *http.Request, p model.Provider) map[string]a
 		}
 		links = append(links, map[string]string{"rel": rel, "href": link})
 	}
-	return map[string]any{"uuid": p.UUID, "name": p.Name, "generation": p.Generation, "links": links}
+	out := map[string]any{"uuid": p.UUID, "name": p.Name, "generation": p.Generation, "links": links}
+	if microversion(r) >= 14 {
+		out["parent_provider_uuid"] = nil
+		out["root_provider_uuid"] = p.UUID
+	}
+	return out
 }
 func (h *Handler) providers(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		var input struct {
-			Name *string `json:"name"`
-			UUID *string `json:"uuid"`
+			Name   *string `json:"name"`
+			UUID   *string `json:"uuid"`
+			Parent *string `json:"parent_provider_uuid"`
 		}
 		if err := h.decode(w, r, &input); err != nil {
 			h.failure(w, r, err)
+			return
+		}
+		if input.Parent != nil {
+			h.failure(w, r, model.Fail(400, "Nested providers are outside the flat-provider profile."))
 			return
 		}
 		if input.Name == nil {
@@ -534,7 +595,12 @@ func (h *Handler) providers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Location", h.base.JoinPath("resource_providers", p.UUID).String())
-		w.WriteHeader(201)
+		if microversion(r) >= 20 {
+			h.modified(w, r, p.LastModified)
+			h.json(w, 200, h.representation(r, p))
+		} else {
+			w.WriteHeader(201)
+		}
 	case "GET":
 		if len(r.URL.RawQuery) > 16384 {
 			h.failure(w, r, model.Fail(400, "Query limit exceeded."))
@@ -577,6 +643,14 @@ func (h *Handler) providers(w http.ResponseWriter, r *http.Request) {
 				f.Name = &v
 			case "uuid":
 				f.UUID = &v
+			case "in_tree":
+				f.InTree = &v
+			case "required":
+				f.Required, f.Forbidden, err = parseTraits(v, microversion(r) >= 22)
+				if err != nil {
+					h.failure(w, r, err)
+					return
+				}
 			case "member_of":
 				f.Aggregates, err = parseMemberOf(values)
 				if err != nil {
@@ -603,6 +677,13 @@ func (h *Handler) providers(w http.ResponseWriter, r *http.Request) {
 		for _, p := range providers {
 			out = append(out, h.representation(r, p))
 		}
+		modified := time.Time{}
+		for _, p := range providers {
+			if p.LastModified.After(modified) {
+				modified = p.LastModified
+			}
+		}
+		h.modified(w, r, modified)
 		h.json(w, 200, map[string]any{"resource_providers": out})
 	default:
 		h.method(w, r, "GET, POST")
@@ -617,13 +698,19 @@ func (h *Handler) provider(w http.ResponseWriter, r *http.Request) {
 			h.failure(w, r, err)
 			return
 		}
+		h.modified(w, r, p.LastModified)
 		h.json(w, 200, h.representation(r, p))
 	case "PUT":
 		var input struct {
-			Name *string `json:"name"`
+			Name   *string `json:"name"`
+			Parent *string `json:"parent_provider_uuid"`
 		}
 		if err := h.decodeExisting(w, r, &input); err != nil {
 			h.failure(w, r, err)
+			return
+		}
+		if input.Parent != nil {
+			h.failure(w, r, model.Fail(400, "Nested providers are outside the flat-provider profile."))
 			return
 		}
 		if input.Name == nil {
@@ -635,6 +722,7 @@ func (h *Handler) provider(w http.ResponseWriter, r *http.Request) {
 			h.failure(w, r, err)
 			return
 		}
+		h.modified(w, r, p.LastModified)
 		h.json(w, 200, h.representation(r, p))
 	case "DELETE":
 		if err := h.service.Delete(r.Context(), identity(r), id); err != nil {
@@ -673,7 +761,7 @@ func (h *Handler) inventories(w http.ResponseWriter, r *http.Request) {
 			if input.Generation == nil || input.Inventories == nil {
 				err = model.Fail(400, "Generation and inventories are required.")
 			} else {
-				result, err = h.service.ReplaceInventories(r.Context(), identity(r), r.PathValue("id"), *input.Generation, input.Inventories, classOrder...)
+				result, err = h.service.ReplaceInventoriesVersion(r.Context(), identity(r), r.PathValue("id"), *input.Generation, input.Inventories, microversion(r) >= 26, classOrder...)
 			}
 		}
 	default:
@@ -684,6 +772,7 @@ func (h *Handler) inventories(w http.ResponseWriter, r *http.Request) {
 		h.failure(w, r, err)
 		return
 	}
+	h.modified(w, r, result.LastModified)
 	h.json(w, 200, result)
 }
 func (h *Handler) inventory(w http.ResponseWriter, r *http.Request) {
@@ -691,7 +780,7 @@ func (h *Handler) inventory(w http.ResponseWriter, r *http.Request) {
 		h.method(w, r, "GET")
 		return
 	}
-	invs, err := h.service.Inventories(r.Context(), identity(r), r.PathValue("id"))
+	invs, err := h.service.InventorySnapshot(r.Context(), identity(r), r.PathValue("id"), r.PathValue("class"))
 	if err != nil {
 		h.failure(w, r, err)
 		return
@@ -707,5 +796,24 @@ func (h *Handler) inventory(w http.ResponseWriter, r *http.Request) {
 	if invs.Generation != 0 {
 		out["resource_provider_generation"] = invs.Generation
 	}
+	h.modified(w, r, invs.LastModified)
 	h.json(w, 200, out)
+}
+
+// Version profiles are deliberately narrower than the entire upstream API.
+// These cover the concrete versions used by the pinned Nova resource tracker.
+func profileMaximum(r *http.Request) int {
+	switch route(r.URL.Path) {
+	case "/":
+		return 36
+	case "/allocations/{consumer}", "/resource_providers/{id}/allocations", "/allocation_candidates":
+		return 36
+	case "/resource_providers", "/resource_providers/{id}":
+		return 20
+	case "/resource_providers/{id}/inventories", "/resource_providers/{id}/inventories/{class}":
+		return 26
+	case "/resource_providers/{id}/aggregates":
+		return 19
+	}
+	return 8
 }

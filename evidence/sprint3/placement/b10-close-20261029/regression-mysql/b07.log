@@ -1,0 +1,5 @@
+=== RUN   TestB07MySQLHTTP
+    integration_test.go:285: PASS real MySQL 8.0.46; Keystone is an HTTP fixture; dirty disposable schema retained
+--- PASS: TestB07MySQLHTTP (0.22s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/repository/mysql	1.231s

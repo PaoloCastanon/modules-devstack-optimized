@@ -1,0 +1,55 @@
+{
+  "consumers": [
+    "21ee1268-98d1-4218-867d-76b57cafda61",
+    "40294921-566a-4c3a-91af-84670d01ff16",
+    "d651702d-2f10-4a25-b211-24c06cd83208",
+    "bca699ab-5310-4727-a180-617bd9015e10",
+    "05509fc1-e5d4-4c31-af5f-deddc2234181"
+  ],
+  "responses": [
+    {
+      "status": 204,
+      "headers": {
+        "openstack-api-version": "placement 1.36",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": ""
+    },
+    {
+      "status": 204,
+      "headers": {
+        "openstack-api-version": "placement 1.36",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": ""
+    },
+    {
+      "status": 204,
+      "headers": {
+        "openstack-api-version": "placement 1.36",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": ""
+    },
+    {
+      "status": 409,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.36",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"errors\":[{\"code\":\"placement.undefined_code\",\"detail\":\"There was a conflict when trying to complete your request.\\n\\n Unable to allocate inventory: Unable to create allocation for 'VCPU' on resource provider '3b7cc290-1329-47d2-9502-890059c82d1b'. The requested amount would exceed the capacity.  \",\"request_id\":\"req-e0a91894-f5d1-482b-ae84-2682bd8ff477\",\"status\":409,\"title\":\"Conflict\"}]}\n"
+    },
+    {
+      "status": 204,
+      "headers": {
+        "openstack-api-version": "placement 1.36",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": ""
+    }
+  ],
+  "capacity": 16,
+  "amount": 4,
+  "peak_usage": 16
+}

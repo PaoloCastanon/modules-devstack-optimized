@@ -1,0 +1,169 @@
+{
+  "name": "stale-generation",
+  "provider_uuid": "ca6594ab-f210-45d9-a7d3-9f81a3dd017d",
+  "request": {
+    "method": "PUT",
+    "path": "/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d/inventories",
+    "body": {
+      "resource_provider_generation": 0,
+      "inventories": {}
+    },
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0",
+      "Content-Type": "application/json"
+    },
+    "body_text": "{\"resource_provider_generation\": 0, \"inventories\": {}}",
+    "auth_role": "admin"
+  },
+  "seed": {
+    "python": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version",
+          "location": "http://192.168.122.10/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d"
+        },
+        "body_text": ""
+      },
+      {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 1, \"inventories\": {\"VCPU\": {\"total\": 4, \"reserved\": 0, \"min_unit\": 1, \"max_unit\": 2147483647, \"step_size\": 1, \"allocation_ratio\": 1.0}}}"
+      }
+    ],
+    "go": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version",
+          "location": "http://127.0.0.1:41381/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d"
+        },
+        "body_text": ""
+      },
+      {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":1,\"inventories\":{\"VCPU\":{\"total\":4,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+      }
+    ]
+  },
+  "before": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"ca6594ab-f210-45d9-a7d3-9f81a3dd017d\", \"name\": \"tt-b07-diff-ca6594ab-f210-45d9-a7d3-9f81a3dd017d\", \"generation\": 1, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 1, \"inventories\": {\"VCPU\": {\"total\": 4, \"reserved\": 0, \"min_unit\": 1, \"max_unit\": 2147483647, \"step_size\": 1, \"allocation_ratio\": 1.0}}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":1,\"links\":[{\"href\":\"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-ca6594ab-f210-45d9-a7d3-9f81a3dd017d\",\"uuid\":\"ca6594ab-f210-45d9-a7d3-9f81a3dd017d\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":1,\"inventories\":{\"VCPU\":{\"total\":4,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 409,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "openstack-api-version"
+      },
+      "body_text": "{\"errors\": [{\"status\": 409, \"title\": \"Conflict\", \"detail\": \"There was a conflict when trying to complete your request.\\n\\n resource provider generation conflict  \", \"request_id\": \"req-ce86cae6-bdfb-408d-9b21-d4d58b2ddf20\"}]}"
+    },
+    "go": {
+      "status": 409,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"errors\":[{\"detail\":\"There was a conflict when trying to complete your request.\\n\\n resource provider generation conflict  \",\"request_id\":\"req-f383fcaf-5251-4562-b07d-bcc3cf62ce31\",\"status\":409,\"title\":\"Conflict\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"ca6594ab-f210-45d9-a7d3-9f81a3dd017d\", \"name\": \"tt-b07-diff-ca6594ab-f210-45d9-a7d3-9f81a3dd017d\", \"generation\": 1, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 1, \"inventories\": {\"VCPU\": {\"total\": 4, \"reserved\": 0, \"min_unit\": 1, \"max_unit\": 2147483647, \"step_size\": 1, \"allocation_ratio\": 1.0}}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":1,\"links\":[{\"href\":\"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/ca6594ab-f210-45d9-a7d3-9f81a3dd017d/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-ca6594ab-f210-45d9-a7d3-9f81a3dd017d\",\"uuid\":\"ca6594ab-f210-45d9-a7d3-9f81a3dd017d\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":1,\"inventories\":{\"VCPU\":{\"total\":4,\"reserved\":0,\"min_unit\":1,\"max_unit\":2147483647,\"step_size\":1,\"allocation_ratio\":1}}}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}

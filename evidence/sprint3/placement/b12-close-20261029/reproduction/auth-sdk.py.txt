@@ -1,0 +1,75 @@
+import configparser,datetime,json,os,pathlib,secrets,sys
+from keystoneauth1 import session
+from keystoneauth1.identity import v3
+from keystoneclient.v3 import client
+from keystoneclient import exceptions
+root=pathlib.Path(sys.argv[2]);state=json.loads((root/'state.json').read_text())
+def save(name,value):
+ p=root/name;p.write_text(value);p.chmod(0o600)
+def checkpoint():save('state.json',json.dumps(state))
+plugin=v3.Password(auth_url=os.environ['OS_AUTH_URL'],username=os.environ['OS_USERNAME'],password=os.environ['OS_PASSWORD'],project_name=os.environ['OS_PROJECT_NAME'],user_domain_name=os.environ.get('OS_USER_DOMAIN_NAME','Default'),project_domain_name=os.environ.get('OS_PROJECT_DOMAIN_NAME','Default'))
+admin=client.Client(session=session.Session(auth=plugin,timeout=15))
+def account():return client.Client(session=session.Session(auth=v3.Password(auth_url=os.environ['OS_AUTH_URL'],user_id=state['user'],password=state['password'],project_id=state['project']),timeout=15))
+def token_file(name,plugin):
+ scoped=session.Session(auth=plugin,timeout=15);token=scoped.get_token();access=plugin.get_access(scoped);save(name+'.token',token+'\n');return {'user_id':access.user_id,'project_id':access.project_id,'roles':access.role_names,'expires_at':access.expires.isoformat()}
+try:
+ action=sys.argv[1]
+ if action=='prepare':
+  if state.get('b12_prepared'):raise RuntimeError('refusing duplicate preparation')
+  roles={r.name:r.id for r in admin.roles.list()};admin.roles.grant(roles['member'],user=state['user'],project=state['project'])
+  user=account();expiry=datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=2);result={}
+  for name,role in [('member','member'),('revoked','service'),('bad-validator','admin')]:
+   app=user.application_credentials.create(name='b12-'+name,user=state['user'],roles=[{'name':role}],expires_at=expiry)
+   state['apps'].append(app.id);checkpoint()
+   auth=v3.ApplicationCredential(auth_url=os.environ['OS_AUTH_URL'],application_credential_id=app.id,application_credential_secret=app.secret)
+   result[name]=token_file(name,auth)
+   if name=='bad-validator':save('bad-validator.json',json.dumps({'application_credential_id':app.id,'application_credential_secret':app.secret}))
+  result['unscoped']=token_file('unscoped',v3.Password(auth_url=os.environ['OS_AUTH_URL'],user_id=state['user'],password=state['password'],unscoped=True))
+  cfg=configparser.RawConfigParser(strict=False);cfg.read('/etc/nova/nova.conf')
+  url=cfg.get('placement','auth_url').rstrip('/');url=url if url.endswith('/v3') else url+'/v3'
+  result['nova']=token_file('nova',v3.Password(auth_url=url,username=cfg.get('placement','username'),password=cfg.get('placement','password'),project_name=cfg.get('placement','project_name'),user_domain_name=cfg.get('placement','user_domain_name',fallback='Default'),project_domain_name=cfg.get('placement','project_domain_name',fallback='Default')))
+  result['nova']['configured_username']=cfg.get('placement','username')
+  result['nova']['configured_project']=cfg.get('placement','project_name')
+  domain=admin.users.get(state['user']).domain_id
+  state['trustee_password']=secrets.token_urlsafe(32);checkpoint()
+  state['trustee']=admin.users.create('tt-b12-trustee-'+secrets.token_hex(6),domain=domain,password=state['trustee_password']).id;checkpoint()
+  state['b12_prepared']=True;checkpoint();save('b12-identities.json',json.dumps(result));print(json.dumps(result))
+ elif action=='refresh-revoked':
+  user=account();expiry=datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=1)
+  app=user.application_credentials.create(name='b12-revocable-'+secrets.token_hex(4),user=state['user'],roles=[{'name':'service'}],expires_at=expiry)
+  state['apps'].append(app.id);checkpoint()
+  result=token_file('revoked',v3.ApplicationCredential(auth_url=os.environ['OS_AUTH_URL'],application_credential_id=app.id,application_credential_secret=app.secret))
+  state['revoked']=False;checkpoint();print(json.dumps(result))
+ elif action=='revoke':
+  admin.tokens.revoke_token((root/'revoked.token').read_text().strip());state['revoked']=True;checkpoint();print(json.dumps({'revoked_test_token':True}))
+ elif action=='expiring':
+  expiry=datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(seconds=25)
+  trust=account().trusts.create(trustor_user=state['user'],trustee_user=state['trustee'],impersonation=True,project=state['project'],role_names=['service'],expires_at=expiry)
+  state['trusts']=state.get('trusts',[])+[trust.id];checkpoint()
+  result=token_file('expired',v3.Password(auth_url=os.environ['OS_AUTH_URL'],user_id=state['trustee'],password=state['trustee_password'],trust_id=trust.id))
+  save('expiring-metadata.json',json.dumps(result));print(json.dumps(result))
+ elif action=='cleanup':
+  nova_token=(root/'nova.token').read_text().strip()
+  try:admin.tokens.revoke_token(nova_token)
+  except exceptions.NotFound:pass
+  nova_revoked=False
+  try:admin.tokens.get_token_data(nova_token)
+  except exceptions.NotFound:nova_revoked=True
+  trusts_absent=True
+  for trust in state.get('trusts',[]):
+   try:admin.trusts.delete(trust)
+   except exceptions.NotFound:pass
+   try:admin.trusts.get(trust);trusts_absent=False
+   except exceptions.NotFound:pass
+  if state.get('trustee'):
+   try:admin.users.delete(state['trustee'])
+   except exceptions.NotFound:pass
+  absent=True
+  if state.get('trustee'):
+   try:admin.users.get(state['trustee']);absent=False
+   except exceptions.NotFound:pass
+  print(json.dumps({'trustee_absent':absent,'test_trusts_deleted':trusts_absent,'issued_nova_token_revoked':nova_revoked}))
+  if not (absent and trusts_absent and nova_revoked):sys.exit(1)
+ else:raise RuntimeError('unknown action')
+except Exception as error:
+ print('Keystone case preparation failed: '+type(error).__name__,file=sys.stderr);sys.exit(1)

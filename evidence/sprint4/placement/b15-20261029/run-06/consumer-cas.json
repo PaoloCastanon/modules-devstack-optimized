@@ -1,0 +1,35 @@
+{
+  "responses": [
+    {
+      "status": 409,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.36",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": "{\"errors\":[{\"code\":\"placement.concurrent_update\",\"detail\":\"There was a conflict when trying to complete your request.\\n\\n consumer generation conflict - expected 1 but got None  \",\"request_id\":\"req-8e93a201-1370-4abd-a537-fa3c79305415\",\"status\":409,\"title\":\"Conflict\"}]}\n"
+    },
+    {
+      "status": 204,
+      "headers": {
+        "openstack-api-version": "placement 1.36",
+        "vary": "OpenStack-API-Version"
+      },
+      "body_text": ""
+    }
+  ],
+  "consumer": "f3ab8edd-d7f6-4845-a748-0a225781b8b9",
+  "after": {
+    "project_id": "76fe49699db545d39b31ddd2ad0abaff",
+    "user_id": "2ff6c5c299214623a95877cfc424aa39",
+    "consumer_generation": 1,
+    "allocations": {
+      "3b7cc290-1329-47d2-9502-890059c82d1b": {
+        "generation": 4,
+        "resources": {
+          "VCPU": 1
+        }
+      }
+    }
+  }
+}

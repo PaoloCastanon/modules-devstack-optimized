@@ -1,0 +1,8 @@
+2026-10-30T00:18:02.734185Z 0 [System] [MY-013169] [Server] /usr/sbin/mysqld (mysqld 8.0.46-0ubuntu0.24.04.4) initializing of server in progress as process 8491
+2026-10-30T00:18:02.741240Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.
+2026-10-30T00:18:02.743662Z 1 [ERROR] [MY-012576] [InnoDB] Unable to create temporary file inside "/tmp"; errno: 13
+2026-10-30T00:18:02.743675Z 1 [ERROR] [MY-012929] [InnoDB] InnoDB Database creation was aborted with error Generic error. You may need to delete the ibdata1 file before trying to start up again.
+2026-10-30T00:18:02.743731Z 0 [ERROR] [MY-010020] [Server] Data Dictionary initialization failed.
+2026-10-30T00:18:02.743741Z 0 [ERROR] [MY-013236] [Server] The designated data directory /home/stack/tt-placement-b13-runtime-20261029/mysql/ is unusable. You can remove all files that the server added to it.
+2026-10-30T00:18:02.743745Z 0 [ERROR] [MY-010119] [Server] Aborting
+2026-10-30T00:18:02.743954Z 0 [System] [MY-010910] [Server] /usr/sbin/mysqld: Shutdown complete (mysqld 8.0.46-0ubuntu0.24.04.4)  (Ubuntu).

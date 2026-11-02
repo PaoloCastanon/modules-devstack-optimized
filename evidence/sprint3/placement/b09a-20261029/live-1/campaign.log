@@ -1,0 +1,4 @@
+b09 {'exit': 0, 'summary': {'planned': 52, 'total': 52, 'strict_equal': 52, 'status_equal': 52}, 'cleanup_ok': True}
+b07 {'exit': 0, 'summary': {'cases': 57, 'same_status': 57, 'strict_match': 57, 'same_state': 57}, 'cleanup_ok': True}
+b08 {'exit': 0, 'summary': {'total': 82, 'strict_equal': 82, 'status_equal': 82, 'planned': 82}, 'cleanup_ok': True}
+Disposable MySQL/data and private credentials removed.

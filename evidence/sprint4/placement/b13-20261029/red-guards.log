@@ -1,0 +1,36 @@
+test_foreign_site_digest_is_rejected_before_privileged_operations (test_placement_integration_guards.PlacementIntegrationGuards.test_foreign_site_digest_is_rejected_before_privileged_operations) ... ERROR
+test_mutation_opt_in_precedes_sdk_files_and_privileged_commands (test_placement_integration_guards.PlacementIntegrationGuards.test_mutation_opt_in_precedes_sdk_files_and_privileged_commands) ...
+  test_mutation_opt_in_precedes_sdk_files_and_privileged_commands (test_placement_integration_guards.PlacementIntegrationGuards.test_mutation_opt_in_precedes_sdk_files_and_privileged_commands) (name='placement_switch') ... ERROR
+
+======================================================================
+ERROR: test_foreign_site_digest_is_rejected_before_privileged_operations (test_placement_integration_guards.PlacementIntegrationGuards.test_foreign_site_digest_is_rejected_before_privileged_operations)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/tests/unit/test_placement_integration_guards.py", line 29, in test_foreign_site_digest_is_rejected_before_privileged_operations
+    module = load('placement_switch')
+  File "/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/tests/unit/test_placement_integration_guards.py", line 16, in load
+    spec.loader.exec_module(module)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 759, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 896, in get_code
+  File "<frozen importlib._bootstrap_external>", line 954, in get_data
+FileNotFoundError: [Errno 2] No such file or directory: '/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/scripts/integration/placement_switch.py'
+
+======================================================================
+ERROR: test_mutation_opt_in_precedes_sdk_files_and_privileged_commands (test_placement_integration_guards.PlacementIntegrationGuards.test_mutation_opt_in_precedes_sdk_files_and_privileged_commands) (name='placement_switch')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/tests/unit/test_placement_integration_guards.py", line 24, in test_mutation_opt_in_precedes_sdk_files_and_privileged_commands
+    module = load(name)
+  File "/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/tests/unit/test_placement_integration_guards.py", line 16, in load
+    spec.loader.exec_module(module)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 759, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 896, in get_code
+  File "<frozen importlib._bootstrap_external>", line 954, in get_data
+FileNotFoundError: [Errno 2] No such file or directory: '/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/scripts/integration/placement_switch.py'
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.007s
+
+FAILED (errors=2)

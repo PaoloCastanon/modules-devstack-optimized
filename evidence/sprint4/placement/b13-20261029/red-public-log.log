@@ -1,0 +1,26 @@
+--- FAIL: TestDiscoveryAuthAndVersions (0.00s)
+panic: interface conversion: interface {} is nil, not auth.Identity [recovered, repanicked]
+
+goroutine 21 [running]:
+testing.tRunner.func1.2({0x96a548, 0x3492bfcda6c0})
+	/usr/lib/go/src/testing/testing.go:2125 +0x232
+testing.tRunner.func1()
+	/usr/lib/go/src/testing/testing.go:2128 +0x329
+panic({0x96a548?, 0x3492bfcda6c0?})
+	/usr/lib/go/src/runtime/panic.go:859 +0x125
+github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api.identity(0x0?)
+	/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/internal/placement/api/api.go:529 +0x154
+github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api.New.func2.1()
+	/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/internal/placement/api/api.go:94 +0x127
+github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api.New.func2({0x9dc338, 0x3492bfc81d40}, 0x3492bfcd1540)
+	/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/internal/placement/api/api.go:167 +0x1608
+net/http.HandlerFunc.ServeHTTP(0x38?, {0x9dc338?, 0x3492bfc81d40?}, 0x9df600?)
+	/usr/lib/go/src/net/http/server.go:2358 +0x29
+github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api.TestDiscoveryAuthAndVersions(0x3492bfcc86c8)
+	/home/paolo/Proyectos/TrabajoTitulo/modules-devstack-optimized/internal/placement/api/api_test.go:213 +0x13d
+testing.tRunner(0x3492bfcc86c8, 0x9dd3a8)
+	/usr/lib/go/src/testing/testing.go:2195 +0xea
+created by testing.(*T).Run in goroutine 1
+	/usr/lib/go/src/testing/testing.go:2260 +0x4d4
+FAIL	github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/api	0.010s
+FAIL

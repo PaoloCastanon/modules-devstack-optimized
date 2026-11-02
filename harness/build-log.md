@@ -392,3 +392,371 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   conserva reportes, errores iniciales, logs, restart, hashes y limpieza.
   docs/placement/b08-development.md documenta contrato/operación; PLANS.md y
   implementation-plan.md dejan B09 allocations como siguiente incremento.
+
+## 2026-10-29 — B09-A: allocations atómicas y uso persistido
+
+- **Base:** B08 6587805, PR #7 abierto al comenzar; rama feat/placement-b09.
+  Entrega A implementada; **B09 sigue en progreso**. Incluye GET/PUT/DELETE
+  allocations por consumer, GET allocations/usages por provider, reemplazo
+  atómico y capacidad restante. Default 1.0, máximo seleccionado 1.8; falta
+  formato por provider 1.12 y consumer generation 1.28 que exige Nova (PUT
+  observado en 1.36). No se acredita integración Nova ni candidates.
+- **Contrato y prueba inicial:** se inspeccionó código fijado f4a89d3 de handlers,
+  schemas, objetos, políticas y excepciones. TestB09AllocationProtocols falló
+  inicialmente con 404 para consumer vacío; luego pasa con 200 y allocations {}.
+  Se mantienen diferencias entre GET inválido/vacío, DELETE repetido 404,
+  array legacy, duplicado de provider que conserva la última entrada y roles.
+  Nueve errores Python capturados se reproducen literalmente como regresión.
+- **Microversión 1.8 justificada:** la DB original no tenía registros globales
+  incomplete-project/user. Una escritura legacy los crearía sin limpieza HTTP.
+  Se añadió el cambio puntual 1.8 (project_id/user_id obligatorios y persistidos
+  junto a las reservas) y se usaron IDs preexistentes en Placement para la
+  campaña. GET aún no muestra propietario; ese cambio pertenece a 1.12.
+  Las escrituras 1.0–1.7 tienen pruebas locales, no comparación viva positiva.
+- **Persistencia:** migración v4 append-only, historial v1–v3 y hashes intactos;
+  serve rechaza v3/dirty. Consumers y allocations propios, FK a inventories,
+  cascade para renombre de clase CUSTOM y GC de consumer al liberar. La fixture
+  de upgrade B08 siembra v2 mediante SQL propio antes de migrar, evitando usar
+  el repositorio actual contra un schema histórico sin allocations.
+- **Transacciones:** lock de consumer y unión ordenada de providers anteriores/
+  nuevos; READ COMMITTED permite leer uso actual tras ganar un lock bloqueado.
+  Se descuentan las reservas anteriores del consumer. Fallar en cualquier clase,
+  provider o actualización SQL revierte reservas, generaciones y propietario.
+  Un PUT exitoso aumenta cada provider solicitado una vez; old-only y DELETE
+  no lo aumentan, como el original. La comparación de capacidad evita redondear
+  used a float (caso 2^53+1) y conserva límites fraccionarios/min/max/step.
+- **Corrección al plan:** el original permite reducir inventario por debajo de
+  uso y conserva la reserva en sobrecapacidad. Go reproduce ese comportamiento:
+  no permite empeorar el exceso mediante una nueva reserva, pero admite igualar
+  o reducirlo cumpliendo constraints. Se bloquean borrados de provider/inventario
+  en uso. El filtro resources ahora resta allocations persistidas.
+- **MySQL real:** tres incrementos de suites en schemas nuevos; la ejecución
+  final TestB09MySQLAllocations con race prueba upgrade v3→v4 preservando B08,
+  rollback por overflow final de provider y consumer, propietario sin cambios
+  parciales, carrera entre dos consumers, carrera de varios providers, reemplazo
+  concurrente del mismo consumer, pool nuevo y renombre de clase asignada.
+  También PASS TestB08MySQLCatalogs, TestB07MySQLHTTP, TestBinaryMySQLLifecycle
+  y TestV1CollisionStopsUpgrade, cada una en su propio schema vacío y con cuentas
+  migrate/serve diferentes. MySQL 8.0.46 descartable en tmpfs, sin DB original.
+- **HTTP real:** scripts/placement_allocation_differential.py con opt-in, tokens
+  privados y directorio nuevo: primera campaña **52/52**, ampliación final
+  **60/60** status/respuestas/estados estrictos; regresiones B07 **57/57** y
+  B08 **82/82** con sus runners intactos. Keystone/MySQL reales; sólo recursos
+  propios nuevos. Normalización B07 exclusivamente (request_id, origen Location,
+  tokens Vary); no se cambian errores, generation, tipos o identidades.
+- **Reinicio:** SIGTERM exit 0 y nuevo proceso conserva provider, inventario,
+  allocations, usage y generaciones; DELETE y limpieza comprobados. No se
+  reinició el servidor MySQL ni se simuló una caída abrupta.
+- **Gate local:** make check terminó en 0: formato/vet Go, pruebas de ambos
+  dominios con race y build, 13 tests harness y 21 unitarios Python, documentos/
+  evidencia histórica, pin Nova y sintaxis/fmt de infraestructura. No inicia VM.
+- **Limpieza:** lectura SQL posterior del original confirma 0 providers, 0
+  consumers y 0 allocations del ensayo, mismos registros globales project/user
+  y ausencia de nuevas filas incomplete. No hubo escrituras SQL directas al
+  original. Identidad/credenciales de ensayo eliminadas, procesos/contenedores/
+  datos/archivos privados locales descartados y VM apagada. Sin cambios de
+  endpoints Nova, Excel ni evidencia S2.
+- **Evidencia y siguiente:** evidence/sprint3/placement/b09a-20261029/ conserva
+  60 casos, regresiones, ensayos previos, rollback/concurrencia, hashes, restart
+  y limpieza. docs/placement/b09-development.md documenta operación y B09-B:
+  formatos modernos, consumer generation y dependencias antes de anunciar más
+  versiones. El rollback binario a B08 requiere restaurar su DB propia previa;
+  no se implementa down migration automática.
+
+## 2026-10-29 — Cierre técnico B09 y continuación autorizada hasta B12
+
+- El usuario pidió terminar B09 y amplió el trabajo hasta B12. Se conserva el
+  subconjunto Nova; no se acredita sustitución ni boot de B13–B15.
+- B09-B añade formato por provider 1.12, owner en GET, consumer generation 1.28
+  distinguiendo ausente/null/zero/obsoleta y mappings 1.34. PUT 1.36 y lecturas
+  modernas forman el perfil priorizado. POST batch y reshaper quedan fuera.
+- CAS del consumer dentro de la misma transacción que reservas y propietario;
+  un conflicto no tiene efectos. PUT vacío libera y elimina el consumer, con
+  incremento de los providers anteriores; DELETE sigue sin incrementarlos.
+  El provider generation opcional del payload se ignora como en upstream.
+- Migración v5 append-only añade created_at a allocations. Se conservan v1–v4
+  y hashes; Last-Modified proviene de reservas persistidas y Cache-Control es
+  no-cache desde 1.15. Desde 1.23 los errores incluyen code; conflictos de
+  consumer usan placement.concurrent_update.
+- Comparación real con MySQL/Keystone: **24/24** casos modernos estrictos,
+  regresiones B09-A **60/60**, B07 **57/57**, B08 **82/82**, con cleanup.
+  Se conserva el valor crudo de Last-Modified, se valida HTTP date y sólo se
+  normaliza el timestamp además de request_id/orígenes/Vary permitidos. Sin
+  normalizar códigos, status, generación, owner o tipos.
+- Cinco suites MySQL independientes PASS: B09 añade carrera de creación del
+  mismo consumer, CAS stale/null, owner inmutable y liberación vacía; también
+  pasan B08/B07, lifecycle binario y guard de colisión. make check PASS con
+  race/vet/build de ambos módulos, documentos, Python e infraestructura.
+- El máximo 1.36 se aplica a allocations; otras rutas mantienen 406 explícito
+  fuera de su perfil 1.8 hasta B10. No se afirma compatibilidad íntegra 1.36.
+- Evidencia en evidence/sprint3/placement/b09-close-20261029/, con hashes, raw
+  HTTP, SQL, restart y limpieza. SQL original sólo lectura; metadata global no
+  cambió. Identidad temporal eliminada y VM apagada antes de seguir trabajo
+  local B10. No se modificaron Nova/endpoints, Excel ni capturas S2.
+
+## 2026-10-29 — Cierre técnico B10 del perfil plano
+
+- Base cierre B09 0e59cf3; rama feat/placement-b10. Candidates procede de una
+  instantánea RR de MySQL (providers, inventory, usage, traits y aggregates).
+  Evalúa capacidad remanente, min/max/step, traits requeridos/prohibidos,
+  root_required, limit, pertenencia/negación de aggregate, grupos/policy,
+  in_tree y same_subtree para providers planos. No hay respuestas constantes.
+- Representaciones 1.10/1.12/1.17/1.27/1.29/1.34; máximo 1.36 en candidates.
+  No se promete toda API ni árboles/sharing. Parent no nulo y estado compartido
+  se rechazan explícitamente; dos grupos isolate no comparten un root plano.
+- Perfiles Nova contrastados: providers 1.14/1.20 (root/parent, links, required,
+  in_tree y POST 200), aggregates 1.19 con CAS y aumento aun en no-op, inventory
+  1.26 con capacidad cero/reserved=total. Cada ruta tiene máximo explícito y
+  devuelve 406 fuera del perfil. Migración v6 conserva v1–v5 y persiste tiempos
+  de provider/inventory; timestamps históricos desconocidos son de migración.
+- Test inicial de candidates falló con 406; ahora devuelve 200 y resultado vacío
+  al no existir inventario. Suite SQL real prueba uso/traits/aggregate, CAS de
+  aggregate y 40 lecturas concurrentes con relación generation/usage que detecta
+  mezclas de snapshots. Las cinco suites previas también pasan en DB nuevas.
+- Comparación viva MySQL/Keystone: **44/44** estricto, ocho seeds sin diferencias.
+  Regresiones B09 moderno **24/24**, B09-A **60/60**, B07 **57/57**, B08 **82/82**.
+  El CUSTOM resource fresco excluye providers originales ajenos a la prueba.
+  Last-Modified validado y normalizado como timestamp; se ordenan conjuntos sin
+  deduplicar; no se cambian códigos, generaciones, tipos ni capacity/used.
+- make check PASS: vet/race/build ambos módulos, Python, documentos e infra.
+  Sólo [] en aggregates original para no dejar filas globales; asociación
+  positiva se verifica en MySQL propio. Cleanup HTTP y SQL sólo de lectura
+  confirman ausencia de filas propias y metadatos globales intactos.
+- Evidencia: evidence/sprint3/placement/b10-close-20261029/. Identidad/VM quedan
+  temporalmente en uso por B11/B12; su limpieza final se registrará al terminar.
+  No se cambió Nova, endpoints, Excel ni S2; B13–B15 conservan boot/sustitución.
+
+### 2026-10-29 — B11 cierre de persistencia
+
+- Base B10 b42c273; campaña reproducible scripts/placement_persistence_campaign.py.
+  MySQL 8.0.46, volumen y tres schemas propios, cuentas DDL/DML y Keystone real.
+- Nueve verificaciones PASS: privilegios mínimos, aislamiento, SIGKILL Go/MySQL,
+  rollback InnoDB de owner sin confirmar, dump/restore íntegro en otra cuenta,
+  sentinel intacto y cleanup. Dump de todas las filas idéntico byte a byte.
+- Primer intento falló por binding Docker aleatorio tras restart; evidencia
+  conservada. Segundo intento usa puerto explícito y ownership create/start.
+- make check PASS (vet/race/build ambos dominios y harness). Guards Python
+  rechazan output existente y ausencia de opt-in antes de iniciar Docker.
+- Evidencia: evidence/sprint3/placement/b11-close-20261029/. No DB original,
+  HA ni sustitución Nova; Keystone/VM continúan en uso por B12.
+
+### 2026-10-29 — B12 cierre de Keystone/políticas y B07–B12
+
+- Base B11 19854f7; se ejecutó el binario normal con MySQL propio y Keystone
+  real. Identidad Nova obtenida de nova.conf (nova/service), sin copiar secretos
+  al repo; credenciales por rol propias y validador service sin admin.
+- Primer intento 99/134 conservado: 29 rechazos unscoped correctos en permiso/
+  efectos pero con error/versión genéricos; tres GET inventory sin cache headers;
+  tres expectativas del runner incorrectas (GET trait devuelve 204 en ambos).
+  Tests rojos reproducidos antes de corregir. Sin cambios a auth/Glance compartida.
+- Se conserva microversión/política en 403; inventory individual lee su timestamp
+  persistido por clase en RR. SQL real prueba dos timestamps y filtro parametrizado.
+- scripts/placement_auth_differential.py: **143/143** estricto: políticas 134,
+  revocación 3, trust válido 3 y expirado 3. Sin efectos ante denegaciones.
+  Expiración real de trust a 25s; token revocado ya se había validado en Go.
+  El original no conocía ese token antes de revocarlo: no se acredita su caché.
+- Tres verificaciones sólo Go: validador privilegiado 503, fallo de validación
+  local 503, composite header 403. Hash de todas las filas intacto; recuperación
+  tras restaurar credencial. No se alteró Keystone original ni se añadió bypass.
+- make check PASS (vet/race/build ambos dominios). MySQL opt-in PASS.
+  Regresión viva final **267/267**: B07 57, B08 82, B09-A 60, B09 moderno 24,
+  B10 44 y seeds sin diferencias. B11 sobre binario final **9/9** con SIGKILL
+  Go/MySQL, rollback no confirmado y backup/restore íntegro byte a byte.
+- Evidencia: evidence/sprint3/placement/b12-close-20261029/, incluye reportes
+  crudos, hashes, helpers archivados sin secretos, intentos fallidos y limpieza.
+  Consulta SQL sólo lectura: 134 IDs provider/16 consumer de los ensayos ausentes;
+  metadatos projects/users intactos. HTTP confirma cleanup de clases/traits.
+- Se eliminaron trusts/trustee, user/project y app creds propios, se revocó el
+  token de Nova emitido para el ensayo y se eliminó el directorio privado remoto.
+  Contenedores/volúmenes propios ausentes; tt-openstack-lab **shut off**.
+- B07–B12 completados para el subconjunto parcial del laboratorio. B13–B15
+  (sustitución/boot con Nova) pendientes. Sin cambiar Nova/endpoints/Excel/S2
+  ni ejecutar SQL de escritura contra DB original. No se acredita API completa,
+  árboles/sharing, composite, federación, system scope, HA o policies custom.
+
+### 2026-10-29 — Plan B13–B18
+
+- Solicitado: plan para B13–B18, sin ejecutar todavía esos bloques. Base B12
+  5c682af; rama docs/b13-b18-plan. Se consultó el libro Sprint2 sólo en lectura
+  (Backlog A16:M21 y requisitos RF09/RF12/RNF02/RNF03), conservando su hash.
+- Propuesto en docs/placement/b13-b18-plan.md: definir B16 primero; sustituir
+  Placement de forma reversible (B13), boot ACTIVE y liberación (B14), cerrar
+  runner repetible con negativos/rollback (B15), medir latencia/throughput (B17)
+  y CPU/memoria (B18) con las mismas campañas. Se conservan dependencias formales,
+  puntos, responsables y sprints del libro. Valores de carga/repeticiones son
+  propuesta para piloto, no resultados experimentales ni calendario aprobado.
+- La primera comparación mantiene Glance original como control. B20/B25/B26
+  conservan implementación/aceptación Glance y boot con imágenes del servicio Go;
+  no se declaran cerrados por integrar Placement ni por preparar este plan.
+- Se enlazó desde PLANS.md y el plan Placement; se corrigió el estado corriente
+  del documento de trabajo B09–B12 para reflejar sus cierres ya registrados.
+- Validación: make check PASS (harness/infra y formato/vet/race/build Go de ambos
+  dominios), git diff --check PASS, hash del Excel intacto. Sin código funcional,
+  despliegue, benchmarks, modificación S2 o cambios al estado formal del libro.
+  tt-openstack-lab permanece shut off; no se inició durante esta planificación.
+
+### 2026-10-29 — B16 protocolo e instrumentos; inicio B13
+
+- El usuario autorizó comenzar el plan B13–B18. Base integrada B09–B12
+  c2cadc7 en feat/placement-b08; main 45b91ba aún no contiene esos cierres.
+  Se inició feat/placement-b16 desde la base integrada y se conservó el plan.
+- B16: protocolo v1 con matriz/semilla, cargas, warm-up, ventanas, repeticiones,
+  métricas/errores y análisis por repetición antes de medir. Instrumentos HTTP
+  readonly con snapshot completo y /proc con CPU/PSS/RSS y PID identity.
+- TDD rojo al faltar módulo, seis tests finales PASS con HTTP y /proc reales;
+  status 200 con estado erróneo no cuenta como éxito y no se guardan tokens.
+  make check PASS (harness, infra, vet/race/build de ambos dominios).
+- Dos pilotos Python con Keystone real: cada uno cuatro concurrencias
+  1/4/8/16, warm-up 1s/carga 4s, cero errores. Segundo piloto usa instrumento
+  final con UTC y denominador hasta deadline/respuesta final, sin teardown.
+  Muestreo de master+dos workers uWSGI, PSS disponible. Cifras sólo de piloto,
+  no benchmark B17/B18 ni comparación con Go. Fuentes y muestras conservadas
+  en evidence/sprint4/benchmarks/b16-20261029/.
+- VM encendida en uso por B13. Preflight readonly: un provider plano, sin
+  sharing/allocations y sin instancias; compute up. Placement tiene unidad
+  uWSGI independiente y ruta Apache propia. Identidad temporal por roles
+  service/admin/reader con archivos privados; sigue en uso por B13.
+- B16 cierra protocolo para Placement. Claim/mezcla y campañas B17/B18 se
+  implementan/pilotan después de integrar Nova; no se acreditan por estos pilotos.
+  Sin cambios al Excel, evidencia S2 o código funcional de Placement/Glance.
+
+### 2026-10-29 — B13 sustitución reversible del perfil plano
+
+- Base B16 d7c89e6; scripts/integration configura user/project tt-placement y
+  app creds por rol, preflight readonly, runtime nativo propio y cambio Apache
+  con backup privado/hash, reemplazo atómico y timer de rollback a 600s.
+- MySQL 8.0.46 dentro de la VM: datadir/socket/puerto 13316, UUID/schema/
+  migrador/app propios. Perfil AppArmor independiente; original sin cambios.
+  Fallos iniciales de confinamiento y tmpdir conservados y limpiados.
+- Readiness/probe mysql CLI con defaults-extra-file heredó ~/.my.cnf y leyó
+  original mediante SELECT. Detectado al coincidir UUID; corregido a defaults-file
+  y SOCKET. Bootstrap PyMySQL y runtime Go usaron siempre socket/DSN explícitos
+  propios. Ver prueba válida de UUIDs/puerto distintos. Sin SQL original de escritura.
+- Python uWSGI detenido durante sustitución. Nova compute/scheduler reiniciados
+  con configuración intacta. Nova publicó provider real, tres inventarios y
+  traits en Go; misma identidad/root, constraints, traits, aggregates y reservas
+  vacías. Generaciones independientes 3/2 conservadas, sin declararlas iguales.
+- Cliente Nova desplegado y RequestSpec/ResourceRequest reales consultaron
+  candidates 1.36 con nova.conf. Probe es biblioteca Nova, no boot del scheduler.
+  Logs Go añaden IDs de identidad validada; prueba de spoofing y tests de
+  discovery/401 corrigen acceso sin identidad sin guardar token/cabeceras falsas.
+- cycle-01 falla por construcción del objeto del helper y restaura original;
+  probe corregido probado primero en Python. cycle-02 PASS completo, con
+  publicación Nova, candidates y original restaurado/hash Apache exacto.
+- make check PASS (vet/race/build ambos dominios), API y guards PASS. Evidencia
+  evidence/sprint4/placement/b13-20261029/. Sin editar Nova, Excel o S2 ni afirmar
+  API completa. B14 continúa boot; B15 suite/inyectores y benchmarks pendientes.
+  Original restaurado; VM/runtime/identidad permanecen temporalmente en uso B14.
+
+### 2026-10-29 — B14 boot real con Placement Go y cierre del laboratorio
+
+- Base B13 55b0019, binario 83433d9b… identificado en evidencia B13.
+  Helper SDK real con opt-in, output nuevo e IDs explícitos; no guarda adminPass
+  ni objetos Server enteros. Original uWSGI detenido, sólo Go en /placement.
+- Server 1af1c553-3927-431a-be9b-d7a1f3010006 BUILD→ACTIVE a 00:39:02Z
+  (21:39:02 del 29 en Santiago), imagen CirrOS original, m1.tiny y red shared.
+  Nova hizo candidates/claim; logs Go registran identidad Nova validada.
+- Allocations verificadas en consumer real: VCPU1/MEMORY_MB512/DISK_GB1,
+  owner de la instancia admin (distinto de identidad Nova), consumer gen1 y
+  provider gen3. Usages cero→reserva→cero. DELETE Nova y liberación PASS.
+- Original restaurado/hash Apache exacto. Probe Nova real volvió a obtener
+  candidates en Python. Preflight final conserva provider/inventarios/traits/
+  aggregates/allocations y UUID MySQL original. Listado all-projects sin VMs,
+  imagen original ACTIVE y cinco unidades originales activas antes de shutdown.
+- Runtime Go/MySQL propio detenido; datadir/schema/cuentas/DSN/archivos privados
+  y perfil AppArmor independiente eliminados. Perfil original conserva SHA.
+  User/project/app creds temporales de Keystone y root privado eliminados.
+  Sin unidades/perfiles tt-placement activos; tt-openstack-lab shut off.
+- make check PASS (guards, harness/infra, vet/race/build de ambos dominios).
+  Evidencia evidence/sprint4/placement/b14-20261029/. Scripts/headers no guardan
+  credenciales. Sin cambios Nova/Excel/S2 ni SQL Placement original de escritura.
+- B16, B13 y B14 cerrados técnicamente para el alcance; B15 sigue pendiente
+  (dos suites integrales y negativos), B17/B18 no medidos, B26 fuera de este boot.
+
+### 2026-10-29 — B15 suite integral, dos corridas finales consecutivas
+
+- Base B14 1a2efa7; scripts/integration/placement_suite.py y make
+  placement-integration ejecutan dentro de la VM el flujo completo opt-in con
+  IDs explícitos, output nuevo, user/project/app creds, MySQL/Go propios y ledger
+  privado. Snapshot/hash original y MySQL propio vía DSN app explícito.
+- Once casos obligatorios: preflight/aislamiento, publicación tracker, auth sin
+  efectos, persistencia tras restart Go, CAS, claims contra capacidad, NoValidHost
+  real por disco insuficiente, boot normal, dos boots concurrentes, excepción
+  controlada con rollback por timer y restauración del original/cliente Nova.
+- En este lab, capacidad VCPU16: cinco claims concurrentes de4 producen cuatro
+  204 y un409, sin sobreasignación. CAS de un consumer: 204/409 y una reserva.
+  Cada corrida completa crea tres VMs ACTIVE y una ERROR/NoValidHost, luego
+  comprueba borrado/liberación por Nova y usos devueltos al baseline.
+- Guards rojos/verdes: PASS incompleto prohibido, ownership exacto, output/opt-in,
+  retener backend/credenciales/ledger si falla borrar VM, lease exclusiva entre
+  coordinadores y restore idempotente con timer --collect ya desaparecido.
+- Prototipos01/02 pasaron;03 añadió retención;04 exclusión.05 falló OSError al
+  preparar runtime y limpió todo, sin contarse como PASS. El chequeo bind podía
+  rechazar TIME_WAIT; prueba TCP real reproduce el problema y valida SO_REUSEADDR
+  sin aceptar listeners activos/SO_REUSEPORT. No se conserva errno del fallo
+  histórico, sí su ubicación y estado; nuevos OSError registran errno. MySQL
+  --version ahora usa --no-defaults para no leer ~/.my.cnf del operador.
+- Versión final, sin cambiar fuente/binario entre corridas06/07: **22/22** casos,
+  ocho flags cleanup true por corrida; MySQL UUID/schema y recursos nuevos.
+  Fuente/hashes y prototipos (incluido05 fallido) conservados por separado en
+  evidence/sprint4/placement/b15-20261029/. No se debilitaron casos/error codes.
+- make check PASS: guards/tests, harness/infra, vet/race/build ambos dominios.
+  Auditoría real final: cero instancias/dominios, flavors/user/projects propios,
+  work roots, unidades o perfiles AppArmor propios; imagen original ACTIVE, cinco
+  servicios originales activos y hash Apache/perfil original intactos. Lock de
+  coordinación vacío persiste por diseño; tt-openstack-lab **shut off**.
+- B15 cierra integración del subconjunto; B17/B18 no medidos, B26 fuera.
+  No se cambió Excel/S2/Nova ni se escribió SQL en Placement original.
+
+### 2026-10-30 — B17 instrumentación completa y pilotos; campaña oficial pendiente
+
+- Base integrada2046a95 (B13/B14/B15/B16 mergeados). Generador host cerrado por
+  worker, seis cargas B16, validación exacta de generaciones/owner/estado y
+  candidates bajo claims concurrentes. Deadline por request, drain y limpieza de
+  ciclos parciales fuera de la ventana; raw JSONL gzip sin credenciales.
+- Coordinador SSH/SDK con lock B15, semilla/orden congelados antes de mutar,
+  16 providers propios/clase CUSTOM por par, ruta Apache común, MySQL Go propio
+  y owner SQL ya presente en Python. Sólo SELECT en la DB original. Tokens
+  renovados por par; app creds propias24h para cubrir una campaña de más de10h.
+- Prototipos01/02 PUT415 y03 PUT400 corrigieron Content-Type y creación de clase
+  1.7.04 pasó dos lecturas pero falló cleanup DELETE provider1.36; se restauró
+  original y retuvieron medios de reparación. DELETE1.0 con propiedad verificada
+  retiró backend/identidad/privados. No se reclasifican esos fallos como PASS.
+- Pilotos05 y06: cada uno24/24 HTTP/estado PASS (seis cargas, c1/16, warm1s/load4s).
+  Hashes finales de generador/coordinador/recolector coinciden con06. Original,
+  owners SQL, hash Apache y perfil MySQL intactos; recursos privados retirados.
+- make check PASS (52 tests de unidad, harness/infra y vet/race/build ambos
+  dominios). Cuatro tests B17 incluyen HTTP real, estado falso tras204, no adopción
+  de recursos, generaciones/tipos y matriz de120 pares. Evidencia nueva Sprint5.
+- B17 no cierra por estos pilotos. Se mantiene protocolo B16 de240 ventanas,
+  warm30s/load120s y cinco pares por celda. Excel/S2 y Glance original intactos.
+
+### 2026-10-30 — B18 instrumentación y cierre autónomo; mediciones oficiales pendientes
+
+- Recolector por cgroup completo con PID/start_ticks, CPU/PSS/RSS a1Hz, reposo
+  inicial5s, membresía antes/durante/después y ventanas UTC alineadas con reloj
+  monotónico cliente. Grupos separados MySQL, Keystone, Apache, Nova y Glance;
+  VM CPU/steal/memoria/load y costo del recolector/generador registrados.
+- Análisis usa CPU y completadas correctas del mismo intervalo interior; PSS
+  primario y máximo observado, RSS secundario. Bootstrap por repetición/par,
+  n=5 y10000 remuestras; p99 marca soporte insuficiente. Heap/GC Go no expuesto.
+- Pilotos05/06/07:24/24 ventanas CPU/PSS válidas cada uno, además de HTTP/estado.
+  07 añade publicación del compute de control y probes Nova reales antes de
+  cargar; identidad/capacidad/traits/aggregates equivalentes, gen original3/Go2
+  preservadas. Los cuatro instrumentos finales coinciden por SHA con07.
+- make check PASS, incluidos cuatro tests B18: CPU excluye warm-up/otros servicios,
+  PID reciclado/PSS ausente rechazados, bootstrap reproducible, publicación
+  parcial bloqueada y apagado sin cinco servicios originales verificados prohibido.
+- Supervisor de sesión larga en worktree aislado: requiere HEAD limpio/congelado
+  y opt-ins campaña/publicación/apagado. Guarda progreso fuera de Git. Al terminar
+  sólo publica cierre si las240 ventanas oficiales y ambos análisis pasan,
+  original/limpieza quedan verificados, VM apagada, make check y CI aprobados.
+  Commits de resultados B17/B18 separados; PR ready, sin merge automático.
+- B17/B18 siguen pendientes de la campaña oficial de más de10h. No se reduce
+  B16 para cerrar antes. Sin cambios a producción Go, Nova, Excel/S2 o Glance.
+
+### 2026-10-30 — B17 guard de confianza SSH en worktrees
+
+- Arranque oficial01 sin ventanas: known_hosts ignorado no existía en el nuevo worktree; SSH falló antes de ejecutar el coordinador. Intento y prueba del original activo/directorios remotos ausentes conservados.
+- Guard de archivos SSH/protocolo legibles antes de crear outputs/estado o lanzar SSH; test reproduce ausencia de la caché y exige cero efectos. Ruta absoluta original de confianza para el nuevo intento. No se deshabilita verificación de host.
+- Instrumentos HTTP, coordinador VM y recolector iguales al piloto07; sólo cambia preflight del driver. Campaña240 pendiente, sin reclasificar este fallo como éxito.

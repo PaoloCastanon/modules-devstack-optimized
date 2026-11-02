@@ -66,6 +66,9 @@ func integerNumber(value json.Number) (json.Number, error) {
 }
 
 func schemaIntegers(value any, target reflect.Type) (any, error) {
+	if value == nil && target.Kind() == reflect.Pointer {
+		return nil, nil
+	}
 	for target.Kind() == reflect.Pointer {
 		target = target.Elem()
 	}
@@ -92,6 +95,18 @@ func schemaIntegers(value any, target reflect.Type) (any, error) {
 				}
 				object[key] = v
 			}
+		}
+	case reflect.Slice:
+		array, ok := value.([]any)
+		if !ok {
+			return nil, errors.New("expected array")
+		}
+		for i, item := range array {
+			v, err := schemaIntegers(item, target.Elem())
+			if err != nil {
+				return nil, err
+			}
+			array[i] = v
 		}
 	case reflect.Map:
 		object, ok := value.(map[string]any)

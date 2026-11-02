@@ -1,0 +1,3 @@
+package main
+import("net/http";"net/http/httputil";"net/url";"os";"strings")
+func main(){target,_:=url.Parse(os.Args[2]);p:=httputil.NewSingleHostReverseProxy(target);director:=p.Director;p.Director=func(r *http.Request){r.URL.Path=strings.TrimPrefix(r.URL.Path,"/placement");if r.URL.Path==""{r.URL.Path="/"};director(r)};if err:=http.ListenAndServe(os.Args[1],p);err!=nil{panic(err)}}

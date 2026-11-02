@@ -1,0 +1,119 @@
+{
+  "name": "missing-provider-inventory-before-schema",
+  "provider_uuid": "ba31fa5c-32ee-4c38-968e-308185024342",
+  "request": {
+    "method": "PUT",
+    "path": "/resource_providers/ba31fa5c-32ee-4c38-968e-308185024342/inventories",
+    "body": {},
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0",
+      "Content-Type": "application/json"
+    },
+    "body_text": "{}",
+    "auth_role": "admin"
+  },
+  "seed": {},
+  "before": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found  \", \"request_id\": \"req-74518bc9-a316-4aec-94ae-3b057a1e5c3f\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found : No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found  \", \"request_id\": \"req-7d60b2c0-23a3-4111-8abb-5fb18b351f51\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found  \",\"request_id\":\"req-db0dc316-422e-449e-a2cb-ccca339299e6\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found : No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found  \",\"request_id\":\"req-fb2f7a49-2ef0-436b-a99d-6eb718467c16\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 404,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0"
+      },
+      "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found  \", \"request_id\": \"req-0150cc40-252f-4f2d-bde9-2bf4aac74663\"}]}"
+    },
+    "go": {
+      "status": 404,
+      "headers": {
+        "content-type": "application/json",
+        "openstack-api-version": "placement 1.0"
+      },
+      "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found  \",\"request_id\":\"req-b6e9deb8-22e7-4ca5-8193-8bebc679204a\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found  \", \"request_id\": \"req-a3709283-ecca-4b25-961e-219d54ac74b9\"}]}"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"errors\": [{\"status\": 404, \"title\": \"Not Found\", \"detail\": \"The resource could not be found.\\n\\n No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found : No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found  \", \"request_id\": \"req-977c3f87-fb05-40c0-8d56-b9bf5730adba\"}]}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found  \",\"request_id\":\"req-8297e695-4993-40cc-a1df-2d2d46508b10\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      },
+      "inventories": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"errors\":[{\"detail\":\"The resource could not be found.\\n\\n No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found : No resource provider with uuid ba31fa5c-32ee-4c38-968e-308185024342 found  \",\"request_id\":\"req-c7e52b77-e36a-4d83-9387-8a5b23ed14eb\",\"status\":404,\"title\":\"Not Found\"}]}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}

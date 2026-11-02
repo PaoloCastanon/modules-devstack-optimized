@@ -1,0 +1,145 @@
+{
+  "name": "missing-token",
+  "provider_uuid": "45fd97fe-5aec-482a-b20f-86bb55b42295",
+  "request": {
+    "method": "GET",
+    "path": "/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295",
+    "body": null,
+    "headers": {
+      "Accept": "application/json",
+      "OpenStack-API-Version": "placement 1.0"
+    },
+    "body_text": null,
+    "auth_role": "missing"
+  },
+  "seed": {
+    "python": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version",
+          "location": "http://192.168.122.10/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295"
+        },
+        "body_text": ""
+      }
+    ],
+    "go": [
+      {
+        "status": 201,
+        "headers": {
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version",
+          "location": "http://127.0.0.1:43897/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295"
+        },
+        "body_text": ""
+      }
+    ]
+  },
+  "before": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"45fd97fe-5aec-482a-b20f-86bb55b42295\", \"name\": \"tt-b07-diff-45fd97fe-5aec-482a-b20f-86bb55b42295\", \"generation\": 0, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 0, \"inventories\": {}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":0,\"links\":[{\"href\":\"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-45fd97fe-5aec-482a-b20f-86bb55b42295\",\"uuid\":\"45fd97fe-5aec-482a-b20f-86bb55b42295\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":0,\"inventories\":{}}\n"
+      }
+    }
+  },
+  "responses": {
+    "python": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json",
+        "www-authenticate": "Keystone uri=\"http://192.168.122.10/identity\""
+      },
+      "body_text": "{\"error\": {\"code\": 401, \"title\": \"Unauthorized\", \"message\": \"The request you have made requires authentication.\"}}"
+    },
+    "go": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json",
+        "www-authenticate": "Keystone uri=\"http://192.168.122.10/identity\""
+      },
+      "body_text": "{\"error\":{\"code\":401,\"message\":\"The request you have made requires authentication.\",\"title\":\"Unauthorized\"}}\n"
+    }
+  },
+  "after": {
+    "python": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"uuid\": \"45fd97fe-5aec-482a-b20f-86bb55b42295\", \"name\": \"tt-b07-diff-45fd97fe-5aec-482a-b20f-86bb55b42295\", \"generation\": 0, \"links\": [{\"rel\": \"self\", \"href\": \"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295\"}, {\"rel\": \"inventories\", \"href\": \"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295/inventories\"}, {\"rel\": \"usages\", \"href\": \"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295/usages\"}]}"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "openstack-api-version"
+        },
+        "body_text": "{\"resource_provider_generation\": 0, \"inventories\": {}}"
+      }
+    },
+    "go": {
+      "provider": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"generation\":0,\"links\":[{\"href\":\"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295\",\"rel\":\"self\"},{\"href\":\"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295/inventories\",\"rel\":\"inventories\"},{\"href\":\"/placement/resource_providers/45fd97fe-5aec-482a-b20f-86bb55b42295/usages\",\"rel\":\"usages\"}],\"name\":\"tt-b07-diff-45fd97fe-5aec-482a-b20f-86bb55b42295\",\"uuid\":\"45fd97fe-5aec-482a-b20f-86bb55b42295\"}\n"
+      },
+      "inventories": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "openstack-api-version": "placement 1.0",
+          "vary": "OpenStack-API-Version"
+        },
+        "body_text": "{\"resource_provider_generation\":0,\"inventories\":{}}\n"
+      }
+    }
+  },
+  "differences": [],
+  "same_status": true,
+  "same_state": true,
+  "strict_match": true
+}

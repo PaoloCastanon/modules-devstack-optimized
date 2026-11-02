@@ -1,0 +1,51 @@
+{
+  "base_sha": "8fa51aef4afbf54c6c3ae4dc025cd7f75b18f7fd",
+  "go_binary_sha256": "36362bc0a479c83e5b138ee833de898ae52cda70d745cf8e07efefda313e6f92",
+  "go_toolchain": "go version go1.27.3-X:nodwarf5 linux/amd64",
+  "upstream_sha": "f4a89d3803cb23df22b8714569889ab39c918c34",
+  "mysql": "8.0.46 disposable isolated tmpfs",
+  "keystone": "deployed; temporary identity/project with per-role expiring application credentials",
+  "results": {
+    "b09": {
+      "exit": 0,
+      "summary": {
+        "planned": 24,
+        "total": 24,
+        "strict_equal": 24
+      },
+      "cleanup_ok": true
+    },
+    "b09a": {
+      "exit": 0,
+      "summary": {
+        "planned": 60,
+        "total": 60,
+        "strict_equal": 60,
+        "status_equal": 60
+      },
+      "cleanup_ok": true
+    },
+    "b07": {
+      "exit": 0,
+      "summary": {
+        "cases": 57,
+        "same_status": 57,
+        "strict_match": 57,
+        "same_state": 57
+      },
+      "cleanup_ok": true
+    },
+    "b08": {
+      "exit": 0,
+      "summary": {
+        "total": 82,
+        "strict_equal": 82,
+        "status_equal": 82,
+        "planned": 82
+      },
+      "cleanup_ok": true
+    }
+  },
+  "timestamp_utc": "2026-10-29T19:34:49.152976+00:00",
+  "reverse_proxy": "loopback /placement strip-prefix bridge; responses unchanged"
+}

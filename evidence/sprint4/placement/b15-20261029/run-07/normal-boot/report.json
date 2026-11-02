@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "name": "tt-placement-b14-fb48e3f340864fdb8576d264382b32eb",
+  "server_id": "afeb1561-1b10-4693-84ed-a01fae53fda5",
+  "states": [
+    {
+      "timestamp_utc": "2026-10-30T01:54:25.418610+00:00",
+      "status": "BUILD"
+    },
+    {
+      "timestamp_utc": "2026-10-30T01:54:27.481636+00:00",
+      "status": "BUILD"
+    },
+    {
+      "timestamp_utc": "2026-10-30T01:54:29.540433+00:00",
+      "status": "ACTIVE"
+    }
+  ],
+  "provider_uuid": "3b7cc290-1329-47d2-9502-890059c82d1b",
+  "image_id": "525c5703-e0a5-4cee-9669-9e57fd89ca32",
+  "flavor_id": "1",
+  "network_id": "44193c7a-3e3b-4ae2-900e-e1e88856d4e3",
+  "boot_active": true,
+  "allocation_verified": true,
+  "server_deleted": true,
+  "allocations_released": true,
+  "usages_restored": true,
+  "execution_error": null,
+  "cleanup_error": null,
+  "usages_before": {
+    "resource_provider_generation": 8,
+    "usages": {
+      "DISK_GB": 0,
+      "MEMORY_MB": 0,
+      "VCPU": 0
+    }
+  },
+  "expected_resources": {
+    "VCPU": 1,
+    "MEMORY_MB": 512,
+    "DISK_GB": 1
+  },
+  "owner": {
+    "project_id": "76fe49699db545d39b31ddd2ad0abaff",
+    "user_id": "2ff6c5c299214623a95877cfc424aa39"
+  },
+  "allocations_active": {
+    "project_id": "76fe49699db545d39b31ddd2ad0abaff",
+    "user_id": "2ff6c5c299214623a95877cfc424aa39",
+    "consumer_generation": 1,
+    "allocations": {
+      "3b7cc290-1329-47d2-9502-890059c82d1b": {
+        "generation": 9,
+        "resources": {
+          "DISK_GB": 1,
+          "MEMORY_MB": 512,
+          "VCPU": 1
+        }
+      }
+    }
+  },
+  "usages_active": {
+    "resource_provider_generation": 9,
+    "usages": {
+      "DISK_GB": 1,
+      "MEMORY_MB": 512,
+      "VCPU": 1
+    }
+  },
+  "allocations_after": {
+    "allocations": {}
+  },
+  "usages_after": {
+    "resource_provider_generation": 9,
+    "usages": {
+      "DISK_GB": 0,
+      "MEMORY_MB": 0,
+      "VCPU": 0
+    }
+  }
+}

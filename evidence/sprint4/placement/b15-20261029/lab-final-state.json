@@ -1,0 +1,9 @@
+{
+  "timestamp_utc": "2026-10-30T02:03:39.617508+00:00",
+  "domain": "tt-openstack-lab",
+  "state": "shut off",
+  "final_audit": "final-audit.json",
+  "original_restored": true,
+  "private_work_roots_removed": true,
+  "coordinator_empty_lock_retained": true
+}

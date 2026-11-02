@@ -13,7 +13,29 @@ Este plan organiza el backlog existente; no reemplaza el Excel ni modifica sprin
 
 Las fases son agrupaciones de aceptación, no una prohibición de avanzar en paralelo en los dos módulos. B26 conserva S5. B21 continúa en progreso y B16 pendiente según la última aceptación; preparar estos documentos no los cierra.
 
-## Placement: B07 y B08 completados en el alcance seleccionado
+## Integración y evaluación: avance B13–B18
+
+**B16 completado técnicamente para Placement:** [protocolo experimental](docs/benchmarks/methodology.md),
+instrumentos de lectura/CPU/PSS, tests y dos pilotos reales de calibración.
+[Resultados del piloto](evidence/sprint4/benchmarks/b16-20261029/README.md).
+**B13 completado técnicamente:** [sustitución reversible](docs/placement/b13-integration.md),
+publicación real del compute, cliente Nova 1.36 y rollback verificados.
+**B14 completado técnicamente:** [boot Nova real](docs/placement/b14-acceptance.md),
+ACTIVE, allocations/owner/usages correctos y liberación al borrar. Original
+restaurado, identidad/runtime propios retirados y VM apagada.
+**B15 completado técnicamente:** [suite integral](docs/placement/b15-integration.md),
+dos corridas finales consecutivas 11/11, con ocho verificaciones de limpieza cada
+una, recursos propios nuevos y original restaurado. VM apagada.
+<!-- placement-b17-b18-status:start -->
+**B17/B18 en ejecución, 2026-10-30:** [coordinador y runbook](docs/benchmarks/campaign-runbook.md)
+con las seis cargas y recolector por cgroup. Tres pilotos completos24/24 HTTP y
+CPU/PSS válidos; [evidencia](evidence/sprint5/benchmarks/b17-b18-pilots-20261030/README.md).
+La aceptación exige todavía las240 ventanas oficiales del protocolo B16.
+Mediciones oficiales B17/B18 pendientes. El Excel conserva su
+aceptación histórica; este registro no cambia su estado formal.
+<!-- placement-b17-b18-status:end -->
+
+## Placement: B07–B12 completados en el alcance seleccionado
 
 **Cierre técnico al 2026-10-29:** [B07 aceptado para el alcance priorizado
 providers/inventories 1.0](docs/placement/b07-acceptance.md). La campaña final dio
@@ -29,9 +51,28 @@ protegidos y generation. Las rutas seleccionadas incorporan los cambios 1.1–1.
 reinicio y limpieza comprobados. [Evidencia B08](evidence/sprint3/placement/b08-close-20261029/README.md).
 La asociación positiva de aggregates sólo se verificó en MySQL aislado.
 
-**Siguiente:** B09 allocations, después B10 candidates. B11/B12 requieren cierre
-transversal. El alcance sigue siendo el subconjunto para Nova; no se acredita
-sustitución Nova, toda la API 1.7 ni se cambia el Excel histórico.
+**B09 completado para las rutas priorizadas:** [entrega A](docs/placement/b09-development.md) implementa
+allocations atómicas, consultas por consumer/provider, usages y capacidad restante,
+con migración v4. **60/60** casos vivos, B07 **57/57** y B08 **82/82**; rollback,
+concurrencia y reinicio verificados. El [cierre B09](evidence/sprint3/placement/b09-close-20261029/README.md) añade
+formato 1.12, generación 1.28 y mappings 1.34 para PUT 1.36: **24/24** casos
+modernos estrictos. El rango alto se limita a allocations hasta ampliar los
+perfiles del resource tracker en B10.
+[Evidencia B09-A](evidence/sprint3/placement/b09a-20261029/README.md).
+
+**B10 completado para el perfil plano:** [candidates](docs/placement/b10-development.md)
+derivados de inventarios/uso/traits/aggregates persistidos, filtros Nova y perfiles
+del tracker. **44/44** casos vivos y ocho seeds sin diferencias; regresiones
+24/60/57/82 completas. [Evidencia B10](evidence/sprint3/placement/b10-close-20261029/README.md).
+
+**B11 completado:** [durabilidad y restore](docs/placement/b11-acceptance.md), nueve verificaciones reales aprobadas.
+**B12 completado:** [Keystone y políticas](docs/placement/b12-acceptance.md), 143/143 casos vivos, tres verificaciones fail-closed, 267/267 regresiones y B11 final 9/9. VM apagada y limpieza comprobada. El alcance sigue siendo el subconjunto para Nova; no se acredita
+sustitución Nova, toda la API 1.8 ni se cambia el Excel histórico.
+
+El [plan B13–B18](docs/placement/b13-b18-plan.md) propone sustituir Placement,
+validar boot/suite Nova y medir latencia, throughput, CPU y memoria. B16 se define
+antes de medir; B13–B15 acreditan integración y B17/B18 usan campañas controladas.
+Es planificación, sin cambios al estado formal del libro ni ejecución de laboratorio.
 
 El [plan Placement B07–B15](docs/placement/implementation-plan.md) conserva el
 orden. Los resultados anteriores de 27/38 y ocho diferencias pendientes describen

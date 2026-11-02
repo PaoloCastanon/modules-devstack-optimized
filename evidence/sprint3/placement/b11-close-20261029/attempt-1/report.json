@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "mysql": "8.0.46",
+  "timestamp_utc": "2026-10-29T20:01:30.561393+00:00",
+  "scope": "own Docker MySQL schemas and volume; real Keystone; no original DB access",
+  "checks": {
+    "ddl_account_cannot_serve": true,
+    "runtime_cannot_ddl": true,
+    "runtime_cannot_cross_schema": true,
+    "go_sigkill_preserves_state": true
+  },
+  "execution_error": "RuntimeError",
+  "container_removed": true,
+  "volume_removed": true,
+  "private_files_removed": true
+}

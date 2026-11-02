@@ -1,0 +1,59 @@
+import datetime,json,os,pathlib,secrets,sys
+from keystoneauth1 import session
+from keystoneauth1.identity import v3
+from keystoneclient.v3 import client
+from keystoneclient import exceptions
+root=pathlib.Path(sys.argv[2]);root.mkdir(mode=0o700,exist_ok=True);root.chmod(0o700)
+def save(name,data):
+ p=root/name;p.write_text(data);p.chmod(0o600)
+state=json.loads((root/'state.json').read_text()) if (root/'state.json').exists() else {'apps':[]}
+def checkpoint():save('state.json',json.dumps(state))
+plugin=v3.Password(auth_url=os.environ['OS_AUTH_URL'],username=os.environ['OS_USERNAME'],password=os.environ['OS_PASSWORD'],project_name=os.environ['OS_PROJECT_NAME'],user_domain_name=os.environ.get('OS_USER_DOMAIN_NAME','Default'),project_domain_name=os.environ.get('OS_PROJECT_DOMAIN_NAME','Default'))
+admin=client.Client(session=session.Session(auth=plugin,timeout=15))
+def account():
+ plugin=v3.Password(auth_url=os.environ['OS_AUTH_URL'],user_id=state['user'],password=state['password'],project_id=state['project'])
+ return client.Client(session=session.Session(auth=plugin,timeout=15))
+try:
+ if sys.argv[1]=='prepare':
+  if state.get('project'):raise RuntimeError('refusing reuse')
+  name='tt-b09-allocations-'+secrets.token_hex(6);domain=admin.domains.list(name='Default')[0].id
+  state['project']=admin.projects.create(name,domain,description='Disposable B09 allocation verification').id;checkpoint()
+  state['password']=secrets.token_urlsafe(32);checkpoint()
+  state['user']=admin.users.create(name,domain=domain,password=state['password'],default_project=state['project']).id;checkpoint()
+  roles={r.name:r.id for r in admin.roles.list()}
+  for role in ['admin','service','reader']:admin.roles.grant(roles[role],user=state['user'],project=state['project'])
+  user=account();expiry=datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=2)
+  for role in ['admin','service','reader']:
+   app=user.application_credentials.create(name='b09-'+role,user=state['user'],roles=[{'name':role}],expires_at=expiry)
+   state['apps'].append(app.id);checkpoint()
+   scoped=session.Session(auth=v3.ApplicationCredential(auth_url=os.environ['OS_AUTH_URL'],application_credential_id=app.id,application_credential_secret=app.secret),timeout=15)
+   token=scoped.get_token();granted=scoped.auth.get_access(scoped).role_names
+   if role not in granted or role!='admin' and 'admin' in granted:raise RuntimeError('role mismatch')
+   save(role+'.token',token+'\n')
+   if role=='service':save('validator.json',json.dumps({'application_credential_id':app.id,'application_credential_secret':app.secret}))
+  print(json.dumps({'prepared':True,'project':state['project'],'user':state['user'],'expires_at':expiry.isoformat(),'roles':['admin','service','reader']}))
+ elif sys.argv[1]=='cleanup':
+  if state.get('user'):
+   try:
+    user=account()
+    for app in state['apps']:
+     try:user.application_credentials.delete(app,user=state['user'])
+     except exceptions.NotFound:pass
+   finally:
+    try:admin.users.delete(state['user'])
+    except exceptions.NotFound:pass
+  if state.get('project'):
+   try:admin.projects.delete(state['project'])
+   except exceptions.NotFound:pass
+  absent={}
+  for kind in ['user','project']:
+   if not state.get(kind):absent[kind]=True;continue
+   try:getattr(admin,kind+'s').get(state[kind]);absent[kind]=False
+   except exceptions.NotFound:absent[kind]=True
+  print(json.dumps({'cleanup_verified':all(absent.values()),'absent':absent}))
+  if all(absent.values()):
+   import shutil;shutil.rmtree(root)
+  else:sys.exit(1)
+ else:raise RuntimeError('unknown action')
+except Exception as error:
+ print('Keystone task failed: '+type(error).__name__,file=sys.stderr);sys.exit(1)

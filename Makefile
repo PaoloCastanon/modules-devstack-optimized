@@ -135,3 +135,26 @@ placement-test-upgrade:
 # NEW EMPTY schema; creates B07 v2 history and verifies the B08 v3 upgrade.
 placement-test-catalogs:
 	go test -race -count=1 -tags=integration ./internal/placement/repository/mysql -run '^TestB08MySQLCatalogs$$' -v
+
+.PHONY: placement-test-allocations
+# NEW EMPTY schema; upgrades B08 v3 and tests atomic claims and release.
+placement-test-allocations:
+	go test -race -count=1 -tags=integration ./internal/placement/repository/mysql -run '^TestB09MySQLAllocations$$' -v
+
+.PHONY: placement-test-candidates
+# NEW EMPTY schema; verifies candidates and repeatable-read snapshot consistency.
+placement-test-candidates:
+	go test -race -count=1 -tags=integration ./internal/placement/repository/mysql -run '^TestB10MySQLCandidates$$' -v
+
+# Explicit live lab command, inside the VM with admin openrc and deployed SDKs.
+# Example arguments are documented in docs/placement/b15-integration.md.
+.PHONY: placement-integration
+PLACEMENT_INTEGRATION_ARGS ?=
+placement-integration:
+	python3 scripts/integration/placement_suite.py $(PLACEMENT_INTEGRATION_ARGS)
+
+# Explicit live host campaign; VM/SDK/code deployment must already be prepared.
+.PHONY: placement-benchmark
+PLACEMENT_BENCHMARK_ARGS ?=
+placement-benchmark:
+	python3 scripts/benchmarks/placement_campaign.py $(PLACEMENT_BENCHMARK_ARGS)

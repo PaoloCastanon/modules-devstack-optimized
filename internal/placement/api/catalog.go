@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/placement/model"
@@ -13,17 +14,40 @@ import (
 
 func bodySchema(r *http.Request) string {
 	switch route(r.URL.Path) {
+	case "/allocations/{consumer}":
+		if microversion(r) >= 34 {
+			return "allocations_1_34"
+		}
+		if microversion(r) >= 28 {
+			return "allocations_1_28"
+		}
+		if microversion(r) >= 12 {
+			return "allocations_1_12"
+		}
+		if microversion(r) >= 8 {
+			return "allocations_1_8"
+		}
+		return "allocations_1_0"
 	case "/resource_classes", "/resource_classes/{name}":
 		return "class_body"
 	case "/resource_providers/{id}/traits":
 		return "traits_set"
 	case "/resource_providers/{id}/aggregates":
+		if microversion(r) >= 19 {
+			return "aggregates_1_19"
+		}
 		return "aggregates_set"
 	default:
 		return "inventories"
 	}
 }
 func providerQuerySchema(r *http.Request) string {
+	if microversion(r) >= 18 {
+		return "query_1_18"
+	}
+	if microversion(r) >= 14 {
+		return "query_1_14"
+	}
 	if microversion(r) >= 4 {
 		return "query_1_4"
 	}
@@ -264,6 +288,31 @@ func (h *Handler) providerTraits(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (h *Handler) aggregates(w http.ResponseWriter, r *http.Request) {
+	if microversion(r) >= 19 {
+		id := r.PathValue("id")
+		var out model.AggregateSet
+		var err error
+		switch r.Method {
+		case "GET":
+			out, err = h.service.AggregateState(r.Context(), identity(r), id)
+		case "PUT":
+			var input model.AggregateSet
+			if err = h.decodeExisting(w, r, &input); err == nil {
+				out, err = h.service.ReplaceAggregatesGeneration(r.Context(), identity(r), id, input.Generation, input.Aggregates)
+			}
+		default:
+			h.method(w, r, "GET, PUT")
+			return
+		}
+		if err != nil {
+			h.failure(w, r, err)
+			return
+		}
+		h.modified(w, r, time.Now())
+		h.json(w, 200, out)
+		return
+	}
+
 	id := r.PathValue("id")
 	var out []string
 	var err error
@@ -283,6 +332,7 @@ func (h *Handler) aggregates(w http.ResponseWriter, r *http.Request) {
 		h.failure(w, r, err)
 		return
 	}
+	h.modified(w, r, time.Now())
 	h.json(w, 200, map[string]any{"aggregates": out})
 }
 
