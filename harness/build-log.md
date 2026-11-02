@@ -908,3 +908,99 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - CPU/op usa requests completadas en intervalo interior común; relojes y overhead del recolector registrados. MySQL/Keystone/Apache/Nova/Glance/generador separados.
 - Mediana y rango observado; tres repeticiones, sin afirmar precisión inferencial. Datos crudos y resumen reproducible; auth/cache/pools/DB declarados.
 - make check PASS. Restauración, cleanup y VM shut off comprobados; B17/B18 cerrados técnicamente para este subconjunto de Placement.
+
+
+### 2026-10-31 — Instrumentación Glance v2 y preparación de preflight real
+
+- Base 13bb013: Placement v2 aceptado 72/72, CI PASS en el mismo SHA, originales
+  restaurados y VM apagada. PR5 fbb4a3d integrado en 4c07cb5: se preserva autoría
+  Glance y se distingue lo informado por su autor de la verificación nueva.
+- Cliente HTTP con payload determinista, streaming acotado, hashes completos,
+  keepalive por worker y TTFB real para descargas. Ventanas de ciclos completos,
+  drenaje incluido en el denominador y muestras/intentos comprimidos sin tokens.
+  UUID propios, estado/tipos estrictos y cleanup sin adoptar imágenes ajenas.
+- Backend de laboratorio extiende helper existente con dominio glance: MySQL
+  propio, migrador/runtime separados, store ligado a UUID SQL e inicialización
+  explícita. Sin cambios en los dominios Go ni bases originales. Proxy /image
+  reversible y lease antes de sustituir; Placement original permanece control.
+- Preflight preparado: original y Go, archivos raw 1/16/64 MiB, metadata y hashes,
+  paso por Apache, eliminación de bytes propios y restauración. Aún no ejecutado;
+  no se presentan sockets locales como Keystone/MySQL/Glance reales.
+- make check PASS, seis regresiones Glance de instrumentos PASS. Se rechaza
+  dominio/puerto no admitido, 200 binario corrupto y metadatos de propietario/tipo
+  incorrectos. VM apagada durante desarrollo; siguiente paso preflight opt-in.
+
+
+### 2026-10-31 — Glance: preflight funcional real aprobado
+
+- Fuente 85a78de, sin cambios productivos Go: 42/42 solicitudes correctas con
+  Keystone real, MySQL/store propios, metadatos y bytes íntegros; Python 1 MiB,
+  Go directo 1/16/64 MiB y Go público Apache 1 MiB. Payloads y credenciales fuera
+  de Git. [Evidencia](../evidence/sprint5/benchmarks/glance-v2-functional-preflight-20261031/README.md).
+- Placement original se mantuvo como control; catálogo original y hashes Apache
+  iguales antes/después. Runtime/identidad/bytes propios retirados, controles
+  restaurados, todos los originales activos y VM apagada normalmente.
+- make check PASS para instrumentos; se repite para esta entrega de evidencia.
+  No es piloto de carga ni aceptación Glance108 o joint24/36. Coordinador/RPC,
+  análisis CPU/PSS y supervisor durable siguen pendientes antes de medir.
+
+
+### 2026-10-31 — B16/B23 Glance: coordinador y análisis compacto
+
+- Usuario limitó esta ejecución a automatización, piloto36 y oficial108 de Glance;
+  conjunta postergada. Seguimiento actualizado y Placement Python permanece fijo.
+- RPC con lock, seeds propios por namespace/owner, equivalencia entre implementaciones,
+  roundtrip por worker fuera de ventanas, restauración y apagado por sesión.
+- Collector Glance g-api/Go separado de Placement; análisis reconstruye ciclos,
+  muestras/bytes, percentiles, TTFB y CPU/PSS con PID/start_ticks e intervalo común.
+- Supervisor durable piloto->oficial, revisión/protocolo/binario congelados,
+  guardas disco host/VM y CI exacto antes de publicar PR ready. No merge ni conjunta.
+- Diez pruebas específicas PASS, incluyendo matriz108/36 reproducible, rechazo
+  de ownership ajeno y analizador que rechaza muestras incompletas/no acepta piloto.
+  Datos de esos tests son sintéticos y no acreditan mediciones reales.
+- make check PASS para esta revisión antes de congelar. Piloto/campaña aún
+  pendientes; VM apagada durante implementación. No se anuncian resultados nuevos.
+
+- Guarda adicional antes de cada encendido:20GiB libres; make check PASS.
+- Preparación tras boot espera todos los servicios originales activos y apt inactivo; make check PASS.
+
+
+### 2026-10-31 — Glance v2: hallazgo real de estrés, sin aceptación oficial
+
+- Piloto36/36 válido, incluido CPU/PSS. Oficial se detuvo en77:76 válidas y
+  descarga Python1MiB HTTP200/0bytes inválida, payload_mismatch. Se preservó
+  toda la evidencia, sin sustituir muestra, reintento oculto ni aceptación.
+- Journal nativo confirma errno24 Too many open files al abrir el archivo de
+  caché, con LimitNOFILE2048. PID/start_ticks estables y guardas disco sin aborto.
+  CacheFilter crea Notifier/get_transport por cached request; acumulación de
+  transports/sockets es hipótesis a contrastar mediante calibración dedicada.
+- Diagnóstico de sólo lectura, originales/restauración verificados y VM apagada.
+  [Evidencia](../evidence/sprint5/benchmarks/glance-compact-v2-20261031-01/README.md).
+- Se prepara v3 (misma matriz108) para comparar API/catálogo/bytes sin bus de
+  notificaciones, fuera del alcance Go. Driver oficial noop en copia privada,
+  OS_GLANCE_CONFIG_DIR mediante dropin sólo /run; originales/caché/límites sin
+  modificación. Todo se retira/restaura por sesión. Debe calibrarse primero;
+  no se presentan v3 ni el control propuesto como solución ya validada.
+
+
+### 2026-10-31 — Glance: calibración FD confirma causa y control v3
+
+- Ensayo nativo fuente07b03de:1500 descargas1MiB messagingv2, +1500FD;
+  6000 descargas1MiB noop, +4FD. Todas con bytes/hash completos. Conteos de
+  sockets por worker respaldan acumulación de transportes por cached request.
+- Control temporal OS_GLANCE_CONFIG_DIR en /run restaurado y hashes originales
+  iguales; caché y límite2048 intactos. Recursos propios retirados y VM apagada.
+  [Evidencia](../evidence/sprint5/benchmarks/glance-v3-fd-calibration-20261031/README.md).
+- No es benchmark de rendimiento (cliente VM-local). V3 mide API/bytes sin bus
+  RabbitMQ; piloto36 y oficial108 todavía pendientes. V2 fallido preservado.
+- Se añade guarda de crecimiento FD máximo256 por ventana, sin aceptar datos
+  sin contador. Prueba positiva/negativa y make check para nueva congelación.
+
+
+### glance-compact-v3: piloto y campaña oficial completados
+
+- Piloto36/36 y oficial108/108, bytes/estado/CPU/PSS válidos; Placement Python fijo.
+- Restauración, limpieza, controles y apagado normal verificados tras ambas sesiones.
+- Datos independientes, n=3 mediana/rango; no atribución exclusiva al lenguaje.
+- Resultado reproducible en docs/benchmarks/glance-results.md y evidencia de esta campaña.
+- Campaña conjunta postergada por el usuario; no se ejecutó.

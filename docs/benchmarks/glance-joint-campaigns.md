@@ -182,3 +182,66 @@ muestras comprimidas revisadas y hashes, nunca imágenes, secretos o backups.
 Commits por tarea/campaña y PR revisable, sin merge automático. B17/B18 actuales
 conservan aceptación limitada a Placement; la evaluación global exige estas dos
 campañas adicionales. B23/B24 integran sus resultados sólo después de validar.
+
+## Ejecución vigente: Glance compacto v2 solamente
+
+2026-10-31: el usuario solicitó completar automatización, piloto y oficial de
+Glance; la campaña conjunta queda postergada. Los parámetros vigentes son
+`glance-protocol-compact-v2.json`: piloto36 y oficial108, nunca la matriz v1.
+Placement permanece Python y conserva su aceptación compacta72/72.
+
+Instrumentos: `glance_lab.py` (RPC VM con lock), `glance_campaign.py` (coordinación
+host), `analyze_glance.py` (reconstrucción de muestras/ciclos/bytes y CPU/PSS),
+`complete_glance_campaign.py` (supervisor durable piloto->oficial->publicación).
+No hay ruta que inicie conjunta. El supervisor exige SHA limpio, protocolo/binario
+por hash, VM inicialmente apagada y lock exclusivo del anfitrión; cada sesión
+restaura/limpia/verifica y apaga antes de analizar o realizar builds.
+
+El piloto recorre todas las celdas; exige36/36 HTTP/estado/bytes y CPU/PSS antes
+de oficial. Fuentes permanecen congeladas durante ambas sesiones. Si el piloto
+falla, se conservan sus datos, se diagnostica y se congela una nueva revisión
+antes de un nuevo intento completo. Nunca se mezclan muestras de revisiones.
+
+Uploads: canario propio por worker con payload idéntico, descarga/hash antes y
+después de cada ventana fuera del temporizador; las cargas medidas verifican
+metadata active, longitud, MD5/SHA512 y eliminación. Downloads verifican SHA256
+en cada respuesta. Se comparan100 semillas queued para catálogo. UUID y nombres
+son derivables de namespace/celda; cleanup nunca adopta objetos sólo por tag.
+La línea base de archivos Python y el store Go vuelven a su estado inicial.
+Tombstones Python permanecen: no se escribe SQL ni se purga evidencia original.
+
+Muestreo de cgroup Glance (g-api o proceso Go) y controles por separado a1Hz;
+5s de reposo y bracket posterior de2s. CPU/op usa intervalo común y todas las
+operaciones correctas del contrato; el throughput de upload incluye ciclo completo.
+Guarda host20GiB inicial/10GiB continua y sondeo VM independiente cada3s,
+mínimo8GiB libres/store Go máximo4GiB. El sondeo SSH está fuera de cada request.
+No se presenta n=3 como significación estadística ni como prueba de efecto sólo
+por lenguaje. Máximos PSS son observados, percentiles por operación preservados.
+
+Resultados oficiales sólo después de108/108 válidas, restauración y apagado,
+make check y CI del SHA publicado. PR18 se mantiene borrador hasta esos gates;
+no se hace merge. El estado durable del workspace identifica servicio, config,
+output y revisión vigentes; inspeccionarlo antes de iniciar para evitar duplicados.
+
+## Revisión3 tras fallo real del original
+
+V2 piloto36 aprobado; oficial falló en77 por HTTP200 con cuerpo vacío. Evidencia
+stock conservada sin aceptación. Journal: errno24 y límite2048FD durante lectura
+cacheada; no worker restart/disco lleno. Notifier por request cacheado crea nuevo
+transport: calibración dedicada contrasta crecimiento FD/sockets en messagingv2
+con6000 descargas/hash correctas usando noop antes de otra campaña.
+
+`glance-protocol-compact-v3.json` conserva108/36, cargas, tamaños, tiempos y
+concurrencias. Define explícitamente comparación API/catálogo/bytes **sin bus de
+notificaciones en ambos**. No acredita estabilidad del original con messagingv2.
+La caché Python sigue habilitada. No se aumenta límite para ocultar acumulación.
+No cambia fuente/config original: copia privada de /etc/glance, sólo driver=noop,
+OS_GLANCE_CONFIG_DIR por dropin en /run, retiro/reinicio/restauración exactos al
+terminar. Copias privadas con secretos nunca van a Git. No mezcla datos v2/v3.
+Se añaden conteos FD al recolector para demostrar estabilidad en cada ventana.
+
+[Documentación oficial de drivers](https://docs.openstack.org/oslo.messaging/latest/configuration/opts.html)
+y [configuración noop](https://docs.openstack.org/oslo.messaging/5.12.0/FAQ.html)
+respaldan el control. La causa y la efectividad se prueban en este laboratorio,
+no se infieren de esa documentación. Nueva calibración/piloto y hashes antes
+ de oficial. Conjunta continúa postergada.

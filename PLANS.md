@@ -36,7 +36,8 @@ El usuario solicitó reducir duración y liberar espacio. Se prepararon perfiles
 [compactos](docs/benchmarks/compact-campaigns-v2.md): Placement 72 ventanas, Glance
 108 y conjunto 24 bloques/36 boots. Instrumentación adaptada a la matriz, rango
 observado con n=3, controles de disco/logs y mantenimiento temporal; checks locales
-aprobados. Piloto real y aceptación de las campañas aún pendientes. Ningún intento
+aprobados. Placement v2 aceptado (72/72, CI PASS). Glance: preflight funcional
+42/42 aprobado, piloto de carga y oficial pendientes; conjunto pendiente. Ningún intento
 fallido de la matriz larga acredita v2 ni se mezcla con ella.
 
 ## Campañas posteriores autorizadas: Glance y funcionamiento conjunto

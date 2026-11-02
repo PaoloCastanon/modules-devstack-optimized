@@ -70,9 +70,17 @@ class Remote:
         self.args = args
         self.ssh = ['ssh', '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'ServerAliveInterval=30',
                     '-o', 'ServerAliveCountMax=3', '-o', 'UserKnownHostsFile=' + str(args.known_hosts), '-i', str(args.ssh_key), args.host]
+        domain = getattr(args, 'domain', 'placement')
+        if domain not in ('placement', 'glance'):
+            raise ValueError('supported lab domain required')
         command = 'set -e; set +u; source /opt/stack/devstack/openrc admin admin >/dev/null 2>&1; exec ' + shlex.join([
-            '/opt/stack/data/venv/bin/python', str(args.remote_code / 'benchmarks/placement_lab.py'),
-            '--work-root', str(args.remote_work), '--output', str(args.remote_output), '--binary', str(args.remote_code / 'placement'), '--allow-mutations'])
+            '/opt/stack/data/venv/bin/python', str(args.remote_code / ('benchmarks/' + domain + '_lab.py')),
+            '--work-root', str(args.remote_work), '--output', str(args.remote_output), '--binary', str(args.remote_code / domain), '--allow-mutations'])
+        if domain == 'glance':
+            policy = getattr(args, 'notification_policy', 'original')
+            if policy not in ('original', 'noop'):
+                raise ValueError('supported notification policy required')
+            command += ' --notification-policy ' + policy
         self.stderr = (args.private_root / 'remote-stderr.log').open('x')
         self.process = subprocess.Popen([*self.ssh, 'bash', '-lc', shlex.quote(command)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=self.stderr, text=True, bufsize=1)
