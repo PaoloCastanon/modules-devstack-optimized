@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "protocol": "placement-compact-v2",
+  "date_local": "2026-10-31",
+  "timezone": "America/Santiago",
+  "concurrency": [
+    1,
+    16
+  ],
+  "warmup_s": 10,
+  "measurement_s": 30,
+  "request_timeout_s": 10,
+  "repetitions": 3,
+  "sampling_interval_s": 1,
+  "order_seed": 20261029,
+  "bootstrap_resamples": 10000,
+  "confidence": 0.95,
+  "seed_provider_count": 16,
+  "normal_initial_usage": 0,
+  "load_model": "closed-loop",
+  "scenarios": [
+    "provider",
+    "inventories",
+    "allocations-read",
+    "candidates",
+    "claim-cycle",
+    "nova-mix"
+  ],
+  "entry_gates": [
+    "B13",
+    "B14",
+    "B15"
+  ],
+  "scope": "Placement Python versus Go; original Glance remains control",
+  "status": "prepared; requires pilot, explicit runner support and frozen manifest before measurement",
+  "purpose": "Etapa 3 preliminary validation with reduced duration and declared coverage",
+  "host_free_minimum_bytes": 21474836480,
+  "log_policy": "Bound VM operational logs; rotate only outside measured windows, retain recent incident diagnostics and all benchmark samples",
+  "statistics": "Three independent paired repetitions; publish individual results, median and range, declare limited uncertainty; no claim of precise tail or statistical significance",
+  "required_official_windows": 72,
+  "supersedes_for_next_run": "placement-v1; preserve all earlier attempts without mixing their samples"
+}

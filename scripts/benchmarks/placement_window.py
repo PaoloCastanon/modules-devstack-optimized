@@ -122,7 +122,7 @@ def plan(scenario, provider, consumer, config, generation):
     return [(name, *ops[name]) for name in names]
 
 
-def run(config, token, output, stage, duration=120, warmup=30, timeout=10):
+def run(config, token, output, stage, duration=120, warmup=30, timeout=10, abort_check=None):
     """Stop issuing at deadline; clean partial cycles outside measured windows."""
     output.mkdir(parents=True, exist_ok=False)
     concurrency = config['concurrency']
@@ -174,6 +174,9 @@ def run(config, token, output, stage, duration=120, warmup=30, timeout=10):
                 deadline = start[0] + int(seconds * 1e9)
                 try:
                     while time.monotonic_ns() < deadline and not failed.is_set():
+                        if abort_check is not None and abort_check():
+                            failed.set()
+                            break
                         complete = True
                         for name, method, path, version, body, expected, status in plan(config['scenario'], provider, consumer, config, generations[index]):
                             if time.monotonic_ns() >= deadline:
@@ -221,6 +224,8 @@ def run(config, token, output, stage, duration=120, warmup=30, timeout=10):
     report['warmup_cleanup'] = cleanup_consumers()
     report['measurement'] = phase(duration, True) if report['warmup'] is None or report['warmup']['errors'] == 0 else None
     report['measurement_cleanup'] = cleanup_consumers()
-    report['valid'] = report['measurement'] is not None and report['measurement']['correct'] > 0 and report['measurement']['errors'] == 0
+    report['external_abort'] = bool(abort_check is not None and abort_check())
+    report['valid'] = (not report['external_abort'] and report['measurement'] is not None
+                       and report['measurement']['correct'] > 0 and report['measurement']['errors'] == 0)
     (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     return report

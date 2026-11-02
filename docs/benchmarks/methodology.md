@@ -1,5 +1,12 @@
 # B16 — protocolo experimental Placement, revisión 1
 
+Actualización 2026-10-31: el usuario solicitó campañas de menor duración. La
+[revisión compacta v2](compact-campaigns-v2.md) y su JSON definen el siguiente
+ensayo preliminar: 72 ventanas, tres pares, concurrencias 1/16 y 10/30 s.
+Esta página conserva la revisión 1 histórica; no se mezclan sus intentos ni se
+presenta la cobertura de v2 como las 240 ventanas de v1.
+
+
 2026-10-29 (America/Santiago). Revisión 1 para la primera campaña Placement
 Python/Go. Cierre del protocolo condicionado al piloto y sus pruebas registradas
 en evidence/sprint4/benchmarks/b16-20261029/. B17/B18 no se acreditan por calibrar

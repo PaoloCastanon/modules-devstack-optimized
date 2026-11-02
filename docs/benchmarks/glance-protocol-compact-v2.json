@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "protocol": "glance-compact-v2",
+  "status": "prepared; requires pilot, explicit runner support and frozen manifest before measurement",
+  "scope": "Glance Python versus Glance Go; Placement Python remains control",
+  "implementations": [
+    "python",
+    "go"
+  ],
+  "concurrency": [
+    1,
+    16
+  ],
+  "repetitions": 3,
+  "warmup_s": 10,
+  "measurement_s": 30,
+  "metadata_request_timeout_s": 10,
+  "binary_request_timeout_s": 120,
+  "sampling_interval_s": 1,
+  "order_seed": 20261031,
+  "bootstrap_resamples": 10000,
+  "confidence": 0.95,
+  "load_model": "closed-loop",
+  "catalog_seed_count": 100,
+  "payload_sizes_bytes": [
+    1048576,
+    16777216,
+    67108864
+  ],
+  "scenarios": [
+    {
+      "id": "catalog-list",
+      "kind": "metadata"
+    },
+    {
+      "id": "catalog-show",
+      "kind": "metadata"
+    },
+    {
+      "id": "catalog-lifecycle",
+      "kind": "metadata"
+    },
+    {
+      "id": "upload-1m",
+      "kind": "upload-cycle",
+      "size_bytes": 1048576
+    },
+    {
+      "id": "upload-16m",
+      "kind": "upload-cycle",
+      "size_bytes": 16777216
+    },
+    {
+      "id": "upload-64m",
+      "kind": "upload-cycle",
+      "size_bytes": 67108864
+    },
+    {
+      "id": "download-1m",
+      "kind": "download",
+      "size_bytes": 1048576
+    },
+    {
+      "id": "download-16m",
+      "kind": "download",
+      "size_bytes": 16777216
+    },
+    {
+      "id": "download-64m",
+      "kind": "download",
+      "size_bytes": 67108864
+    }
+  ],
+  "required_official_windows": 108,
+  "minimum_free_disk_bytes": 8589934592,
+  "maximum_owned_store_bytes": 4294967296,
+  "transfer_admission_limit_go": 16,
+  "pilot": {
+    "concurrency": [
+      1,
+      16
+    ],
+    "repetitions": 1,
+    "warmup_s": 1,
+    "measurement_s": 4,
+    "required_windows": 36
+  },
+  "predecessor": "Placement B17/B18 accepted, original restored, lab released",
+  "acceptance": "All 108 windows valid for this reduced scope; hashes, lengths, state, resource sampling, cleanup and original restoration verified; no minimum speedup required",
+  "purpose": "Etapa 3 preliminary validation with reduced duration and declared coverage",
+  "host_free_minimum_bytes": 21474836480,
+  "log_policy": "Bound VM operational logs; rotate only outside measured windows, retain recent incident diagnostics and all benchmark samples",
+  "statistics": "Three independent paired repetitions; publish individual results, median and range, declare limited uncertainty; no claim of precise tail or statistical significance"
+}

@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "protocol": "placement-glance-joint-v1",
+  "status": "prepared; freeze after preflight and pilot, before official measurement",
+  "scope": "Nova original boots instances using Placement and Glance in a controlled 2x2 design",
+  "configurations": [
+    {"id": "python-python", "placement": "python", "glance": "python"},
+    {"id": "go-python", "placement": "go", "glance": "python"},
+    {"id": "python-go", "placement": "python", "glance": "go"},
+    {"id": "go-go", "placement": "go", "glance": "go"}
+  ],
+  "concurrent_boots": [1, 2, 4],
+  "repetitions": 5,
+  "cache_profiles": ["cold-owned-image", "warm-owned-image"],
+  "order_seed": 20261101,
+  "sampling_interval_s": 1,
+  "idle_sampling_s": 5,
+  "boot_timeout_s": 300,
+  "cleanup_timeout_s": 180,
+  "bootstrap_resamples": 10000,
+  "confidence": 0.95,
+  "flavor": {"vcpus": 1, "ram_mib": 512, "disk_gib": 1},
+  "image": "Same locally available bootable CirrOS payload, pinned SHA256, exact length and format in frozen manifest",
+  "required_official_blocks": 120,
+  "required_measured_boots": 280,
+  "pilot": {"concurrent_boots": [1, 2], "repetitions": 1, "cache_profiles": ["cold-owned-image", "warm-owned-image"], "required_blocks": 16, "required_measured_boots": 24},
+  "predecessor": "Glance campaign accepted, original services restored, lab released",
+  "acceptance": "Every measured server reaches ACTIVE; intended services proven by runtime and request evidence; correct allocations and image bytes; deletion releases all owned resources; complete aligned metrics and restored originals"
+}

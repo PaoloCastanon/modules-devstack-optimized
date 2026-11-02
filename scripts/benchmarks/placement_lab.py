@@ -51,6 +51,12 @@ class Lab:
         (self.args.output / (label + '.log')).write_text(stream.getvalue())
         require(result == 0, label)
 
+    def controls(self, action):
+        result = subprocess.run(['sudo', sys.executable, str(HERE / 'lab_controls.py'), action,
+                                 '--state', str(self.root / 'maintenance-controls.json')], capture_output=True, text=True)
+        require(result.returncode == 0, 'temporary lab controls ' + action)
+        return json.loads(result.stdout)
+
     def call(self, implementation, method, path, body=None, version='1.36', statuses=(200,)):
         response = self.targets[implementation].call(method, path, body, {'OpenStack-API-Version': 'placement ' + version, 'Content-Type': 'application/json'})
         require(response['status'] in statuses, 'unexpected ' + method + ' status ' + str(response['status']))
@@ -70,6 +76,7 @@ class Lab:
         return result
 
     def prepare(self):
+        save_json(self.args.output / 'maintenance-controls-before.json', self.controls('enter'))
         self.connection, project, user = sdk_connection()
         require(list(self.connection.compute.servers(all_projects=True)) == [], 'idle lab required')
         self.original_owners = self.owners()
@@ -185,6 +192,7 @@ class Lab:
 
     def seed(self, values):
         require(self.current is None, 'finish prior run first')
+        save_json(self.args.output / (values['run_id'] + '-log-retention.json'), self.controls('bound'))
         self.current = values
         self.current['authorized_providers'] = []
         self.current['authorized_class'] = False
@@ -303,6 +311,11 @@ class Lab:
             self.action('runtime-cleanup', placement_runtime, action='cleanup', root=self.runtime)
         if self.auth.exists():
             self.action('identity-cleanup', lab_identity, action='cleanup', private_root=self.auth)
+        controls = self.controls('restore')
+        save_json(self.args.output / 'maintenance-controls-after.json', controls)
+        require(controls['controls_restored'], 'maintenance controls restored')
+        trim = subprocess.run(['sudo', 'fstrim', '-v', '/'], capture_output=True, text=True)
+        require(trim.returncode == 0, 'guest unused disk blocks reclaimed')
         services = {unit: placement_switch.active(unit) for unit in ['devstack@placement-api.service', 'devstack@n-cpu.service',
                     'devstack@n-sch.service', 'devstack@keystone.service', 'devstack@g-api.service']}
         require(all(services.values()), 'original control services active after cleanup')
@@ -310,7 +323,8 @@ class Lab:
         require(profile_sha == self.original_mysql_profile_sha, 'original MySQL AppArmor profile unchanged')
         shutil.rmtree(self.root)
         self.closed = True
-        result = {'seed_cleanup': seed, 'original_unchanged': final is not None, 'runtime_removed': not self.runtime.exists(),
+        result = {'seed_cleanup': seed, 'controls_restored': True, 'guest_trim': trim.stdout.strip(),
+                  'original_unchanged': final is not None, 'runtime_removed': not self.runtime.exists(),
                   'identity_removed': not self.auth.exists(), 'private_root_removed': not self.root.exists(),
                   'original_services_active': services, 'original_mysql_apparmor_sha256': profile_sha}
         save_json(self.args.output / 'cleanup.json', result)
