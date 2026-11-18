@@ -28,6 +28,10 @@ descargó la imagen completa, pero una `GET` quedó "sin atribuir" en la captura
 que empareja por el log de Apache con resolución de segundos. Es una
 imprecisión de la herramienta, no de Glance. `qc-r1b` repitió la medición y pasó.
 
+Los dos fallos quedaron corregidos en la suite y verificados (con `qc-r1`
+reprocesado sobre sus logs reales): ver
+[glance-suite-fix-20261118](../glance-suite-fix-20261118/README.md).
+
 ## Antes (ronda 1) y después (ronda 2): `qc-r1b` frente a `qc-r2`
 
 Mismo runtime y token; sólo cambia `--binary`. **No es una campaña.**
