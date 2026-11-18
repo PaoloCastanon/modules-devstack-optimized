@@ -370,6 +370,28 @@ func (s *RBD) Open(ctx context.Context, key Key) (ReadSeekCloser, Info, error) {
 	return reader, info, nil
 }
 
+// OpenStream opens .blob@snap for serving without measuring it.
+func (s *RBD) OpenStream(ctx context.Context, key Key) (ReadSeekCloser, int64, error) {
+	name, leave, err := s.enter(ctx, key)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer leave()
+	img, err := rbd.OpenImageReadOnly(s.ioctx, name+".blob", rbdSnapshot)
+	if errors.Is(err, rbd.ErrNotFound) {
+		return nil, 0, ErrNotFound
+	}
+	if err != nil {
+		return nil, 0, rbdError("open content", err)
+	}
+	reader, err := newRBDReader(img)
+	if err != nil {
+		_ = img.Close()
+		return nil, 0, err
+	}
+	return reader, reader.size, nil
+}
+
 // Delete removes only this key's names. Protected snapshots with clones
 // (images Nova is using) make it fail with ErrInUse and keep the content.
 func (s *RBD) Delete(ctx context.Context, key Key) error {

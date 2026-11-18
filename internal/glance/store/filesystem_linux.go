@@ -565,6 +565,35 @@ func (s *Filesystem) Open(ctx context.Context, key Key) (ReadSeekCloser, Info, e
 	return f, info, nil
 }
 
+// OpenStream opens published content for serving without measuring it.
+func (s *Filesystem) OpenStream(ctx context.Context, key Key) (ReadSeekCloser, int64, error) {
+	name, leave, err := s.enter(ctx, key)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer leave()
+	if err = ctx.Err(); err != nil {
+		return nil, 0, err
+	}
+	f, err := openEntry(s.objects, name+".blob", syscall.O_RDONLY, 0)
+	if errors.Is(err, syscall.ENOENT) {
+		return nil, 0, ErrNotFound
+	}
+	if err != nil {
+		return nil, 0, opError("open content", err)
+	}
+	if err = checkEntry(f, false, s.root); err != nil {
+		_ = f.Close()
+		return nil, 0, err
+	}
+	stat, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, 0, opError("stat content", err)
+	}
+	return f, stat.Size(), nil
+}
+
 func (s *Filesystem) Delete(ctx context.Context, key Key) error {
 	name, leave, err := s.enter(ctx, key)
 	if err != nil {

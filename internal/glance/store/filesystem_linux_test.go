@@ -614,3 +614,57 @@ func TestLinuxPublicationIsAtomicAndUsesPinnedInode(t *testing.T) {
 		t.Fatal("source pathname re-resolved", err)
 	}
 }
+
+// Downloads use OpenStream (as glance_store: no re-hash); recovery and deletion
+// keep Open, which still detects same-size corruption.
+func TestFilesystemOpenStreamServesWithoutHashing(t *testing.T) {
+	s, root, _ := fixture(t)
+	k := key()
+	b := bytes.Repeat([]byte("stream-\x00\xff"), BufferSize/2+3)
+	expected := int64(len(b))
+	i, err := s.Stage(context.Background(), k, bytes.NewReader(b), expected, &expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Publish(context.Background(), k, i); err != nil {
+		t.Fatal(err)
+	}
+	f, size, err := s.OpenStream(context.Background(), k)
+	if err != nil || size != expected {
+		t.Fatal(size, err)
+	}
+	if _, isFile := f.(*os.File); !isFile {
+		t.Fatal("filesystem stream must be an *os.File (sendfile)")
+	}
+	data, err := io.ReadAll(f)
+	_ = f.Close()
+	if err != nil || !bytes.Equal(data, b) {
+		t.Fatal("streamed content differs", err)
+	}
+	name, _ := k.name()
+	blob, err := os.OpenFile(root+"/objects/"+name+".blob", os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = blob.WriteAt([]byte("X"), 5); err != nil { // same size, different bytes
+		t.Fatal(err)
+	}
+	_ = blob.Close()
+	if f, size, err = s.OpenStream(context.Background(), k); err != nil || size != expected {
+		t.Fatal("stream must not hash", err)
+	}
+	_ = f.Close()
+	// Open still measures: its fresh hashes no longer match the receipt, which
+	// recovery and deletion compare (store returns facts, callers decide).
+	verified, measured, err := s.Open(context.Background(), k)
+	if err != nil || measured == i || measured.Size != i.Size {
+		t.Fatal("verifying Open must expose the corruption", measured, err)
+	}
+	_ = verified.Close()
+	if _, _, err = s.OpenStream(context.Background(), key()); !errors.Is(err, ErrNotFound) {
+		t.Fatal(err)
+	}
+	if _, _, err = s.OpenStream(context.Background(), Key{ImageID: "x", AttemptID: "y"}); !errors.Is(err, ErrInvalidKey) {
+		t.Fatal(err)
+	}
+}
