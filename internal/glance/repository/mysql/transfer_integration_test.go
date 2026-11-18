@@ -100,6 +100,11 @@ func TestMySQLTransferOperations(t *testing.T) {
 	if err != nil || state.Status != "active" || state.Operation == nil || state.Operation.Phase != model.DataCommitted || state.HashAlgorithm == nil || *state.HashAlgorithm != "sha512" {
 		t.Fatal(state, err)
 	}
+	// M2: DownloadView = the live image row and the snapshot state, one tx.
+	viewImage, viewState, err := r.DownloadView(ctx, image.ID)
+	if err != nil || viewImage.ID != image.ID || viewImage.Owner != image.Owner || viewImage.Status != "active" || viewImage.Visibility != image.Visibility || !reflect.DeepEqual(viewState, state) {
+		t.Fatal("DownloadView differs", viewImage.Status, err)
+	}
 	// GET's non-locking read returns the same state and never waits for (or
 	// blocks) a writer holding the row lock; the locking read does wait.
 	snapshot, err := r.DataStateSnapshot(ctx, image.ID)
