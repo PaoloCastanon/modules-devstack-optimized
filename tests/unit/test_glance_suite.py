@@ -113,8 +113,10 @@ class FlowAcceptanceTests(unittest.TestCase):
 
     def test_apache_fallback_when_keystoneauth_debug_is_off(self):
         go = flow.go_events(GO[1:])
+        # Apache stamps the floored arrival second: the 180 ms download that
+        # completed at T0+4.5 s arrived at T0+4.32 s, logged as T0+4 s.
         apache = [{'ts_us': T0 + 4_000_000, 'method': 'GET', 'route': '/v2/images/{id}', 'status': 200, 'user_agent_class': 'openstack-client'},
-                  {'ts_us': T0 + 5_000_000, 'method': 'GET', 'route': '/v2/images/{id}/file', 'status': 200, 'user_agent_class': 'openstack-client'}]
+                  {'ts_us': T0 + 4_000_000, 'method': 'GET', 'route': '/v2/images/{id}/file', 'status': 200, 'user_agent_class': 'openstack-client'}]
         summary = flow.summarize(flow.correlate(go, [], [], apache), SIZE)
         self.assertEqual((summary['attributed_by_apache'], summary['request_id_correlated']), (2, 0))
         self.assertIsNone(summary['composite_auth_seen'])  # unknown, not False
@@ -129,6 +131,34 @@ class FlowAcceptanceTests(unittest.TestCase):
         timeline = flow.correlate(go, [], [], apache)
         self.assertEqual(timeline[0]['caller'], 'nova')
         self.assertEqual(flow.agent_class('-'), 'unknown')
+
+    def test_floored_seconds_pair_every_response_like_the_real_run(self):
+        # Real run (qc-r1, 2026-11-18): three identical Nova GETs, the first at
+        # S.95 and the others at S+1.95 and S+2.05, logged by Apache as S, S+1
+        # and S+2. "Closest line first" gave the first response the S+1 line,
+        # the second S+2, and left the third unattributed (S is 2.05 s away).
+        base = T0 + 950_000
+        go = flow.go_events([go_line(base, RID_API, 'GET', '/v2/images/{id}', 200, 812, ms=27),
+                             go_line(base + 999_100, RID_META, 'GET', '/v2/images/{id}', 200, 812, ms=20),
+                             go_line(base + 1_101_700, RID_FILE, 'GET', '/v2/images/{id}', 200, 812, ms=3)])
+        line = {'method': 'GET', 'route': '/v2/images/{id}', 'status': 200, 'user_agent_class': 'openstack-client'}
+        apache = [{**line, 'ts_us': T0 + n * 1_000_000} for n in range(3)]
+        timeline = flow.correlate(go, [], [], apache)
+        self.assertEqual([e['caller'] for e in timeline], ['nova', 'nova', 'nova'])
+        self.assertEqual(flow.summarize(timeline, SIZE)['non_nova_glance_requests'], 0)
+
+    def test_apache_line_never_pairs_with_an_earlier_response(self):
+        # A line stamped after the response, or more than ~1 s plus the
+        # request's duration before it, is another request.
+        event = {'ts_us': T0 + 500_000, 'method': 'GET', 'route': '/v2/images/{id}', 'status': 200, 'duration_ms': 4}
+        line = {'method': 'GET', 'route': '/v2/images/{id}', 'status': 200}
+        self.assertTrue(flow.apache_fits(event, {**line, 'ts_us': T0}))
+        self.assertFalse(flow.apache_fits(event, {**line, 'ts_us': T0 + 1_000_000}))
+        self.assertFalse(flow.apache_fits(event, {**line, 'ts_us': T0 - 2_000_000}))
+        self.assertFalse(flow.apache_fits(event, {**line, 'ts_us': T0, 'status': 404}))
+        # A long download legitimately arrived well before it completed.
+        slow = {**event, 'route': '/v2/images/{id}/file', 'ts_us': T0 + 6_000_000, 'duration_ms': 5_000}
+        self.assertTrue(flow.apache_fits(slow, {**line, 'route': '/v2/images/{id}/file', 'ts_us': T0}))
 
     def test_partial_download_or_foreign_traffic_is_not_a_pass(self):
         calls, requests = flow.nova_events(NOVA)
