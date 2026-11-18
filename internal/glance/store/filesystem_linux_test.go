@@ -668,3 +668,62 @@ func TestFilesystemOpenStreamServesWithoutHashing(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Publish skips its re-read only for the exact file Stage measured (official
+// Glance hashes once while writing). In-place same-size edits change ctime.
+func TestFilesystemPublishSkipsRereadOnlyForUnchangedStage(t *testing.T) {
+	s, root, _ := fixture(t)
+	k := key()
+	i, err := s.Stage(context.Background(), k, strings.NewReader("measured-bytes"), 100, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, _ := k.name()
+	ready, err := os.Open(pathFor(root, "staging", k, ".ready"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ready.Close()
+	if !s.unchangedSinceStage(name, ready, i) {
+		t.Fatal("fresh stage must use the fast path")
+	}
+	if s.unchangedSinceStage(name, ready, i) {
+		t.Fatal("record must be consumed by the first attempt")
+	}
+	k2 := key()
+	i2, err := s.Stage(context.Background(), k2, strings.NewReader("measured-bytes"), 100, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name2, _ := k2.name()
+	other := i2
+	other.Checksum = strings.Repeat("0", 32)
+	f2, err := os.Open(pathFor(root, "staging", k2, ".ready"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f2.Close()
+	if s.unchangedSinceStage(name2, f2, other) {
+		t.Fatal("a different receipt must verify fully")
+	}
+	k3 := key()
+	i3, err := s.Stage(context.Background(), k3, strings.NewReader("measured-bytes"), 100, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := os.OpenFile(pathFor(root, "staging", k3, ".ready"), os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(10 * time.Millisecond)                   // ctime granularity
+	if _, err = w.WriteAt([]byte("X"), 0); err != nil { // same size
+		t.Fatal(err)
+	}
+	_ = w.Close()
+	if err = s.Publish(context.Background(), k3, i3); !errors.Is(err, ErrIntegrity) {
+		t.Fatal("in-place same-size edit after Stage must be rejected", err)
+	}
+	if err = s.Publish(context.Background(), k2, i2); err != nil {
+		t.Fatal("untouched stage must publish", err)
+	}
+}
