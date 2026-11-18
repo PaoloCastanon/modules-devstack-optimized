@@ -101,8 +101,24 @@ AUDIT_OPS = ('discovery', 'show', 'list_tagged', 'schema', 'create', 'patch', 'd
              'download_64m_ttfb', 'show_c16',
              # Added to cover what the v3 campaign measured and the first audit did not.
              'upload_16m', 'download_16m', 'download_16m_ttfb',
-             'download_1m_c16', 'download_16m_c16', 'download_64m_c16')
+             'download_1m_c16', 'download_16m_c16', 'download_64m_c16',
+             # The same 16-client downloads straight to the service, without Apache.
+             'download_16m_c16_direct', 'download_64m_c16_direct')
 AUDIT_SIZES = (('1m', 1, 10, 20, 320), ('16m', 16, 5, 10, 64), ('64m', 64, 3, 5, 32))  # name, MiB, uploads, GETs, GETs with 16 clients
+
+
+def backend_url(site_text):
+    """Loopback backend behind Apache /image, from the active site file."""
+    found = re.search(r'^ProxyPass "/image" "(http://127\.0\.0\.1:\d{4,5})"', site_text, re.M)
+    require(found is not None, 'loopback backend behind /image')
+    return found.group(1)
+
+
+def vm_cpu_ticks(stat_text):
+    """(busy, total) jiffies of all CPUs from /proc/stat; idle and iowait are not busy."""
+    values = [int(v) for v in stat_text.splitlines()[0].split()[1:]]
+    total = sum(values[:8])  # guest time is already inside user/nice
+    return total - values[3] - values[4], total
 
 
 def cpu_usage_usec(text):
@@ -674,7 +690,8 @@ class Suite(Session):
                 save_json(self.root / ('audit-' + name + '.json'), payload(path, mib * MIB, seed=b'glance-audit'), private=True)
             files[name] = (path, json.loads((self.root / ('audit-' + name + '.json')).read_text()))
         unit = glance_switch.ORIGINAL_UNIT if label == 'python' else json.loads((self.runtime / 'state.json').read_text())['go_unit']
-        meter = ServiceMeter(unit)
+        meter, apache = ServiceMeter(unit), ServiceMeter('apache2.service')
+        direct = backend_url(glance_switch.SITE_FILE.read_text())
         samples = {op: [] for op in AUDIT_OPS}
         client = Client(url, self.token)
         owned, blocks, sent, pss, stop = [], {}, [0], [], threading.Event()
@@ -686,13 +703,17 @@ class Suite(Session):
 
         @contextlib.contextmanager
         def accounted(block, requests=None):
-            cpu, began, first = meter.cpu_usec(), time.monotonic(), sent[0]
+            cpu, web, began, first = meter.cpu_usec(), apache.cpu_usec(), time.monotonic(), sent[0]
+            busy, total = vm_cpu_ticks(Path('/proc/stat').read_text())
             yield
-            ended, used = time.monotonic(), meter.cpu_usec() - cpu
+            ended, used, web_used = time.monotonic(), meter.cpu_usec() - cpu, apache.cpu_usec() - web
+            busy_after, total_after = vm_cpu_ticks(Path('/proc/stat').read_text())
             count = requests if requests is not None else sent[0] - first
             window = [kib for t, kib in pss if began <= t <= ended] or [meter.pss_kib()]
             blocks[block] = {'requests': count, 'seconds': round(ended - began, 2),
-                             'cpu_ms_per_req': round(used / 1000 / count, 3), 'pss_max_mib': round(max(window) / 1024, 1)}
+                             'cpu_ms_per_req': round(used / 1000 / count, 3), 'pss_max_mib': round(max(window) / 1024, 1),
+                             'apache_cpu_ms_per_req': round(web_used / 1000 / count, 3),
+                             'vm_busy_pct': round(100 * (busy_after - busy) / max(1, total_after - total), 1)}
 
         def call(method, path, expected, op=None, **kw):
             sample, value = client.request(method, path, **kw)
@@ -771,9 +792,9 @@ class Suite(Session):
                         sample, _ = call('GET', '/v2/images/' + kept[name] + '/file', 200, 'download_' + name, expected_payload=files[name][1])
                         samples['download_' + name + '_ttfb'].append(sample['ttfb_ns'] / 1e6)
 
-            def fetch_from(path, expected=None):
+            def fetch_from(path, expected=None, base=url):
                 def fetch(_):
-                    c = Client(url, self.token)
+                    c = Client(base, self.token)
                     try:
                         sample, _ = c.request('GET', path, expected_payload=expected)
                         require(sample['status'] == 200 and sample['error_kind'] is None, label + ' concurrent GET')
@@ -787,6 +808,10 @@ class Suite(Session):
                 op = 'download_' + name + '_c16'
                 with accounted(op, requests=total):
                     samples[op], rates[op] = concurrent(total, fetch_from('/v2/images/' + kept[name] + '/file', files[name][1]))
+                if op + '_direct' in AUDIT_OPS:  # same load without Apache: separates its share
+                    with accounted(op + '_direct', requests=total):
+                        samples[op + '_direct'], rates[op + '_direct'] = concurrent(
+                            total, fetch_from('/v2/images/' + kept[name] + '/file', files[name][1], base=direct))
         finally:
             stop.set()
             sampler.join(timeout=5)

@@ -397,6 +397,15 @@ class SuiteGuardTests(unittest.TestCase):
         self.assertEqual(rows['idle']['go_pss_mib'], 15.0)
         self.assertEqual(suite.resources_compare({}, go), {})
 
+    def test_backend_url_and_vm_cpu_ticks(self):
+        site = 'SetEnv proxy-sendchunked 1\nProxyPass "/image" "http://127.0.0.1:60999" retry=0 acquire=1 \n'
+        self.assertEqual(suite.backend_url(site), 'http://127.0.0.1:60999')
+        self.assertEqual(suite.backend_url(suite.glance_switch.replacement(19293).decode()), 'http://127.0.0.1:19293')
+        with self.assertRaises(AssertionError):
+            suite.backend_url('ProxyPass "/image" "http://10.0.0.5:60999"\n')
+        busy, total = suite.vm_cpu_ticks('cpu  100 5 50 800 40 3 2 0 9 0\ncpu0 1 2 3 4 5 6 7 8 9 0\n')
+        self.assertEqual((busy, total), (160, 1000))
+
     def test_audit_covers_what_the_v3_campaign_measured(self):
         for op in ('download_16m', 'download_16m_ttfb', 'download_1m_c16', 'download_16m_c16', 'download_64m_c16', 'upload_16m'):
             self.assertIn(op, suite.AUDIT_OPS)
