@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
@@ -49,20 +48,8 @@ func (r *Repository) Create(ctx context.Context, image model.Image) error {
 		}
 		return fmt.Errorf("insert image: %w", err)
 	}
-	keys := make([]string, 0, len(image.Properties))
-	for key := range image.Properties {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		if _, err = tx.ExecContext(ctx, "INSERT INTO image_properties (image_id, name, value) VALUES (?, ?, ?)", image.ID, key, image.Properties[key]); err != nil {
-			return fmt.Errorf("insert image property: %w", err)
-		}
-	}
-	for _, tag := range image.Tags {
-		if _, err = tx.ExecContext(ctx, "INSERT INTO image_tags (image_id, value) VALUES (?, ?)", image.ID, tag); err != nil {
-			return fmt.Errorf("insert image tag: %w", err)
-		}
+	if err = insertChildren(ctx, tx, image.ID, image.Properties, image.Tags); err != nil {
+		return err
 	}
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit metadata transaction: %w", err)

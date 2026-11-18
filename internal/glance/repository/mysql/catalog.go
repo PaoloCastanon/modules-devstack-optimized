@@ -116,6 +116,47 @@ func (r *Repository) readChildren(ctx context.Context, tx *sql.Tx, images []mode
 	return closeErr
 }
 
+// childBatch keeps a multi-row INSERT far below MySQL's 65535 placeholders.
+const childBatch = 500
+
+// insertChildren writes properties (sorted by key) and tags (in their order)
+// with one multi-row INSERT per table and batch instead of one per row. A
+// single row produces exactly the former single-row statement.
+func insertChildren(ctx context.Context, tx *sql.Tx, id string, properties map[string]string, tags []string) error {
+	keys := make([]string, 0, len(properties))
+	for key := range properties {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for start := 0; start < len(keys); start += childBatch {
+		batch := keys[start:min(start+childBatch, len(keys))]
+		args := make([]any, 0, 3*len(batch))
+		for _, key := range batch {
+			args = append(args, id, key, properties[key])
+		}
+		q := "INSERT INTO image_properties (image_id, name, value) VALUES " + valueRows("(?, ?, ?)", len(batch))
+		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+			return fmt.Errorf("insert image property: %w", err)
+		}
+	}
+	for start := 0; start < len(tags); start += childBatch {
+		batch := tags[start:min(start+childBatch, len(tags))]
+		args := make([]any, 0, 2*len(batch))
+		for _, tag := range batch {
+			args = append(args, id, tag)
+		}
+		q := "INSERT INTO image_tags (image_id, value) VALUES " + valueRows("(?, ?)", len(batch))
+		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+			return fmt.Errorf("insert image tag: %w", err)
+		}
+	}
+	return nil
+}
+
+func valueRows(row string, n int) string {
+	return strings.TrimSuffix(strings.Repeat(row+", ", n), ", ")
+}
+
 func conflict(err error) error {
 	var my *driver.MySQLError
 	if errors.As(err, &my) && (my.Number == 1213 || my.Number == 1205) {
@@ -161,20 +202,8 @@ func (r *Repository) Update(ctx context.Context, id string, change func(model.Im
 	if _, err = tx.ExecContext(ctx, "DELETE FROM image_tags WHERE image_id=?", id); err != nil {
 		return model.Image{}, err
 	}
-	keys := make([]string, 0, len(result.Properties))
-	for key := range result.Properties {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		if _, err = tx.ExecContext(ctx, "INSERT INTO image_properties (image_id, name, value) VALUES (?, ?, ?)", id, key, result.Properties[key]); err != nil {
-			return model.Image{}, err
-		}
-	}
-	for _, tag := range result.Tags {
-		if _, err = tx.ExecContext(ctx, "INSERT INTO image_tags (image_id, value) VALUES (?, ?)", id, tag); err != nil {
-			return model.Image{}, err
-		}
+	if err = insertChildren(ctx, tx, id, result.Properties, result.Tags); err != nil {
+		return model.Image{}, err
 	}
 	if err = tx.Commit(); err != nil {
 		return model.Image{}, err
