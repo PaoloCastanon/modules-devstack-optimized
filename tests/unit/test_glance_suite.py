@@ -305,6 +305,56 @@ class SuiteGuardTests(unittest.TestCase):
         self.assertEqual((rows['show']['go_slower'], rows['download_64m']['go_slower']), (False, True))
         self.assertEqual(rows['download_64m']['go_over_original'], 1.2)
 
+    def test_nova_ready_needs_fresh_heartbeats_after_boot(self):
+        boot = 1_795_033_087  # 2026-11-18T20:18:07Z, the VM boot measured above
+        after, before = '2026-11-18T20:19:02.000000', '2026-11-18T18:31:44.000000'
+        assert suite.reported_epoch(after) > boot > suite.reported_epoch(before)
+        up = [{'binary': b, 'status': 'enabled', 'state': 'up', 'updated_at': after} for b in suite.NOVA_BINARIES]
+        self.assertEqual(suite.nova_not_ready(up, boot), [])
+        # Measured right after start: compute still down from the previous boot.
+        down = up[:2] + [{**up[2], 'state': 'down', 'updated_at': before}]
+        self.assertEqual(suite.nova_not_ready(down, boot), ['nova-compute'])
+        # 'up' from a heartbeat before a quick reboot is not ready either.
+        stale = up[:2] + [{**up[2], 'updated_at': before}]
+        self.assertEqual(suite.nova_not_ready(stale, boot), ['nova-compute'])
+        # A second conductor still down blocks; a disabled one does not count.
+        self.assertEqual(suite.nova_not_ready(up + [{**up[0], 'state': 'down'}], boot), ['nova-conductor'])
+        self.assertEqual(suite.nova_not_ready(up + [{**up[0], 'status': 'disabled', 'state': 'down'}], boot), [])
+        self.assertEqual(suite.nova_not_ready(up[:2], boot), ['nova-compute'])
+        self.assertEqual(suite.reported_epoch('2026-11-18T20:19:02Z'), suite.reported_epoch(after))
+
+    def test_wait_schedulable_polls_then_fails_closed_with_the_reason(self):
+        boot = 1_795_033_087  # 2026-11-18T20:18:07Z, the VM boot measured above
+        ok = [{'binary': b, 'status': 'enabled', 'state': 'up', 'updated_at': '2026-11-18T20:19:02'} for b in suite.NOVA_BINARIES]
+        answers = [RuntimeError('503'), ok[:2], ok]
+        now = [0.0]
+        def sleep(seconds):
+            now[0] += seconds
+        def listing():
+            answer = answers.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+        self.assertEqual(suite.wait_schedulable(listing, boot, 60, clock=lambda: now[0], sleep=sleep), 10.0)
+        now[0] = 0.0
+        with self.assertRaisesRegex(AssertionError, 'not ready: nova-compute'):
+            suite.wait_schedulable(lambda: ok[:2], boot, 12, clock=lambda: now[0], sleep=sleep)
+
+    def test_boot_fault_keeps_code_and_first_line_without_ids(self):
+        server = SimpleNamespace(fault={'code': 500, 'message': 'No valid host was found. ' + IMAGE + '\nTraceback secret',
+                                        'details': 'Traceback (most recent call last): password=x'})
+        fault = suite.boot_fault(server)
+        self.assertEqual(fault, {'code': 500, 'message': 'No valid host was found. {id}'})
+        self.assertIsNone(suite.boot_fault(SimpleNamespace(fault=None)))
+
+    def test_nova_ready_wait_is_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            args = SimpleNamespace(allow_mutations=True, binary=Path(__file__), wait_seconds=180, lease_seconds=900,
+                                   payload_mib=[1], output=Path(tmp) / 'out', work_root=Path('/tmp/tt-placement-x'),
+                                   nova_ready_seconds=601)
+            with self.assertRaisesRegex(ValueError, 'bounded wait for Nova'):
+                suite.run(args)
+
     def test_server_image_id_accepts_sdk_shapes(self):
         self.assertEqual(suite.server_image_id(SimpleNamespace(image={'id': IMAGE})), IMAGE)
         self.assertEqual(suite.server_image_id(SimpleNamespace(image=SimpleNamespace(id=IMAGE))), IMAGE)
