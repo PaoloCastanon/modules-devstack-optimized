@@ -114,6 +114,9 @@ func (d *pipelineSQL) CompleteDataCleanup(_ context.Context, id, attempt string,
 	d.op.Phase, d.op.UpdatedAt, d.image.Status = model.DataCleaned, now, "queued"
 	return nil
 }
+func (d *pipelineSQL) DataStateSnapshot(ctx context.Context, id string) (model.DataState, error) {
+	return d.DataState(ctx, id)
+}
 func (d *pipelineSQL) DataState(ctx context.Context, id string) (model.DataState, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()

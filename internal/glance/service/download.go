@@ -91,7 +91,7 @@ func downloadError(ctx context.Context, err error) error {
 }
 
 func (u *UploadCoordinator) downloadState(ctx context.Context, id string) (model.DataState, error) {
-	s, err := u.transfers.DataState(ctx, id)
+	s, err := u.transfers.DataStateSnapshot(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return s, notFound(id)
 	}

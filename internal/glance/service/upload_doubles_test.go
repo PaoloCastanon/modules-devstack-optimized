@@ -131,6 +131,9 @@ func (c uploadCatalogDouble) Get(ctx context.Context, id string) (model.Image, e
 	}
 	return c.sql.image, nil
 }
+func (d *uploadSQLDouble) DataStateSnapshot(ctx context.Context, id string) (model.DataState, error) {
+	return d.DataState(ctx, id) // same "State" event: tests observe reads, not locks
+}
 func (d *uploadSQLDouble) DataState(ctx context.Context, id string) (out model.DataState, err error) {
 	err = d.run(ctx, "State", func() error {
 		d.reads++
