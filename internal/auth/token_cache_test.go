@@ -12,7 +12,7 @@ import (
 // Each test pins one property of keystonemiddleware's TokenCache as used by
 // official Glance (token_cache_time=300 by default).
 
-func cachedValidator(t *testing.T, tokens map[string]compositeToken, ttl time.Duration) (*Keystone, *validationTrace) {
+func cachedValidator(t testing.TB, tokens map[string]compositeToken, ttl time.Duration) (*Keystone, *validationTrace) {
 	t.Helper()
 	k, trace := compositeValidator(t, tokens)
 	WithTokenCache(ttl, 100)(k)
