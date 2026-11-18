@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ceph/go-ceph/rados"
 	"github.com/ceph/go-ceph/rbd"
@@ -231,5 +232,41 @@ func TestRBDDeleteRefusedWhileCloned(t *testing.T) {
 	}
 	if err = s.Delete(ctx, key); err != nil {
 		t.Fatalf("delete after the clone is gone: %v", err)
+	}
+}
+
+// Largest campaign size plus one byte, unknown length: crosses 4 MiB objects and
+// the 64 MiB growth step. Durations are logged as description, not a benchmark
+// (memstore OSD on the developer host).
+func TestRBDLargeImageAcrossObjectsAndGrowth(t *testing.T) {
+	s, _, _ := freshRBD(t)
+	ctx, key := context.Background(), newKey()
+	data, want := payload(64<<20 + 1)
+	started := time.Now()
+	got, err := s.Stage(ctx, key, bytes.NewReader(data), 1<<30, nil)
+	if err != nil || got != want {
+		t.Fatalf("stage %v", err)
+	}
+	staged := time.Now()
+	if err = s.Publish(ctx, key, got); err != nil {
+		t.Fatal(err)
+	}
+	published := time.Now()
+	r, info, err := s.Open(ctx, key)
+	if err != nil || info != want {
+		t.Fatalf("open %v", err)
+	}
+	opened := time.Now()
+	h := sha512.New()
+	n, err := io.Copy(h, r)
+	_ = r.Close()
+	if err != nil || n != want.Size || hex.EncodeToString(h.Sum(nil)) != want.SHA512 {
+		t.Fatalf("download differs: %v %d", err, n)
+	}
+	t.Logf("64 MiB+1: stage %v, publish(verify+snap) %v, open(verify) %v, read %v",
+		staged.Sub(started).Round(time.Millisecond), published.Sub(staged).Round(time.Millisecond),
+		opened.Sub(published).Round(time.Millisecond), time.Since(opened).Round(time.Millisecond))
+	if err = s.Delete(ctx, key); err != nil {
+		t.Fatal(err)
 	}
 }
