@@ -1,6 +1,6 @@
 # Glance Go, ronda 2 de optimización: verificación de punta a punta
 
-Fecha 2026-11-19. Rama `feat/glance-perf-2`, revisión `bec66a7`, árbol limpio.
+Fecha 2026-11-18 (15:25 en Chile). Rama `feat/glance-perf-2`, revisión `bec66a7`, árbol limpio.
 VM local de 6 GiB con Keystone, Nova y el Glance oficial reales. Binarios
 estáticos con Go 1.27.3:
 - ronda 1 (`glance-r1`, `main` `ec86d0f`): sha256 `4fb59f8f…`;
@@ -48,7 +48,7 @@ de 0,019 (crear) a 0,87 (descarga de 64 MiB). La carga de 64 MiB pasó de 0,51
 (ronda 1) a 0,31–0,35.
 
 En esta medición, la descarga de 64 MiB del oficial salió más rápida que en la
-auditoría del 19-nov (72–74 frente a 101–111 ms, con la caché tibia). La de Go
+auditoría anterior del mismo día (72–74 frente a 101–111 ms, con la caché tibia). La de Go
 mejoró (63–64 frente a 66–71 ms), por eso la razón subió sin que Go empeorara.
 
 ## Microbenchmarks del host (`microbench*.txt`)
