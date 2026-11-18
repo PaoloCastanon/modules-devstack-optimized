@@ -23,7 +23,7 @@ el store, sustituir `.lock`, añadir hard links ajenos ni modificar contenidos
 publicados. Estos controles no son un aislamiento frente a un proceso malicioso
 con el mismo UID o root. No se siguen symlinks de clientes ni de entradas del store.
 
-`Stage(ctx, key, reader, limit, expected)` escribe con buffer máximo de 256 KiB,
+`Stage(ctx, key, reader, limit, expected)` escribe con buffer máximo de 1 MiB (antes 256 KiB),
 cuenta bytes y calcula MD5/SHA-512. MD5 se calcula en una goroutine propia en paralelo con
 SHA-512 y la escritura del mismo bloque. Esa goroutine no lee la fuente, se espera
 antes de reutilizar el buffer y termina antes de volver. `expected=nil` admite longitud desconocida;
