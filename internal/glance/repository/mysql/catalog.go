@@ -24,12 +24,19 @@ func scanImage(row scanner) (model.Image, error) {
 	return i, err
 }
 
-func readImage(ctx context.Context, tx *sql.Tx, id string, lock bool) (model.Image, error) {
-	query := "SELECT " + imageColumns + " FROM images WHERE id=? AND deleted=FALSE"
+const (
+	readImageQuery     = "SELECT " + imageColumns + " FROM images WHERE id=? AND deleted=FALSE"
+	lockImageQuery     = readImageQuery + " FOR UPDATE"
+	oneImagePropsQuery = "SELECT image_id, name, value FROM image_properties WHERE image_id IN (?) ORDER BY image_id, name"
+	oneImageTagsQuery  = "SELECT image_id, value FROM image_tags WHERE image_id IN (?) ORDER BY image_id, value"
+)
+
+func (r *Repository) readImage(ctx context.Context, tx *sql.Tx, id string, lock bool) (model.Image, error) {
+	query := readImageQuery
 	if lock {
-		query += " FOR UPDATE"
+		query = lockImageQuery
 	}
-	i, err := scanImage(tx.QueryRowContext(ctx, query, id))
+	i, err := scanImage(r.queryRow(ctx, tx, query, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return i, repository.ErrNotFound
 	}
@@ -37,14 +44,14 @@ func readImage(ctx context.Context, tx *sql.Tx, id string, lock bool) (model.Ima
 		return i, err
 	}
 	images := []model.Image{i}
-	if err = readChildren(ctx, tx, images); err != nil {
+	if err = r.readChildren(ctx, tx, images); err != nil {
 		return i, err
 	}
 	return images[0], nil
 }
 
 // All cursors are closed before issuing another statement on the pinned tx.
-func readChildren(ctx context.Context, tx *sql.Tx, images []model.Image) error {
+func (r *Repository) readChildren(ctx context.Context, tx *sql.Tx, images []model.Image) error {
 	if len(images) == 0 {
 		return nil
 	}
@@ -55,7 +62,7 @@ func readChildren(ctx context.Context, tx *sql.Tx, images []model.Image) error {
 		byID[images[n].ID] = &images[n]
 	}
 	places := strings.TrimSuffix(strings.Repeat("?,", len(args)), ",")
-	rows, err := tx.QueryContext(ctx, "SELECT image_id, name, value FROM image_properties WHERE image_id IN ("+places+") ORDER BY image_id, name", args...)
+	rows, err := r.query(ctx, tx, "SELECT image_id, name, value FROM image_properties WHERE image_id IN ("+places+") ORDER BY image_id, name", args...)
 	if err != nil {
 		return err
 	}
@@ -82,7 +89,7 @@ func readChildren(ctx context.Context, tx *sql.Tx, images []model.Image) error {
 	if closeErr != nil {
 		return closeErr
 	}
-	rows, err = tx.QueryContext(ctx, "SELECT image_id, value FROM image_tags WHERE image_id IN ("+places+") ORDER BY image_id, value", args...)
+	rows, err = r.query(ctx, tx, "SELECT image_id, value FROM image_tags WHERE image_id IN ("+places+") ORDER BY image_id, value", args...)
 	if err != nil {
 		return err
 	}
@@ -126,7 +133,7 @@ func (r *Repository) Update(ctx context.Context, id string, change func(model.Im
 		return result, err
 	}
 	defer tx.Rollback()
-	current, err := readImage(ctx, tx, id, true)
+	current, err := r.readImage(ctx, tx, id, true)
 	if err != nil {
 		return result, err
 	}
@@ -184,7 +191,7 @@ func (r *Repository) Delete(ctx context.Context, id string, now time.Time, check
 		return err
 	}
 	defer tx.Rollback()
-	current, err := readImage(ctx, tx, id, true)
+	current, err := r.readImage(ctx, tx, id, true)
 	if err != nil {
 		return err
 	}
@@ -335,7 +342,7 @@ func (r *Repository) List(ctx context.Context, o model.ListOptions) ([]model.Ima
 	defer tx.Rollback()
 	var marker *model.Image
 	if o.Marker != "" {
-		image, e := readImage(ctx, tx, o.Marker, false)
+		image, e := r.readImage(ctx, tx, o.Marker, false)
 		if errors.Is(e, repository.ErrNotFound) || (e == nil && !o.Admin && image.Owner != o.ProjectID && image.Visibility != "public" && image.Visibility != "community") {
 			return nil, model.Fail(model.Invalid, "Invalid or inaccessible marker.")
 		}
@@ -369,7 +376,7 @@ func (r *Repository) List(ctx context.Context, o model.ListOptions) ([]model.Ima
 	if closeErr != nil {
 		return nil, closeErr
 	}
-	if err = readChildren(ctx, tx, images); err != nil {
+	if err = r.readChildren(ctx, tx, images); err != nil {
 		return nil, err
 	}
 	if err = tx.Commit(); err != nil {

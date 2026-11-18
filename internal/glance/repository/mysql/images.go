@@ -16,6 +16,10 @@ import (
 type Repository struct {
 	db      *sql.DB
 	timeout time.Duration
+	// stmts holds server-side prepared statements for hot static reads,
+	// created once by PrepareStatements (outside any transaction) and then
+	// only read. nil means every query is prepared and executed per call.
+	stmts map[string]*sql.Stmt
 }
 
 var _ repository.Repository = (*Repository)(nil)
@@ -74,7 +78,7 @@ func (r *Repository) Get(ctx context.Context, id string) (model.Image, error) {
 		return model.Image{}, fmt.Errorf("begin metadata read: %w", err)
 	}
 	defer tx.Rollback()
-	image, err := readImage(ctx, tx, id, false)
+	image, err := r.readImage(ctx, tx, id, false)
 	if err != nil {
 		return model.Image{}, err
 	}

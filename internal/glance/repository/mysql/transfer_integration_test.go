@@ -57,6 +57,9 @@ func TestMySQLTransferOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := mysql.New(db, 5*time.Second)
+	if err := r.PrepareStatements(ctx); err != nil {
+		t.Fatal(err)
+	}
 	image, err := model.New(model.CreateInput{Properties: map[string]string{"preserve": "yes"}}, "transfer-fixture", time.Now())
 	if err != nil {
 		t.Fatal(err)
