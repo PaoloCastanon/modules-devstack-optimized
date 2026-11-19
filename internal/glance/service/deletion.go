@@ -6,6 +6,7 @@ import (
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/notify"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/store"
 )
@@ -181,6 +182,8 @@ func (u *UploadCoordinator) DeleteImage(ctx context.Context, who auth.Identity, 
 	if readErr != nil || !s.Deleted || s.Status != "deleted" || !sameDataReceipt(before, s) {
 		return ErrUploadReconciliation
 	}
+	// As ImageRepoProxy.remove: once the image row is deleted, before the data.
+	u.notify("image.delete", notify.Info, notify.DeletePayload(i, s.UpdatedAt))
 	if before.Operation == nil {
 		if s.Operation != nil {
 			return ErrUploadReconciliation

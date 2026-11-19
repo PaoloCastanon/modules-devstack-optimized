@@ -7,12 +7,24 @@ import (
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/notify"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository"
 )
 
 type Service struct {
-	repo repository.Repository
-	now  func() time.Time
+	repo     repository.Repository
+	now      func() time.Time
+	notifier notify.Notifier
+}
+
+// SetNotifier makes the catalog emit image.create/update/delete as official
+// Glance does after each successful repository change. nil means noop.
+func (s *Service) SetNotifier(n notify.Notifier) { s.notifier = notify.OrNoop(n) }
+
+func (s *Service) notify(eventType string, payload any) {
+	if s.notifier != nil {
+		s.notifier.Notify(eventType, notify.Info, payload)
+	}
 }
 
 func New(repo repository.Repository, now func() time.Time) *Service {
@@ -39,6 +51,7 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, input mode
 	if err != nil {
 		return model.Image{}, err
 	}
+	s.notify("image.create", notify.ImagePayload(image))
 	return image, nil
 }
 

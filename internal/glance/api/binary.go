@@ -285,6 +285,9 @@ func (h *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 		reader := &contextReader{ctx: r.Context(), src: io.LimitReader(d.Body, count)}
 		n, copyErr = io.CopyBuffer(w, reader, make([]byte, store.BufferSize))
 	}
+	if copyErr == nil && d.Sent != nil {
+		d.Sent(n, count)
+	}
 	if copyErr != nil || n != count {
 		// Headers are committed: never append JSON or replace status. Abort the
 		// real HTTP stream (incl. HTTP/2) so a truncated payload cannot look whole.
