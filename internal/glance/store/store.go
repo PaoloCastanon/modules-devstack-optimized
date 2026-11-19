@@ -13,7 +13,7 @@ import (
 )
 
 // BufferSize is the maximum transfer/hash buffer allocated by an operation.
-const BufferSize = 256 * 1024
+const BufferSize = 1024 * 1024 // 1 MiB (was 256 KiB): ~7% faster 64 MiB uploads; bounded per transfer
 
 var (
 	ErrInvalidKey   = errors.New("invalid store UUID key")
@@ -90,6 +90,11 @@ type Store interface {
 	// Open returns a caller-owned descriptor at offset zero and freshly measured
 	// hashes. Compare them to authoritative metadata to detect stored corruption.
 	Open(ctx context.Context, key Key) (ReadSeekCloser, Info, error)
+	// OpenStream returns a caller-owned descriptor at offset zero and the
+	// physical size WITHOUT hashing, as official Glance (glance_store) serves
+	// downloads. Callers compare the size with authoritative metadata. Open
+	// keeps the verifying contract for recovery and deletion.
+	OpenStream(ctx context.Context, key Key) (ReadSeekCloser, int64, error)
 	// Delete touches only this key's part, ready and blob names, never scans.
 	Delete(ctx context.Context, key Key) error
 }

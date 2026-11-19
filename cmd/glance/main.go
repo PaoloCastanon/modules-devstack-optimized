@@ -86,6 +86,10 @@ func run(args []string, logger *slog.Logger) (result error) {
 		return nil
 	}
 	r := mysql.New(db, c.DependencyTimeout)
+	if err = r.PrepareStatements(startup); err != nil {
+		// Correctness does not depend on it: every query still runs unprepared.
+		logger.Warn("hot statements not prepared; continuing without reuse")
+	}
 	var binary *binaryRuntime
 	var options []api.Option
 	if c.Binary.Enabled {
@@ -102,8 +106,12 @@ func run(args []string, logger *slog.Logger) (result error) {
 		}()
 		options = append(options, api.WithBinaryTransfers(binary.owner))
 	}
-	client := &http.Client{Timeout: c.DependencyTimeout}
-	authenticator := auth.NewKeystone(c.KeystoneURL, client, c.Credential)
+	// Reuse Keystone connections under concurrency (net/http keeps only 2 idle
+	// per host by default; keystoneauth's requests pool keeps 10).
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.MaxIdleConnsPerHost = 32
+	client := &http.Client{Timeout: c.DependencyTimeout, Transport: transport}
+	authenticator := auth.NewKeystone(c.KeystoneURL, client, c.Credential, auth.WithTokenCache(c.TokenCacheTime, 10000))
 	handler, err := api.New(service.New(r, time.Now), authenticator, c.PublicURL, c.KeystoneURL, c.MaxBodyBytes, logger, options...)
 	if err != nil {
 		return err

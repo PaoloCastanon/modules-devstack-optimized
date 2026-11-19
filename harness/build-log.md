@@ -1065,3 +1065,88 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - `make check` completo con race detector: OK. 98 tests Python unitarios: OK.
 - Límites: VM local de 6 GiB; prueba funcional, no de rendimiento. Ceph de
   prueba con `auth none` y memstore. Nova todavía no usa RBD (F3 y F4).
+
+
+### 2026-11-18 — Glance Go optimizado, alineado con Glance oficial
+
+- Referencia leída en la VM: keystonemiddleware (`token_cache_time` = 300,
+  clave SHA-256, sin cachear rechazos, expiración revisada en cada uso),
+  glance_store filesystem (GET sin hash, `add` en una pasada) y oslo.db (5 + 50).
+- Cambios: caché de tokens (sólo Glance), `OpenStream` sin hash y con
+  sendfile, `DataStateSnapshot` sin lock, pool de 55/16, Publish sin
+  relectura cuando el `.ready` no cambió, 16 transferencias por defecto y
+  cliente Keystone con 32 conexiones ociosas.
+  [Detalle](../docs/glance/performance.md).
+- Antes/después en la VM con Keystone real (`--quick-compare`, no es campaña):
+  metadatos p50 11,9 → 1,9 ms, 109 → 1 137 req/s con 16 hilos, descarga de
+  64 MiB 262 → 55 ms (primer byte 203 → 2,5 ms), carga de 64 MiB 685 → 508 ms.
+  Regresión B26: Glance Go 10/10 ×2 y Glance Go + Placement Go 14/14 ×2, con
+  limpieza completa.
+  [Evidencia](../evidence/sprint5/glance-performance-20261118/README.md).
+- `make glance-test-rbd` (incluye ahora 5 pruebas de integración MySQL): 9/9.
+  Los resultados v3 siguen correspondiendo a `d3286a6`.
+- Auditoría contra Glance oficial: el arranque ya no rehashea cada imagen
+  confirmada (existencia y tamaño, como el original, que no escanea nada). El
+  resto se dejó porque es igual al original o más rápido; la tabla está en
+  `docs/glance/performance.md`.
+- 2026-11-18, auditoría medida (`glance_suite.py --audit`): las mismas 14
+  operaciones en el Glance oficial y en Glance Go, por la ruta pública, en dos
+  corridas. Go no es más lento en ninguna (Go/oficial entre 0,02 y 0,66; 1 149
+  frente a 215 req/s con 16 hilos), así que no hubo cambios adicionales.
+  [Evidencia](../evidence/sprint5/glance-audit-20261118/README.md).
+- 2026-11-18, ronda 2 de optimización (todo Glance Go, calificado alto, medio o
+  bajo; detalle en `docs/glance/performance.md`):
+  - aplicados: A1 (sin relectura tras `Publish` exitoso), A2 (MD5 en paralelo),
+    A3 (statements preparados), M1 (`INSERT` multi-fila), M2 (GET en 1
+    transacción) y B3 (buffer de 1 MiB);
+  - no aplicados, con su motivo: M3, M4 y B1.
+
+  En la VM, ronda 1 frente a ronda 2: carga de 64 MiB 477 → 212 ms, metadatos
+  1,57 → 1,18 ms. Auditoría contra el oficial ×2: ninguna operación más lenta.
+  B26: Glance Go 10/10 ×2 y conjunto 14/14 ×2. La primera corrida falló por
+  RabbitMQ arrancando justo tras encender la VM, sin relación con Glance.
+  `make check` OK y `glance-test-rbd` 9/9.
+  [Evidencia](../evidence/sprint5/glance-perf2-20261118/README.md).
+- 2026-11-18, correcciones de la suite B26 (no de Glance Go). Los dos fallos de
+  la ronda 2 venían de la herramienta de prueba:
+  - **Espera a Nova antes del boot.** Tras encender la VM, `nova-compute` queda
+    "down" unos 65 s y el boot terminaba en NoValidHost ("ComputeFilter returned
+    0 hosts"). Ahora la suite espera heartbeats frescos de conductor, scheduler
+    y compute (`--nova-ready-seconds`, 240 s) y, si el servidor queda en ERROR,
+    registra la falla de Nova saneada.
+  - **Atribución de la captura como matching máximo**, respetando que Apache
+    registra el segundo de llegada truncado. La versión anterior dejaba una GET
+    de Nova "sin atribuir".
+
+  Verificación:
+  - `fx-fresh` se lanzó con la VM recién encendida: esperó 22,7 s a Nova y pasó
+    10/10. También pasaron Glance Go 10/10, el modo conjunto 14/14 ×2 y la
+    comparación rápida 11/11.
+  - `qc-r1`, reprocesado con sus logs reales, pasa de rechazado a aceptado; las
+    otras 8 capturas no cambian.
+  - `make check` OK.
+
+  Corrección de fechas: la auditoría y la ronda 2 se rotularon con el
+  2026-11-19, pero las corridas fueron el 2026-11-18. Las carpetas se
+  renombraron a `glance-audit-20261118` y `glance-perf2-20261118`.
+  [Evidencia](../evidence/sprint5/glance-suite-fix-20261118/README.md).
+- 2026-11-18, auditoría con CPU y memoria, y cola de descargas. `--audit` ahora
+  mide, como la v3:
+  - CPU por solicitud y PSS del servicio, desde su cgroup;
+  - 16 MiB;
+  - descargas con 16 clientes, por Apache y directo.
+
+  Hallazgo: con 64 MiB y 16 clientes, Go era más lento (12,9 frente a 15,2
+  req/s). Directo empataban, y sin `sendfile` empeoraba. La causa era que el
+  oficial (2 workers uwsgi) encola y Go enviaba 16 a la vez. Cambio:
+  `GLANCE_GO_MAX_DOWNLOAD_STREAMS` encola en vez de rechazar (en disco, la mitad
+  de las CPU con mínimo 2; en RBD, sin cola).
+
+  Resultado: 25,5 frente a 14,5 req/s, y ninguna de las 22 operaciones es más
+  lenta en Go. Go gasta menos CPU en todos los bloques y ocupa 13–17 MiB de PSS,
+  frente a 233–325.
+
+  Regresión: B26 en Glance Go 10/10 ×2 y en el modo conjunto 14/14 ×2,
+  `make check` OK y `glance-test-rbd` 9/9. Una carga lenta en la comparación
+  rápida resultó ser ruido (se alternaron los binarios: 244 frente a 228–244 ms).
+  [Evidencia](../evidence/sprint5/glance-resources-20261118/README.md).

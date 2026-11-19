@@ -21,7 +21,7 @@ func TestDownloadVerifiedBytesAndLifetime(t *testing.T) {
 	fs.blob = append([]byte{}, uploadPayload...)
 	var opened store.Key
 	fs.before = func(name string, key store.Key) {
-		if name == "Open" {
+		if name == "OpenStream" {
 			opened = key
 		}
 	}
@@ -45,7 +45,8 @@ func TestDownloadVerifiedBytesAndLifetime(t *testing.T) {
 	if err := out.Body.Close(); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"catalog.Get", "sql.State", "fs.Open", "catalog.Get", "sql.State", "fs.Close"}
+	// One catalog and one state read, then an unhashed open (as glance_store).
+	want := []string{"catalog.Get", "sql.State", "fs.OpenStream", "fs.Close"}
 	if !reflect.DeepEqual(log.snapshot(), want) {
 		t.Fatal(log.snapshot())
 	}
@@ -165,7 +166,9 @@ func TestDownloadVisibilityAndAbsentContent(t *testing.T) {
 }
 
 func TestDownloadFailuresAfterOpenCloseAndRetainEvidence(t *testing.T) {
-	for _, tc := range []string{"missing", "corrupt-receipt", "corrupt-store", "filesystem", "sql-after-open", "tombstone-after-open", "visibility-after-open", "fence-after-open", "cancel-after-open"} {
+	// Since GET streams without hashing (like glance_store), it no longer
+	// re-reads SQL after opening: the *-after-open fencing cases were removed.
+	for _, tc := range []string{"missing", "corrupt-receipt", "corrupt-store", "filesystem", "cancel-after-open"} {
 		t.Run(tc, func(t *testing.T) {
 			u, d, fs, log := uploadFixture(t)
 			uploadSeed(d, model.DataCommitted)
@@ -181,27 +184,14 @@ func TestDownloadFailuresAfterOpenCloseAndRetainEvidence(t *testing.T) {
 				fs.blob = []byte("damaged")
 				want = ErrBlobCorrupt
 			case "corrupt-store":
-				fs.faults["Open"] = uploadStoreFault{err: store.ErrIntegrity}
+				fs.faults["OpenStream"] = uploadStoreFault{err: store.ErrIntegrity}
 				want = ErrBlobCorrupt
 			case "filesystem":
-				fs.faults["Open"] = uploadStoreFault{err: errors.New("secret filesystem path")}
+				fs.faults["OpenStream"] = uploadStoreFault{err: errors.New("secret filesystem path")}
 				want = ErrDownloadUnavailable
 			default:
 				fs.before = func(name string, _ store.Key) {
-					if name != "Open" {
-						return
-					}
-					switch tc {
-					case "sql-after-open":
-						d.faults["State"] = uploadSQLFault{err: errors.New("secret SQL")}
-					case "tombstone-after-open":
-						d.image.Status = "deleted"
-					case "visibility-after-open":
-						d.image.Owner = "other"
-						d.image.Visibility = "private"
-					case "fence-after-open":
-						d.op.AttemptID = "00000000-0000-4000-8000-000000000099"
-					case "cancel-after-open":
+					if name == "OpenStream" && tc == "cancel-after-open" {
 						cancel()
 					}
 				}
@@ -283,8 +273,10 @@ type downloadStoreOverride struct {
 	open func(context.Context, store.Key) (store.ReadSeekCloser, store.Info, error)
 }
 
-func (s downloadStoreOverride) Open(ctx context.Context, k store.Key) (store.ReadSeekCloser, store.Info, error) {
-	return s.open(ctx, k)
+// The download path uses OpenStream; the override reports Info.Size as size.
+func (s downloadStoreOverride) OpenStream(ctx context.Context, k store.Key) (store.ReadSeekCloser, int64, error) {
+	f, info, err := s.open(ctx, k)
+	return f, info.Size, err
 }
 
 func TestDownloadClosesAmbiguousOpenAndPreservesCancellation(t *testing.T) {
@@ -355,5 +347,50 @@ func TestDownloadConcurrentCloseReleasesOwnershipOnce(t *testing.T) {
 	}
 	if closes != 2 || u.Close() != nil {
 		t.Fatal("ownership released incorrectly", closes)
+	}
+}
+
+// M2: a repository offering DownloadView serves GET from one read transaction
+// (no catalog.Get + separate state read) with the same visibility policy.
+type downloadViewDouble struct {
+	*uploadSQLDouble
+}
+
+func (v downloadViewDouble) DownloadView(ctx context.Context, id string) (model.Image, model.DataState, error) {
+	v.log.add("sql.View")
+	s, err := v.DataStateSnapshot(ctx, id)
+	if err != nil {
+		return model.Image{}, model.DataState{}, err
+	}
+	return v.image, s, nil
+}
+
+func TestDownloadUsesSingleViewWhenAvailable(t *testing.T) {
+	for _, foreign := range []bool{false, true} {
+		u, d, fs, log := uploadFixture(t)
+		uploadSeed(d, model.DataCommitted)
+		fs.blob = append([]byte{}, uploadPayload...)
+		u.transfers = downloadViewDouble{d}
+		who := identity("reader")
+		if foreign {
+			who.ProjectID = "other"
+			d.image.Visibility = "private"
+		}
+		out, err := u.OpenDownload(context.Background(), who, uploadImageID)
+		calls := strings.Join(log.snapshot(), ",")
+		if foreign {
+			if err == nil || out != nil || strings.Contains(calls, "fs.OpenStream") {
+				t.Fatal("foreign private image served", err, calls)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, _ := io.ReadAll(out.Body)
+		_ = out.Body.Close()
+		if !bytes.Equal(got, uploadPayload) || strings.Contains(calls, "catalog.Get") || !strings.HasPrefix(calls, "sql.View,sql.State,fs.OpenStream") {
+			t.Fatal(calls)
+		}
 	}
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
@@ -42,6 +43,31 @@ func (u *UploadCoordinator) claimDownload() (func(), error) {
 	return func() { u.mu.Lock(); u.readers--; u.notifyLocked(); u.mu.Unlock() }, nil
 }
 
+// waitStream takes one of the MaxDownloadStreams slots, waiting in line (Go's
+// channel wait queue is FIFO) like requests beyond official Glance's uwsgi
+// workers. Waiting holds no reader capacity, and only after the authorization
+// and visibility checks, so a 403/404 never waits. The client's context and
+// StopAdmission/Close end the wait. The slot is returned when the body closes.
+func (u *UploadCoordinator) waitStream(ctx context.Context) (func(), error) {
+	if u.streams == nil {
+		return func() {}, nil
+	}
+	select {
+	case u.streams <- struct{}{}:
+	case <-ctx.Done():
+		return nil, downloadError(ctx, ctx.Err())
+	case <-u.halt:
+		return nil, ErrUploadNotReady
+	}
+	select {
+	case <-u.halt: // admission stopped while this one was being granted
+		<-u.streams
+		return nil, ErrUploadNotReady
+	default:
+	}
+	return sync.OnceFunc(func() { <-u.streams }), nil
+}
+
 type downloadBody struct {
 	store.ReadSeekCloser
 	once    sync.Once
@@ -62,6 +88,16 @@ func (u *UploadCoordinator) downloadImage(ctx context.Context, who auth.Identity
 	if err != nil {
 		return downloadError(ctx, err)
 	}
+	return downloadVisible(who, id, i)
+}
+
+// downloadViewer reads the image row and its data state in ONE read-only
+// transaction (no properties/tags, which a download does not use).
+type downloadViewer interface {
+	DownloadView(context.Context, string) (model.Image, model.DataState, error)
+}
+
+func downloadVisible(who auth.Identity, id string, i model.Image) error {
 	if i.ID != id {
 		return ErrUploadReconciliation
 	}
@@ -90,13 +126,17 @@ func downloadError(ctx context.Context, err error) error {
 }
 
 func (u *UploadCoordinator) downloadState(ctx context.Context, id string) (model.DataState, error) {
-	s, err := u.transfers.DataState(ctx, id)
+	s, err := u.transfers.DataStateSnapshot(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return s, notFound(id)
 	}
 	if err != nil {
 		return model.DataState{}, downloadError(ctx, err)
 	}
+	return downloadStateValid(id, s)
+}
+
+func downloadStateValid(id string, s model.DataState) (model.DataState, error) {
 	if s.ImageID != id || s.Deleted != (s.Status == "deleted") || s.Operation != nil && (s.Operation.ImageID != id || s.Operation.Validate() != nil) {
 		return model.DataState{}, ErrUploadReconciliation
 	}
@@ -139,9 +179,11 @@ func downloadReceipt(s model.DataState) (store.Key, model.DataContent, error) {
 }
 
 // OpenDownload shares the exclusive owner's startup recovery gate and bounded
-// transfer capacity. All SQL calls finish before filesystem I/O/streaming.
-// Open hashes the full blob using bounded buffers; compare to SQL before handing
-// the descriptor to HTTP. GET never repairs, deletes or changes image state.
+// transfer capacity. All SQL calls finish before streaming. As official Glance
+// (glance_store) does, content is served without re-hashing: integrity was
+// established when the upload computed and committed its hashes. The physical
+// size must still match the committed receipt. GET never repairs, deletes or
+// changes image state.
 func (u *UploadCoordinator) OpenDownload(ctx context.Context, who auth.Identity, value string) (*Download, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -156,20 +198,44 @@ func (u *UploadCoordinator) OpenDownload(ctx context.Context, who auth.Identity,
 	if err != nil {
 		return nil, err
 	}
-	if err = u.downloadImage(ctx, who, id); err != nil {
+	var s model.DataState
+	viewer, combined := u.transfers.(downloadViewer)
+	if combined {
+		i, state, err := viewer.DownloadView(ctx, id)
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, notFound(id)
+		}
+		if err != nil {
+			return nil, downloadError(ctx, err)
+		}
+		if err = downloadVisible(who, id, i); err != nil {
+			return nil, err
+		}
+		s = state
+	} else if err = u.downloadImage(ctx, who, id); err != nil {
 		return nil, err
 	}
-	leave, err := u.claimDownload()
+	slot, err := u.waitStream(ctx)
 	if err != nil {
 		return nil, err
 	}
+	claimed, err := u.claimDownload()
+	if err != nil {
+		slot()
+		return nil, err
+	}
+	leave := func() { claimed(); slot() }
 	owned := false
 	defer func() {
 		if !owned {
 			leave()
 		}
 	}()
-	s, err := u.downloadState(ctx, id)
+	if combined {
+		s, err = downloadStateValid(id, s)
+	} else {
+		s, err = u.downloadState(ctx, id)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +243,7 @@ func (u *UploadCoordinator) OpenDownload(ctx context.Context, who auth.Identity,
 	if err != nil {
 		return nil, err
 	}
-	f, actual, err := u.bytes.Open(ctx, key)
+	f, size, err := u.bytes.OpenStream(ctx, key)
 	if err != nil {
 		if f != nil {
 			_ = f.Close()
@@ -194,31 +260,27 @@ func (u *UploadCoordinator) OpenDownload(ctx context.Context, who auth.Identity,
 			return nil, downloadError(ctx, err)
 		}
 	}
-	keep := false
-	defer func() {
-		if !keep && f != nil {
+	if f == nil || size != content.Size {
+		if f != nil {
 			_ = f.Close()
 		}
-	}()
-	if f == nil || actual != (store.Info{Size: content.Size, Checksum: content.Checksum, SHA512: content.SHA512}) {
 		return nil, ErrBlobCorrupt
 	}
-	// Hashing can be slow: recheck visibility and SQL fencing after Open. Once
-	// returned, a later deletion may unlink a name; the already open fd is owned
-	// by this reader. Action 7 supplies delete coordination, not this GET.
-	if err = u.downloadImage(ctx, who, id); err != nil {
-		return nil, err
-	}
-	s, err = u.downloadState(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if !committed(s, key, content) {
-		return nil, ErrUploadReconciliation
-	}
+	// Opening is now immediate, so the window that once justified re-reading
+	// visibility and SQL fencing after a full hash no longer exists. A later
+	// deletion may unlink the name; this open descriptor stays valid, as in
+	// official Glance.
 	if err = ctx.Err(); err != nil {
+		_ = f.Close()
 		return nil, err
 	}
-	keep, owned = true, true
+	owned = true
 	return &Download{Body: &downloadBody{ReadSeekCloser: f, release: leave}, Size: content.Size, Checksum: content.Checksum}, nil
+}
+
+// File exposes the underlying *os.File (filesystem store) so net/http can use
+// sendfile; nil for other backends.
+func (b *downloadBody) File() *os.File {
+	f, _ := b.ReadSeekCloser.(*os.File)
+	return f
 }

@@ -80,22 +80,130 @@ JOINT_AFTER = {'catalog_and_bytes_public': 'placement_go_active',
 JOINT_CLEANUP = ('placement_restored', 'placement_runtime_removed')
 
 
-def required_cases(joint):
-    if not joint:
-        return CASES
+def required_cases(joint, quick=False, audit=False):
     out = []
     for name in CASES:
         out.append(name)
-        if name in JOINT_AFTER:
+        if joint and name in JOINT_AFTER:
             out.append(JOINT_AFTER[name])
+        if quick and name == 'catalog_and_bytes_direct':
+            out.append('quick_compare')
+        # Same public Apache route and client: original before the switch, Go after.
+        if audit and name == 'not_found':
+            out.append('audit_original')
+        if audit and name == 'catalog_and_bytes_public':
+            out.append('audit_go')
     return tuple(out)
+
+
+AUDIT_OPS = ('discovery', 'show', 'list_tagged', 'schema', 'create', 'patch', 'delete',
+             'upload_1m', 'upload_64m', 'download_1m', 'download_1m_ttfb', 'download_64m',
+             'download_64m_ttfb', 'show_c16',
+             # Added to cover what the v3 campaign measured and the first audit did not.
+             'upload_16m', 'download_16m', 'download_16m_ttfb',
+             'download_1m_c16', 'download_16m_c16', 'download_64m_c16',
+             # The same 16-client downloads straight to the service, without Apache.
+             'download_16m_c16_direct', 'download_64m_c16_direct')
+AUDIT_SIZES = (('1m', 1, 10, 20, 320), ('16m', 16, 5, 10, 64), ('64m', 64, 3, 5, 32))  # name, MiB, uploads, GETs, GETs with 16 clients
+
+
+def backend_url(site_text):
+    """Loopback backend behind Apache /image, from the active site file."""
+    found = re.search(r'^ProxyPass "/image" "(http://127\.0\.0\.1:\d{4,5})"', site_text, re.M)
+    require(found is not None, 'loopback backend behind /image')
+    return found.group(1)
+
+
+def vm_cpu_ticks(stat_text):
+    """(busy, total) jiffies of all CPUs from /proc/stat; idle and iowait are not busy."""
+    values = [int(v) for v in stat_text.splitlines()[0].split()[1:]]
+    total = sum(values[:8])  # guest time is already inside user/nice
+    return total - values[3] - values[4], total
+
+
+def cpu_usage_usec(text):
+    """usage_usec from a cgroup v2 cpu.stat."""
+    for line in text.splitlines():
+        key, _, value = line.partition(' ')
+        if key == 'usage_usec':
+            return int(value)
+    raise ValueError('usage_usec missing from cpu.stat')
+
+
+def pss_kib(smaps_rollup):
+    for line in smaps_rollup.splitlines():
+        if line.startswith('Pss:'):
+            return int(line.split()[1])
+    return 0
+
+
+class ServiceMeter:
+    """CPU and PSS of one systemd service, as the v3 campaign measured them:
+    only the service's own processes (its cgroup), never MySQL, Keystone or
+    Apache, which both implementations share or run apart."""
+
+    def __init__(self, unit, run=subprocess.run, root=Path('/sys/fs/cgroup')):
+        group = run(['systemctl', 'show', '-p', 'ControlGroup', '--value', unit],
+                    check=True, capture_output=True, text=True).stdout.strip()
+        require(group.startswith('/') and '..' not in group, 'cgroup of ' + unit)
+        self.path, self.run = root / group.lstrip('/'), run
+
+    def cpu_usec(self):
+        return cpu_usage_usec((self.path / 'cpu.stat').read_text())
+
+    def pids(self):
+        found = set()  # '**' also matches the top cgroup: count each process once
+        for procs in sorted(self.path.glob('**/cgroup.procs'))[:64]:
+            found.update(int(pid) for pid in procs.read_text().split())
+        return sorted(found)
+
+    def pss_kib(self):
+        total = 0
+        for pid in self.pids():
+            out = self.run(['sudo', '-n', 'cat', '/proc/%d/smaps_rollup' % pid], capture_output=True, text=True)
+            if out.returncode == 0:  # a process may exit between listing and reading
+                total += pss_kib(out.stdout)
+        return total
+
+
+def resources_compare(original, go):
+    """Per measured block: CPU ms per request and peak PSS of each service."""
+    rows = {}
+    a, b = original.get('resources', {}), go.get('resources', {})
+    for block in sorted(set(a.get('blocks', {})) & set(b.get('blocks', {}))):
+        x, y = a['blocks'][block], b['blocks'][block]
+        rows[block] = {'original_cpu_ms': x['cpu_ms_per_req'], 'go_cpu_ms': y['cpu_ms_per_req'],
+                       'go_cpu_over_original': round(y['cpu_ms_per_req'] / x['cpu_ms_per_req'], 3) if x['cpu_ms_per_req'] else None,
+                       'original_pss_max_mib': x['pss_max_mib'], 'go_pss_max_mib': y['pss_max_mib']}
+    if a.get('idle') and b.get('idle'):
+        rows['idle'] = {'original_pss_mib': a['idle']['pss_mib'], 'go_pss_mib': b['idle']['pss_mib'],
+                        'original_cpu_ms_per_s': a['idle']['cpu_ms_per_s'], 'go_cpu_ms_per_s': b['idle']['cpu_ms_per_s']}
+    return rows
+
+
+def audit_compare(original, go):
+    """Per operation: p50 of each and Go/original ratio (<1 = Go faster)."""
+    rows = {}
+    for op in AUDIT_OPS:
+        a, b = original.get(op), go.get(op)
+        if a and b and a.get('p50') and b.get('p50') is not None:
+            rows[op] = {'original_p50_ms': a['p50'], 'go_p50_ms': b['p50'],
+                        'go_over_original': round(b['p50'] / a['p50'], 3), 'go_slower': b['p50'] > a['p50']}
+    return rows
+
+
+def percentile(values, fraction):
+    ordered = sorted(values)
+    return ordered[min(len(ordered) - 1, int(round(fraction * (len(ordered) - 1))))] if ordered else None
 
 
 def suite_passed(report):
     cleanup = report.get('cleanup', {})
     joint = report.get('mode') == 'glance-go+placement-go'
+    quick = 'quick_compare' in report.get('required_cases', ())
+    audit = 'audit_go' in report.get('required_cases', ())
     return (report.get('execution_error') is None
-            and all(report.get('cases', {}).get(name, {}).get('passed') is True for name in required_cases(joint))
+            and all(report.get('cases', {}).get(name, {}).get('passed') is True for name in required_cases(joint, quick, audit))
             and all(cleanup.get(name) is True for name in CLEANUP + (JOINT_CLEANUP if joint else ()))
             and cleanup.get('pending_images') == 0)
 
@@ -138,6 +246,69 @@ def file_digest(path):
     return {'size': size, **{name: digest.hexdigest() for name, digest in hashes.items()}}
 
 
+# Right after the VM starts, RabbitMQ opens ~40 s later and nova-compute
+# reports ~65 s later (measured 2026-11-18). A boot before that ends in ERROR
+# within seconds ("Filter ComputeFilter returned 0 hosts", NoValidHost), which
+# says nothing about Glance. The suite waits for these before touching anything.
+NOVA_BINARIES = ('nova-conductor', 'nova-scheduler', 'nova-compute')
+
+
+def host_boot_epoch(stat=Path('/proc/stat')):
+    for line in stat.read_text().splitlines():
+        if line.startswith('btime '):
+            return int(line.split()[1])
+    raise ValueError('btime missing from /proc/stat')
+
+
+def reported_epoch(value):
+    if not value:
+        return None
+    stamp = datetime.datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    if stamp.tzinfo is None:  # Nova reports UTC without an offset
+        stamp = stamp.replace(tzinfo=datetime.timezone.utc)
+    return stamp.timestamp()
+
+
+def nova_not_ready(services, booted_epoch):
+    """Binaries that cannot serve a boot yet (empty = schedulable).
+
+    Each needs at least one enabled service, and every enabled one must be up
+    with a heartbeat from after this host booted: a heartbeat from before a
+    quick reboot still reads 'up' for service_down_time."""
+    missing = []
+    for binary in NOVA_BINARIES:
+        enabled = [s for s in services if s['binary'] == binary and s['status'] == 'enabled']
+        fresh = [s for s in enabled if s['state'] == 'up' and (reported_epoch(s['updated_at']) or 0) >= booted_epoch]
+        if not enabled or len(fresh) != len(enabled):
+            missing.append(binary)
+    return missing
+
+
+def wait_schedulable(list_services, booted_epoch, timeout_s, clock=time.monotonic, sleep=time.sleep, every_s=5):
+    """Poll until Nova can schedule; returns the seconds waited. While the
+    API itself is still starting, a failed listing counts as not ready."""
+    started = clock()
+    while True:
+        try:
+            missing = nova_not_ready(list_services(), booted_epoch)
+        except Exception as error:  # noqa: BLE001 - API not answering yet
+            missing = ['nova-api (%s)' % type(error).__name__]
+        if not missing:
+            return round(clock() - started, 1)
+        require(clock() - started < timeout_s, 'Nova schedulable before the boot; not ready: ' + ', '.join(missing))
+        sleep(every_s)
+
+
+def boot_fault(server):
+    """Nova's fault for an ERROR server: its code and first line, with IDs
+    replaced (e.g. 'No valid host was found. ...'). Never the details."""
+    fault = getattr(server, 'fault', None)
+    if not isinstance(fault, dict):
+        return None
+    lines = str(fault.get('message') or '').splitlines()
+    return {'code': fault.get('code'), 'message': re.sub(glance_flow.UUID, '{id}', lines[0] if lines else '')[:160]}
+
+
 def server_image_id(server):
     image = server.image
     if isinstance(image, dict):
@@ -167,7 +338,10 @@ class Suite(Session):
         self.validator = None
         self.joint = bool(getattr(args, 'with_placement_go', False))
         self.report['mode'] = 'glance-go+placement-go' if self.joint else 'glance-go'
-        self.report['required_cases'] = list(required_cases(self.joint))
+        self.quick = bool(getattr(args, 'quick_compare', False))
+        self.audit = bool(getattr(args, 'audit', False))
+        self.audit_results = {}
+        self.report['required_cases'] = list(required_cases(self.joint, self.quick, self.audit))
         self.pl_runtime = self.root / 'tt-placement-pl-runtime'
         self.provider = None
         self.flavor = None
@@ -314,8 +488,19 @@ class Suite(Session):
 
     # -- cases, executed in CASES order ------------------------------------
     def case_preflight_and_isolation(self):
+        waited = self.wait_for_nova()
         self.prepare()
-        return {'original_images': len(self.original['images'])}
+        return {'original_images': len(self.original['images']), 'nova_ready_wait_s': waited}
+
+    def wait_for_nova(self):
+        connection, _, _ = sdk_connection()
+        try:
+            def services():
+                return [{'binary': s.binary, 'status': s.status, 'state': s.state, 'updated_at': s.updated_at}
+                        for s in connection.compute.services()]
+            return wait_schedulable(services, host_boot_epoch(), getattr(self.args, 'nova_ready_seconds', 240))
+        finally:
+            connection.close()
 
     def case_auth_fail_closed(self):
         bogus = 'tt-invalid-' + uuid.uuid4().hex
@@ -392,6 +577,8 @@ class Suite(Session):
                 break
             time.sleep(2)
         self.report['boot_states'] = states
+        if states and states[-1]['status'] == 'ERROR':
+            self.report['boot_fault'] = boot_fault(current)
         self.flavor = flavor
         require(states and states[-1]['status'] == 'ACTIVE', 'server reached ACTIVE from the Go image')
         require(current.project_id == project and server_image_id(current) == self.nova_image['id'], 'server owner/image')
@@ -414,6 +601,233 @@ class Suite(Session):
         self.request(self.args.url, 'GET', '/v2/images/' + ident, 404)
         self.pending.pop(('go-public-cirros', ident))
         return {}
+
+    # -- quick before/after comparison (not a campaign) ----------------------
+    def case_quick_compare(self):
+        """Direct to Glance Go with real Keystone: metadata reads, 64 MiB
+        downloads (TTFB) and uploads. Same runtime for any binary under test."""
+        from concurrent.futures import ThreadPoolExecutor
+        from glance_http import Client, payload
+        size = 64 * MIB
+        data = self.root / 'quick-64m.bin'
+        expected = payload(data, size, seed=b'glance-quick-compare')
+        ident = str(uuid.uuid4())
+        base = '/v2/images/' + ident
+        image = {'id': ident, 'name': 'tt-glance-preflight-quick', 'tags': [self.tag], 'disk_format': 'raw',
+                 'container_format': 'bare', 'visibility': 'private'}
+        self.pending[('go-quick', ident)] = {'url': GO_URL, 'name': image['name']}
+        self.request(GO_URL, 'POST', '/v2/images', 201, body=image)
+        self.request(GO_URL, 'PUT', base + '/file', 204, upload=data, content_type='application/octet-stream')
+
+        def timed(method, path, **kw):
+            client = Client(GO_URL, self.token)
+            try:
+                sample, _ = client.request(method, path, **kw)
+            finally:
+                client.close()
+            require(sample['error_kind'] is None and sample['status'] in (200, 201, 204), 'quick sample ok')
+            return sample
+
+        client = Client(GO_URL, self.token)
+        try:
+            meta = []
+            for _ in range(200):
+                sample, _ = client.request('GET', base)
+                require(sample['status'] == 200 and sample['error_kind'] is None, 'metadata read')
+                meta.append(sample['elapsed_ns'] / 1e6)
+        finally:
+            client.close()
+        started = time.monotonic()
+        with ThreadPoolExecutor(16) as pool:
+            concurrent = list(pool.map(lambda _: timed('GET', base)['elapsed_ns'] / 1e6, range(400)))
+        metadata_rps = round(400 / (time.monotonic() - started), 1)
+        downloads = [timed('GET', base + '/file', expected_payload=expected) for _ in range(10)]
+        uploads = []
+        for n in range(5):
+            other = str(uuid.uuid4())
+            body = {**image, 'id': other, 'name': 'tt-glance-preflight-quick-up'}
+            self.pending[('go-quick', other)] = {'url': GO_URL, 'name': body['name']}
+            self.request(GO_URL, 'POST', '/v2/images', 201, body=body)
+            uploads.append(timed('PUT', '/v2/images/' + other + '/file', upload=data,
+                                 content_type='application/octet-stream')['elapsed_ns'] / 1e6)
+            self.request(GO_URL, 'DELETE', '/v2/images/' + other, 204)
+            self.pending.pop(('go-quick', other))
+        self.request(GO_URL, 'DELETE', base, 204)
+        self.pending.pop(('go-quick', ident))
+        data.unlink()
+        ms = lambda values: {'p50': round(percentile(values, .5), 2), 'p95': round(percentile(values, .95), 2)}
+        return {'metadata_seq_ms': ms(meta), 'metadata_c16_ms': ms(concurrent), 'metadata_c16_rps': metadata_rps,
+                'download_64m_total_ms': ms([d['elapsed_ns'] / 1e6 for d in downloads]),
+                'download_64m_ttfb_ms': ms([d['ttfb_ns'] / 1e6 for d in downloads]),
+                'upload_64m_ms': ms(uploads)}
+
+    # -- measured audit: official Glance vs Glance Go (not a campaign) -------
+    def case_audit_original(self):
+        self.audit_results['original'] = self.measure_target('python')
+        return {'measured': sorted(self.audit_results['original'])}
+
+    def case_audit_go(self):
+        self.audit_results['go'] = self.measure_target('go-public')
+        rows = audit_compare(self.audit_results['original'], self.audit_results['go'])
+        resources = resources_compare(self.audit_results['original'], self.audit_results['go'])
+        save_json(self.args.output / 'audit.json', {'original': self.audit_results['original'],
+                                                    'go': self.audit_results['go'], 'compare': rows,
+                                                    'resources': resources})
+        return {'go_slower_ops': sorted(op for op, row in rows.items() if row['go_slower']),
+                'go_more_cpu_blocks': sorted(k for k, r in resources.items() if k != 'idle' and r['go_cpu_over_original'] and r['go_cpu_over_original'] > 1)}
+
+    def measure_target(self, label):
+        """Identical workload through the public route (Apache /image), with the
+        CPU and PSS of the service that answers it (its systemd cgroup)."""
+        from concurrent.futures import ThreadPoolExecutor
+        import threading
+        from glance_http import Client, payload
+        url = self.args.url
+        files = {}
+        for name, mib, *_ in AUDIT_SIZES:
+            path = self.root / ('audit-' + name + '.bin')
+            if not path.exists():
+                save_json(self.root / ('audit-' + name + '.json'), payload(path, mib * MIB, seed=b'glance-audit'), private=True)
+            files[name] = (path, json.loads((self.root / ('audit-' + name + '.json')).read_text()))
+        unit = glance_switch.ORIGINAL_UNIT if label == 'python' else json.loads((self.runtime / 'state.json').read_text())['go_unit']
+        meter, apache = ServiceMeter(unit), ServiceMeter('apache2.service')
+        direct = backend_url(glance_switch.SITE_FILE.read_text())
+        samples = {op: [] for op in AUDIT_OPS}
+        client = Client(url, self.token)
+        owned, blocks, sent, pss, stop = [], {}, [0], [], threading.Event()
+
+        def sample_pss():
+            while not stop.is_set():
+                pss.append((time.monotonic(), meter.pss_kib()))
+                stop.wait(0.5)
+
+        @contextlib.contextmanager
+        def accounted(block, requests=None):
+            cpu, web, began, first = meter.cpu_usec(), apache.cpu_usec(), time.monotonic(), sent[0]
+            busy, total = vm_cpu_ticks(Path('/proc/stat').read_text())
+            yield
+            ended, used, web_used = time.monotonic(), meter.cpu_usec() - cpu, apache.cpu_usec() - web
+            busy_after, total_after = vm_cpu_ticks(Path('/proc/stat').read_text())
+            count = requests if requests is not None else sent[0] - first
+            window = [kib for t, kib in pss if began <= t <= ended] or [meter.pss_kib()]
+            blocks[block] = {'requests': count, 'seconds': round(ended - began, 2),
+                             'cpu_ms_per_req': round(used / 1000 / count, 3), 'pss_max_mib': round(max(window) / 1024, 1),
+                             'apache_cpu_ms_per_req': round(web_used / 1000 / count, 3),
+                             'vm_busy_pct': round(100 * (busy_after - busy) / max(1, total_after - total), 1)}
+
+        def call(method, path, expected, op=None, **kw):
+            sample, value = client.request(method, path, **kw)
+            sent[0] += 1
+            require(sample['status'] == expected and sample['error_kind'] is None, label + ' ' + method + ' ' + path.split('/')[2])
+            if op:
+                samples[op].append(sample['elapsed_ns'] / 1e6)
+            return sample, value
+
+        def new_image(op=None):
+            ident = str(uuid.uuid4())
+            body = {'id': ident, 'name': 'tt-glance-preflight-audit', 'tags': [self.tag], 'disk_format': 'raw',
+                    'container_format': 'bare', 'visibility': 'private'}
+            self.pending[(label + '-audit', ident)] = {'url': url, 'name': body['name']}
+            if label == 'python':
+                self.python_ids.append(ident)
+            call('POST', '/v2/images', 201, op, body=body)
+            owned.append(ident)
+            return ident
+
+        def drop(ident, op=None):
+            call('DELETE', '/v2/images/' + ident, 204, op)
+            self.pending.pop((label + '-audit', ident))
+            owned.remove(ident)
+
+        def concurrent(total, fetch):
+            started = time.monotonic()
+            with ThreadPoolExecutor(16) as pool:
+                values = list(pool.map(fetch, range(total)))
+            return values, round(total / (time.monotonic() - started), 1)
+
+        # Idle baseline before any request of this target.
+        idle_cpu, idle_began = meter.cpu_usec(), time.monotonic()
+        time.sleep(5)
+        idle = {'cpu_ms_per_s': round((meter.cpu_usec() - idle_cpu) / 1000 / (time.monotonic() - idle_began), 3),
+                'pss_mib': round(meter.pss_kib() / 1024, 1)}
+        sampler = threading.Thread(target=sample_pss, daemon=True)
+        sampler.start()
+        rates = {}
+        try:
+            for _ in range(30):
+                started = time.monotonic_ns()
+                status = unauthenticated_status(url, path='/')
+                samples['discovery'].append((time.monotonic_ns() - started) / 1e6)
+                require(status == 300, label + ' discovery')
+            listed = [new_image() for _ in range(10)]
+            for ident in listed[:1]:
+                call('PUT', '/v2/images/' + ident + '/file', 204, upload=files['1m'][0], content_type='application/octet-stream')
+            with accounted('show'):
+                for _ in range(100):
+                    call('GET', '/v2/images/' + listed[0], 200, 'show')
+            with accounted('list_tagged'):
+                for _ in range(30):
+                    _, value = call('GET', '/v2/images?limit=25&tag=' + self.tag, 200, 'list_tagged')
+                    require(len(value['images']) == 10, label + ' tagged list size')
+            for _ in range(30):
+                call('GET', '/v2/schemas/image', 200, 'schema')
+            with accounted('metadata_cycle'):  # POST + PATCH + DELETE
+                for _ in range(15):
+                    ident = new_image('create')
+                    call('PATCH', '/v2/images/' + ident, 200, 'patch', body=[{'op': 'replace', 'path': '/name', 'value': 'tt-glance-preflight-audit-p'}],
+                         content_type='application/openstack-images-v2.1-json-patch')
+                    self.pending[(label + '-audit', ident)]['name'] = 'tt-glance-preflight-audit-p'
+                    drop(ident, 'delete')
+            kept = {}
+            for name, _, uploads, gets, _ in AUDIT_SIZES:
+                with accounted('upload_' + name + '_cycle'):  # POST + PUT + DELETE
+                    for _ in range(uploads):
+                        ident = new_image()
+                        call('PUT', '/v2/images/' + ident + '/file', 204, 'upload_' + name, upload=files[name][0], content_type='application/octet-stream')
+                        drop(ident)
+                kept[name] = new_image()
+                call('PUT', '/v2/images/' + kept[name] + '/file', 204, upload=files[name][0], content_type='application/octet-stream')
+                with accounted('download_' + name):
+                    for _ in range(gets):
+                        sample, _ = call('GET', '/v2/images/' + kept[name] + '/file', 200, 'download_' + name, expected_payload=files[name][1])
+                        samples['download_' + name + '_ttfb'].append(sample['ttfb_ns'] / 1e6)
+
+            def fetch_from(path, expected=None, base=url):
+                def fetch(_):
+                    c = Client(base, self.token)
+                    try:
+                        sample, _ = c.request('GET', path, expected_payload=expected)
+                        require(sample['status'] == 200 and sample['error_kind'] is None, label + ' concurrent GET')
+                        return sample['elapsed_ns'] / 1e6
+                    finally:
+                        c.close()
+                return fetch
+            with accounted('show_c16', requests=320):
+                samples['show_c16'], rates['show_c16'] = concurrent(320, fetch_from('/v2/images/' + listed[0]))
+            for name, _, _, _, total in AUDIT_SIZES:
+                op = 'download_' + name + '_c16'
+                with accounted(op, requests=total):
+                    samples[op], rates[op] = concurrent(total, fetch_from('/v2/images/' + kept[name] + '/file', files[name][1]))
+                if op + '_direct' in AUDIT_OPS:  # same load without Apache: separates its share
+                    with accounted(op + '_direct', requests=total):
+                        samples[op + '_direct'], rates[op + '_direct'] = concurrent(
+                            total, fetch_from('/v2/images/' + kept[name] + '/file', files[name][1], base=direct))
+        finally:
+            stop.set()
+            sampler.join(timeout=5)
+            for ident in list(owned):
+                try:
+                    drop(ident)
+                except Exception:
+                    pass  # Session.cleanup removes whatever is still pending
+            client.close()
+        result = {op: {'n': len(v), 'p50': round(percentile(v, .5), 2), 'p95': round(percentile(v, .95), 2)}
+                  for op, v in samples.items() if v}
+        for op, rps in rates.items():
+            result[op]['rps'] = rps
+        result['resources'] = {'unit_kind': 'original' if label == 'python' else 'go', 'idle': idle, 'blocks': blocks,
+                               'pss_samples': len(pss)}
+        return result
 
     # -- joint mode (Placement Go) --------------------------------------------
     def case_placement_go_active(self):
@@ -574,7 +988,7 @@ class Suite(Session):
 
     def execute(self):
         try:
-            for name in required_cases(self.joint):
+            for name in required_cases(self.joint, self.quick, self.audit):
                 self.case(name)
         except Exception as error:
             self.report['execution_error'] = type(error).__name__
@@ -594,7 +1008,7 @@ class Suite(Session):
             self.checkpoint()
         print(json.dumps({'run_id': self.report['run_id'], 'passed': self.report['passed'],
                           'cases_passed': sum(c['passed'] for c in self.report['cases'].values()),
-                          'cases_required': len(required_cases(self.joint)), 'mode': self.report['mode']}), flush=True)
+                          'cases_required': len(required_cases(self.joint, self.quick, self.audit)), 'mode': self.report['mode']}), flush=True)
         return 0 if self.report['passed'] else 1
 
     def keep_diagnostics(self):
@@ -615,6 +1029,8 @@ def run(args):
         raise ValueError('canonical owned private work root required')
     if not args.binary.is_file() or not 10 <= args.wait_seconds <= 300 or not 300 <= args.lease_seconds <= 1800:
         raise ValueError('binary, bounded wait and bounded route lease required')
+    if not 0 <= getattr(args, 'nova_ready_seconds', 240) <= 600:
+        raise ValueError('bounded wait for Nova required')
     if not args.payload_mib or any(size not in (1, 16, 64) for size in args.payload_mib):
         raise ValueError('payload sizes limited to 1, 16 and 64 MiB')
     if getattr(args, 'with_placement_go', False) and not (args.placement_binary and args.placement_binary.is_file()):
@@ -638,6 +1054,12 @@ def main():
                         help='direct round-trip sizes; 1 keeps the run light, 1 16 64 matches the campaign')
     parser.add_argument('--wait-seconds', type=int, default=180)
     parser.add_argument('--lease-seconds', type=int, default=900)
+    parser.add_argument('--nova-ready-seconds', type=int, default=240,
+                        help='wait this long for Nova to be schedulable before any change (0-600)')
+    parser.add_argument('--audit', action='store_true',
+                        help='measure the same operations on official Glance and on Glance Go (public route)')
+    parser.add_argument('--quick-compare', action='store_true',
+                        help='add a quick before/after timing case against Glance Go (not a campaign)')
     parser.add_argument('--with-placement-go', action='store_true',
                         help='also replace Placement: Nova schedules and claims through Placement Go')
     parser.add_argument('--placement-binary', type=Path)

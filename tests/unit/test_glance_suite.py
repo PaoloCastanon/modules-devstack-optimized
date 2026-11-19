@@ -113,8 +113,10 @@ class FlowAcceptanceTests(unittest.TestCase):
 
     def test_apache_fallback_when_keystoneauth_debug_is_off(self):
         go = flow.go_events(GO[1:])
+        # Apache stamps the floored arrival second: the 180 ms download that
+        # completed at T0+4.5 s arrived at T0+4.32 s, logged as T0+4 s.
         apache = [{'ts_us': T0 + 4_000_000, 'method': 'GET', 'route': '/v2/images/{id}', 'status': 200, 'user_agent_class': 'openstack-client'},
-                  {'ts_us': T0 + 5_000_000, 'method': 'GET', 'route': '/v2/images/{id}/file', 'status': 200, 'user_agent_class': 'openstack-client'}]
+                  {'ts_us': T0 + 4_000_000, 'method': 'GET', 'route': '/v2/images/{id}/file', 'status': 200, 'user_agent_class': 'openstack-client'}]
         summary = flow.summarize(flow.correlate(go, [], [], apache), SIZE)
         self.assertEqual((summary['attributed_by_apache'], summary['request_id_correlated']), (2, 0))
         self.assertIsNone(summary['composite_auth_seen'])  # unknown, not False
@@ -129,6 +131,34 @@ class FlowAcceptanceTests(unittest.TestCase):
         timeline = flow.correlate(go, [], [], apache)
         self.assertEqual(timeline[0]['caller'], 'nova')
         self.assertEqual(flow.agent_class('-'), 'unknown')
+
+    def test_floored_seconds_pair_every_response_like_the_real_run(self):
+        # Real run (qc-r1, 2026-11-18): three identical Nova GETs, the first at
+        # S.95 and the others at S+1.95 and S+2.05, logged by Apache as S, S+1
+        # and S+2. "Closest line first" gave the first response the S+1 line,
+        # the second S+2, and left the third unattributed (S is 2.05 s away).
+        base = T0 + 950_000
+        go = flow.go_events([go_line(base, RID_API, 'GET', '/v2/images/{id}', 200, 812, ms=27),
+                             go_line(base + 999_100, RID_META, 'GET', '/v2/images/{id}', 200, 812, ms=20),
+                             go_line(base + 1_101_700, RID_FILE, 'GET', '/v2/images/{id}', 200, 812, ms=3)])
+        line = {'method': 'GET', 'route': '/v2/images/{id}', 'status': 200, 'user_agent_class': 'openstack-client'}
+        apache = [{**line, 'ts_us': T0 + n * 1_000_000} for n in range(3)]
+        timeline = flow.correlate(go, [], [], apache)
+        self.assertEqual([e['caller'] for e in timeline], ['nova', 'nova', 'nova'])
+        self.assertEqual(flow.summarize(timeline, SIZE)['non_nova_glance_requests'], 0)
+
+    def test_apache_line_never_pairs_with_an_earlier_response(self):
+        # A line stamped after the response, or more than ~1 s plus the
+        # request's duration before it, is another request.
+        event = {'ts_us': T0 + 500_000, 'method': 'GET', 'route': '/v2/images/{id}', 'status': 200, 'duration_ms': 4}
+        line = {'method': 'GET', 'route': '/v2/images/{id}', 'status': 200}
+        self.assertTrue(flow.apache_fits(event, {**line, 'ts_us': T0}))
+        self.assertFalse(flow.apache_fits(event, {**line, 'ts_us': T0 + 1_000_000}))
+        self.assertFalse(flow.apache_fits(event, {**line, 'ts_us': T0 - 2_000_000}))
+        self.assertFalse(flow.apache_fits(event, {**line, 'ts_us': T0, 'status': 404}))
+        # A long download legitimately arrived well before it completed.
+        slow = {**event, 'route': '/v2/images/{id}/file', 'ts_us': T0 + 6_000_000, 'duration_ms': 5_000}
+        self.assertTrue(flow.apache_fits(slow, {**line, 'route': '/v2/images/{id}/file', 'ts_us': T0}))
 
     def test_partial_download_or_foreign_traffic_is_not_a_pass(self):
         calls, requests = flow.nova_events(NOVA)
@@ -253,6 +283,133 @@ class SuiteGuardTests(unittest.TestCase):
                                    with_placement_go=True, placement_binary=None)
             with self.assertRaisesRegex(ValueError, 'placement-binary'):
                 suite.run(args)
+
+    def test_quick_compare_is_optional_and_runs_after_direct_bytes(self):
+        quick = suite.required_cases(False, True)
+        self.assertEqual(quick.index('quick_compare'), quick.index('catalog_and_bytes_direct') + 1)
+        self.assertNotIn('quick_compare', suite.required_cases(True))
+        report = {'execution_error': None, 'required_cases': list(quick),
+                  'cases': {n: {'passed': True} for n in suite.CASES},
+                  'cleanup': {**{n: True for n in suite.CLEANUP}, 'pending_images': 0}}
+        self.assertFalse(suite.suite_passed(report))  # quick requested but not passed
+        report['cases']['quick_compare'] = {'passed': True}
+        self.assertTrue(suite.suite_passed(report))
+        self.assertEqual(suite.percentile([5, 1, 3, 2, 4], .5), 3)
+
+    def test_audit_measures_original_before_and_go_after_the_switch(self):
+        cases = suite.required_cases(False, audit=True)
+        self.assertLess(cases.index('audit_original'), cases.index('route_go_public'))
+        self.assertGreater(cases.index('audit_go'), cases.index('route_go_public'))
+        rows = suite.audit_compare({'show': {'p50': 5.0}, 'download_64m': {'p50': 50.0}},
+                                   {'show': {'p50': 2.0}, 'download_64m': {'p50': 60.0}})
+        self.assertEqual((rows['show']['go_slower'], rows['download_64m']['go_slower']), (False, True))
+        self.assertEqual(rows['download_64m']['go_over_original'], 1.2)
+
+    def test_nova_ready_needs_fresh_heartbeats_after_boot(self):
+        boot = 1_795_033_087  # 2026-11-18T20:18:07Z, the VM boot measured above
+        after, before = '2026-11-18T20:19:02.000000', '2026-11-18T18:31:44.000000'
+        assert suite.reported_epoch(after) > boot > suite.reported_epoch(before)
+        up = [{'binary': b, 'status': 'enabled', 'state': 'up', 'updated_at': after} for b in suite.NOVA_BINARIES]
+        self.assertEqual(suite.nova_not_ready(up, boot), [])
+        # Measured right after start: compute still down from the previous boot.
+        down = up[:2] + [{**up[2], 'state': 'down', 'updated_at': before}]
+        self.assertEqual(suite.nova_not_ready(down, boot), ['nova-compute'])
+        # 'up' from a heartbeat before a quick reboot is not ready either.
+        stale = up[:2] + [{**up[2], 'updated_at': before}]
+        self.assertEqual(suite.nova_not_ready(stale, boot), ['nova-compute'])
+        # A second conductor still down blocks; a disabled one does not count.
+        self.assertEqual(suite.nova_not_ready(up + [{**up[0], 'state': 'down'}], boot), ['nova-conductor'])
+        self.assertEqual(suite.nova_not_ready(up + [{**up[0], 'status': 'disabled', 'state': 'down'}], boot), [])
+        self.assertEqual(suite.nova_not_ready(up[:2], boot), ['nova-compute'])
+        self.assertEqual(suite.reported_epoch('2026-11-18T20:19:02Z'), suite.reported_epoch(after))
+
+    def test_wait_schedulable_polls_then_fails_closed_with_the_reason(self):
+        boot = 1_795_033_087  # 2026-11-18T20:18:07Z, the VM boot measured above
+        ok = [{'binary': b, 'status': 'enabled', 'state': 'up', 'updated_at': '2026-11-18T20:19:02'} for b in suite.NOVA_BINARIES]
+        answers = [RuntimeError('503'), ok[:2], ok]
+        now = [0.0]
+        def sleep(seconds):
+            now[0] += seconds
+        def listing():
+            answer = answers.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+        self.assertEqual(suite.wait_schedulable(listing, boot, 60, clock=lambda: now[0], sleep=sleep), 10.0)
+        now[0] = 0.0
+        with self.assertRaisesRegex(AssertionError, 'not ready: nova-compute'):
+            suite.wait_schedulable(lambda: ok[:2], boot, 12, clock=lambda: now[0], sleep=sleep)
+
+    def test_boot_fault_keeps_code_and_first_line_without_ids(self):
+        server = SimpleNamespace(fault={'code': 500, 'message': 'No valid host was found. ' + IMAGE + '\nTraceback secret',
+                                        'details': 'Traceback (most recent call last): password=x'})
+        fault = suite.boot_fault(server)
+        self.assertEqual(fault, {'code': 500, 'message': 'No valid host was found. {id}'})
+        self.assertIsNone(suite.boot_fault(SimpleNamespace(fault=None)))
+
+    def test_nova_ready_wait_is_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            args = SimpleNamespace(allow_mutations=True, binary=Path(__file__), wait_seconds=180, lease_seconds=900,
+                                   payload_mib=[1], output=Path(tmp) / 'out', work_root=Path('/tmp/tt-placement-x'),
+                                   nova_ready_seconds=601)
+            with self.assertRaisesRegex(ValueError, 'bounded wait for Nova'):
+                suite.run(args)
+
+    def test_service_meter_reads_cgroup_cpu_and_pss_once_per_process(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            group = Path(tmp) / 'system.slice/devstack@g-api.service'
+            (group / 'child').mkdir(parents=True)
+            (group / 'cpu.stat').write_text('usage_usec 1075677\nuser_usec 910182\nsystem_usec 165495\n')
+            (group / 'cgroup.procs').write_text('939\n1072\n')
+            (group / 'child/cgroup.procs').write_text('1073\n1072\n')
+            calls = []
+
+            def run(args, **kw):
+                calls.append(args)
+                if args[0] == 'systemctl':
+                    return SimpleNamespace(stdout='/system.slice/devstack@g-api.service\n', returncode=0)
+                pid = int(args[-1].split('/')[2])
+                if pid == 1073:  # exited meanwhile
+                    return SimpleNamespace(stdout='', returncode=1)
+                return SimpleNamespace(stdout='Rss: 9000 kB\nPss:  %d kB\nPss_Anon: 1 kB\n' % (pid // 10), returncode=0)
+            meter = suite.ServiceMeter('devstack@g-api.service', run=run, root=Path(tmp))
+            self.assertEqual(meter.cpu_usec(), 1075677)
+            self.assertEqual(meter.pids(), [939, 1072, 1073])
+            self.assertEqual(meter.pss_kib(), 93 + 107)
+            self.assertEqual(sum(1 for c in calls if c[0] == 'sudo'), 3)
+            with self.assertRaisesRegex(AssertionError, 'cgroup'):
+                suite.ServiceMeter('x', run=lambda *a, **k: SimpleNamespace(stdout='/../etc\n', returncode=0), root=Path(tmp))
+        with self.assertRaises(ValueError):
+            suite.cpu_usage_usec('user_usec 1\n')
+
+    def test_resources_compare_reports_cpu_ratio_and_peak_memory(self):
+        original = {'resources': {'idle': {'pss_mib': 230.0, 'cpu_ms_per_s': 2.0},
+                                  'blocks': {'show': {'cpu_ms_per_req': 4.0, 'pss_max_mib': 233.0},
+                                             'download_64m': {'cpu_ms_per_req': 30.0, 'pss_max_mib': 240.0}}}}
+        go = {'resources': {'idle': {'pss_mib': 15.0, 'cpu_ms_per_s': 0.1},
+                            'blocks': {'show': {'cpu_ms_per_req': 0.5, 'pss_max_mib': 16.0},
+                                       'download_64m': {'cpu_ms_per_req': 45.0, 'pss_max_mib': 20.0},
+                                       'only_go': {'cpu_ms_per_req': 1.0, 'pss_max_mib': 1.0}}}}
+        rows = suite.resources_compare(original, go)
+        self.assertEqual(rows['show']['go_cpu_over_original'], 0.125)
+        self.assertEqual(rows['download_64m']['go_cpu_over_original'], 1.5)  # more CPU is reported, never hidden
+        self.assertNotIn('only_go', rows)
+        self.assertEqual(rows['idle']['go_pss_mib'], 15.0)
+        self.assertEqual(suite.resources_compare({}, go), {})
+
+    def test_backend_url_and_vm_cpu_ticks(self):
+        site = 'SetEnv proxy-sendchunked 1\nProxyPass "/image" "http://127.0.0.1:60999" retry=0 acquire=1 \n'
+        self.assertEqual(suite.backend_url(site), 'http://127.0.0.1:60999')
+        self.assertEqual(suite.backend_url(suite.glance_switch.replacement(19293).decode()), 'http://127.0.0.1:19293')
+        with self.assertRaises(AssertionError):
+            suite.backend_url('ProxyPass "/image" "http://10.0.0.5:60999"\n')
+        busy, total = suite.vm_cpu_ticks('cpu  100 5 50 800 40 3 2 0 9 0\ncpu0 1 2 3 4 5 6 7 8 9 0\n')
+        self.assertEqual((busy, total), (160, 1000))
+
+    def test_audit_covers_what_the_v3_campaign_measured(self):
+        for op in ('download_16m', 'download_16m_ttfb', 'download_1m_c16', 'download_16m_c16', 'download_64m_c16', 'upload_16m'):
+            self.assertIn(op, suite.AUDIT_OPS)
+        self.assertEqual([size[0] for size in suite.AUDIT_SIZES], ['1m', '16m', '64m'])
 
     def test_server_image_id_accepts_sdk_shapes(self):
         self.assertEqual(suite.server_image_id(SimpleNamespace(image={'id': IMAGE})), IMAGE)

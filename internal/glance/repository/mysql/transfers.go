@@ -14,8 +14,10 @@ import (
 var _ repository.Transfers = (*Repository)(nil)
 
 const dataColumns = "image_id, attempt_id, phase, expected_size, size, virtual_size, checksum, os_hash_value, cleanup_target, last_error_code, created_at, updated_at"
-const lockDataImage = "SELECT id, status, deleted, size, virtual_size, checksum, os_hash_algo, os_hash_value, updated_at FROM images WHERE id=? FOR UPDATE"
-const lockDataOperation = "SELECT " + dataColumns + " FROM image_data_operations WHERE image_id=? FOR UPDATE"
+const readDataImage = "SELECT id, status, deleted, size, virtual_size, checksum, os_hash_algo, os_hash_value, updated_at FROM images WHERE id=?"
+const readDataOperation = "SELECT " + dataColumns + " FROM image_data_operations WHERE image_id=?"
+const lockDataImage = readDataImage + " FOR UPDATE"
+const lockDataOperation = readDataOperation + " FOR UPDATE"
 
 func transferIDs(image, attempt string) error {
 	for _, v := range []string{image, attempt} {
@@ -36,16 +38,20 @@ func scanOperation(row scanner) (model.DataOperation, error) {
 	return o, err
 }
 
-func lockedDataState(ctx context.Context, tx *sql.Tx, id string) (model.DataState, error) {
+func (r *Repository) lockedDataState(ctx context.Context, tx *sql.Tx, id string) (model.DataState, error) {
+	return r.queryDataState(ctx, tx, id, lockDataImage, lockDataOperation)
+}
+
+func (r *Repository) queryDataState(ctx context.Context, tx *sql.Tx, id, imageQuery, operationQuery string) (model.DataState, error) {
 	var s model.DataState
-	err := tx.QueryRowContext(ctx, lockDataImage, id).Scan(&s.ImageID, &s.Status, &s.Deleted, &s.Size, &s.VirtualSize, &s.Checksum, &s.HashAlgorithm, &s.HashValue, &s.UpdatedAt)
+	err := r.queryRow(ctx, tx, imageQuery, id).Scan(&s.ImageID, &s.Status, &s.Deleted, &s.Size, &s.VirtualSize, &s.Checksum, &s.HashAlgorithm, &s.HashValue, &s.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return s, repository.ErrNotFound
 	}
 	if err != nil {
 		return s, err
 	}
-	o, err := scanOperation(tx.QueryRowContext(ctx, lockDataOperation, id))
+	o, err := scanOperation(r.queryRow(ctx, tx, operationQuery, id))
 	if err == nil {
 		s.Operation = &o
 	} else if !errors.Is(err, sql.ErrNoRows) {
@@ -64,7 +70,7 @@ func (r *Repository) dataTransaction(ctx context.Context, id string, change func
 		return conflict(err)
 	}
 	defer tx.Rollback()
-	s, err := lockedDataState(ctx, tx, id)
+	s, err := r.lockedDataState(ctx, tx, id)
 	if err != nil {
 		return conflict(err)
 	}
@@ -273,6 +279,61 @@ func (r *Repository) DataState(ctx context.Context, id string) (model.DataState,
 	}
 	err := r.dataTransaction(ctx, id, func(_ context.Context, _ *sql.Tx, s model.DataState) error { result = s; return nil })
 	return result, err
+}
+
+// DataStateSnapshot is a consistent, non-locking read (read-only repeatable
+// read transaction) for GET: it neither waits for nor blocks writers, so
+// concurrent downloads of one image do not serialize on its row lock. Writers
+// and uncertain-commit resolution keep the locking DataState.
+func (r *Repository) DataStateSnapshot(ctx context.Context, id string) (model.DataState, error) {
+	if canonical, err := model.CanonicalID(id); err != nil || canonical != id {
+		return model.DataState{}, model.Fail(model.Invalid, "Canonical image UUID required.")
+	}
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	defer cancel()
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
+	if err != nil {
+		return model.DataState{}, err
+	}
+	defer tx.Rollback()
+	s, err := r.queryDataState(ctx, tx, id, readDataImage, readDataOperation)
+	if err != nil {
+		return model.DataState{}, err
+	}
+	if err = tx.Commit(); err != nil {
+		return model.DataState{}, err
+	}
+	return s, nil
+}
+
+// DownloadView is GET's single read-only transaction: the live image row (as
+// Get, without properties/tags) and its data state, both from one snapshot.
+func (r *Repository) DownloadView(ctx context.Context, id string) (model.Image, model.DataState, error) {
+	if canonical, err := model.CanonicalID(id); err != nil || canonical != id {
+		return model.Image{}, model.DataState{}, model.Fail(model.Invalid, "Canonical image UUID required.")
+	}
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	defer cancel()
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
+	if err != nil {
+		return model.Image{}, model.DataState{}, err
+	}
+	defer tx.Rollback()
+	image, err := scanImage(r.queryRow(ctx, tx, readImageQuery, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.Image{}, model.DataState{}, repository.ErrNotFound
+	}
+	if err != nil {
+		return model.Image{}, model.DataState{}, err
+	}
+	s, err := r.queryDataState(ctx, tx, id, readDataImage, readDataOperation)
+	if err != nil {
+		return model.Image{}, model.DataState{}, err
+	}
+	if err = tx.Commit(); err != nil {
+		return model.Image{}, model.DataState{}, err
+	}
+	return image, s, nil
 }
 
 // Listing is only a bounded candidate inventory. Recovery must re-read DataState
