@@ -221,14 +221,23 @@ func TestCleanupPreservesTombstoneAndAllowsOnlyTerminalDestinations(t *testing.T
 }
 
 func TestTransferSQLFailuresAndUncertainCommits(t *testing.T) {
-	for _, tc := range []string{"begin", "image-read", "operation-read", "image-update", "operation-update", "commit", "zero-CAS", "deadlock"} {
+	t.Run("deadlock is retried", func(t *testing.T) {
+		attempt := func() []sqlStep {
+			return append(transferSteps("saving", false, dataFixture(model.DataPublished)), execute(commitImageSQL), execute(commitOperationSQL), execute("COMMIT"))
+		}
+		first := attempt()
+		first[3].err = &mysqldriver.MySQLError{Number: 1213}
+		steps := append(append(first[:4], execute("ROLLBACK")), attempt()...)
+		if err := New(scriptDB(t, steps), time.Second).CommitData(context.Background(), catalogID, attemptA, dataNow); err != nil {
+			t.Fatal("deadlock victim not re-run", err)
+		}
+	})
+	for _, tc := range []string{"begin", "image-read", "operation-read", "image-update", "operation-update", "commit", "zero-CAS"} {
 		t.Run(tc, func(t *testing.T) {
 			steps := append(transferSteps("saving", false, dataFixture(model.DataPublished)), execute(commitImageSQL), execute(commitOperationSQL), execute("COMMIT"))
-			at := map[string]int{"begin": 0, "image-read": 1, "operation-read": 2, "image-update": 3, "operation-update": 4, "commit": 5, "zero-CAS": 4, "deadlock": 3}[tc]
+			at := map[string]int{"begin": 0, "image-read": 1, "operation-read": 2, "image-update": 3, "operation-update": 4, "commit": 5, "zero-CAS": 4}[tc]
 			if tc == "zero-CAS" {
 				steps[at].affected = 0
-			} else if tc == "deadlock" {
-				steps[at].err = &mysqldriver.MySQLError{Number: 1213}
 			} else {
 				steps[at].err = errors.New("private db failure")
 			}
@@ -243,7 +252,7 @@ func TestTransferSQLFailuresAndUncertainCommits(t *testing.T) {
 			if tc == "commit" && (!errors.Is(err, repository.ErrCommitUncertain) || strings.Contains(err.Error(), "private")) {
 				t.Fatal("unknown commit not classified/sanitized", err)
 			}
-			if (tc == "zero-CAS" || tc == "deadlock") && !errors.Is(err, repository.ErrConflict) {
+			if tc == "zero-CAS" && !errors.Is(err, repository.ErrConflict) {
 				t.Fatal(err)
 			}
 		})
