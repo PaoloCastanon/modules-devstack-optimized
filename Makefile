@@ -153,6 +153,26 @@ PLACEMENT_INTEGRATION_ARGS ?=
 placement-integration:
 	python3 scripts/integration/placement_suite.py $(PLACEMENT_INTEGRATION_ARGS)
 
+# Explicit live lab command (B26), inside the VM with admin openrc and deployed SDKs:
+# Go contract, reversible /image substitution, Nova boot from a Go-only image and
+# Nova→Glance flow capture. Usage: docs/glance/b26-integration-suite.md.
+.PHONY: glance-integration
+GLANCE_INTEGRATION_ARGS ?=
+glance-integration:
+	python3 scripts/integration/glance_suite.py $(GLANCE_INTEGRATION_ARGS)
+
+# Ceph RBD store for Glance Go, on the developer host (Docker, no VM, no sudo):
+# Ceph 1 MON/1 OSD + disposable MySQL, store tests and B25 end-to-end with
+# filesystem and rbd. Not part of check. Usage: docs/glance/ceph-rbd.md.
+.PHONY: glance-build-rbd glance-test-rbd
+GLANCE_RBD_TEST_OUTPUT ?= /tmp/glance-rbd-tests-$(shell date +%Y%m%dT%H%M%S)
+glance-build-rbd:
+	@mkdir -p bin
+	CGO_ENABLED=1 $(GLANCE_GO) build -p 1 -tags rbd -trimpath -buildvcs=false -o bin/glance-rbd ./cmd/glance
+
+glance-test-rbd:
+	bash infra/ceph-micro/run-tests.sh $(GLANCE_RBD_TEST_OUTPUT)
+
 # Explicit live host campaign; VM/SDK/code deployment must already be prepared.
 .PHONY: placement-benchmark
 PLACEMENT_BENCHMARK_ARGS ?=

@@ -1004,3 +1004,64 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - Datos independientes, n=3 mediana/rango; no atribución exclusiva al lenguaje.
 - Resultado reproducible en docs/benchmarks/glance-results.md y evidencia de esta campaña.
 - Campaña conjunta postergada por el usuario; no se ejecutó.
+
+
+### 2026-11-12 — B26: suite automática Glance Go, captura Nova→Glance y proyección RBD
+
+- Nueva suite `scripts/integration/glance_suite.py` (`make glance-integration`).
+  Tiene 10 casos fail-fast: contrato Go, sustitución reversible de `/image`, imagen
+  CirrOS sólo en Go, boot Nova y flujo capturado. La limpieza obligatoria impide
+  un pase parcial. [Uso y límites](../docs/glance/b26-integration-suite.md).
+- Captura `scripts/integration/glance_flow.py`: journald Go (request_id) ↔
+  keystoneauth Nova (request id, presencia de X-Service-Token), con Apache como
+  respaldo; saneada. [Método](../docs/glance/nova-glance-flow.md).
+- Verificado sólo offline: `python3 -m unittest discover -s tests/unit` con 89 OK
+  (13 nuevos), py_compile y `--help`. **Sin corrida en laboratorio**: B26 y el
+  boot Nova desde Glance Go siguen sin evidencia en el repositorio.
+- Proyección de diseño y esfuerzo (≈24 SP) de un store Ceph RBD; no implementado.
+  Hallazgo: `Filesystem.Open` relee y hashea el objeto antes del primer byte, lo
+  que es coherente con el TTFB y la CPU de las descargas de 16/64 MiB en v3.
+  [Proyección](../docs/glance/ceph-rbd-projection.md).
+- Primera corrida real (VM local, 6 GiB): pasan 7/10 casos. Nova falla al crear
+  el servidor (HTTP 500, `MissingAuthPlugin`): keystoneauth necesita el
+  descubrimiento de versiones de `/image/`, y Glance Go no lo tenía (respondía
+  401). Se implementa en Go `GET|HEAD /` (300) y `/versions` (200) públicos,
+  idénticos a la captura original de Sprint 2; los tests Go lo comparan con
+  `evidence/sprint2/glance/versions.response.json`. Se quita también de la suite
+  la exigencia de cero allocations del control de Placement (ahora sólo lectura).
+- Corridas reales posteriores en la VM local (6 GiB):
+  - 403 de Go a nova-api: la credencial validadora de Go estaba en el proyecto de
+    laboratorio, y Go exige que el X-Service-Token de Nova sea de su mismo
+    proyecto. Ahora la suite crea un validador temporal en el proyecto `service`.
+  - Nova llega a ACTIVE desde Go, pero la captura falla por tres razones: la
+    ventana de journalctl es de segundos completos, `/v2/schemas/image` quedaba
+    como unmatched y Apache tiene empates dentro del mismo segundo. Además, la
+    `generation` de Placement sube con cada claim y release (11→12) y rompía el
+    control. Todo corregido, con tests.
+- **Resultado: dos corridas consecutivas sobre `7557397` pasan 10/10 casos con
+  limpieza completa.** Nova queda ACTIVE en 4,8 s y 4,4 s desde una imagen que
+  sólo está en Glance Go. El flujo capturado tiene tres lecturas de metadatos,
+  dos del esquema y una descarga completa de 21 692 416 B.
+  [Evidencia](../evidence/sprint5/glance-b26-suite-20261112/README.md).
+- Verificado también: 94 tests Python unitarios OK, `make glance-test` OK y
+  gofmt/vet OK. No se corrió `make check` completo (race detector) en este host.
+
+
+### 2026-11-18 — Glance Go con Ceph RBD y E2E conjunto con Placement Go
+
+- **Ceph RBD:** el store de Glance Go acepta `GLANCE_GO_STORE_BACKEND=rbd` (build
+  tag `rbd`, go-ceph v0.38.0, sin cambiar `go 1.24.0`). Con `make glance-test-rbd`
+  pasan vet, las 6 pruebas del store contra Ceph Reef real (incluidos 64 MiB y el
+  rechazo del borrado con un clon COW) y la B25 de punta a punta con disco y con
+  RBD. El pool queda vacío al final.
+  [Evidencia](../evidence/sprint5/glance-rbd-20261118/README.md),
+  [uso](../docs/glance/ceph-rbd.md).
+- **E2E conjunto:** `glance_suite.py --with-placement-go`. Dos corridas
+  consecutivas de cada modo sobre `f7ea161`: solo Glance Go 10/10 y Glance Go +
+  Placement Go 14/14, con limpieza completa. Nova publicó su proveedor, programó
+  y reclamó en Placement Go (allocation_candidates 200, PUT allocations 204),
+  arrancó desde la imagen de Glance Go y liberó la allocation al borrar.
+  [Evidencia](../evidence/sprint5/glance-joint-e2e-20261118/README.md).
+- `make check` completo con race detector: OK. 98 tests Python unitarios: OK.
+- Límites: VM local de 6 GiB; prueba funcional, no de rendimiento. Ceph de
+  prueba con `auth none` y memstore. Nova todavía no usa RBD (F3 y F4).
