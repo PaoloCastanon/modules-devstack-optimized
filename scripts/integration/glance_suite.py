@@ -67,9 +67,44 @@ GO_URL = 'http://127.0.0.1:19293'  # fixed by glance_preflight.Session.prepare
 PLACEMENT_URL = 'http://192.168.122.10/placement'
 PLACEMENT_GO_URL = 'http://127.0.0.1:18779'
 MIB = 1024**2
-CASES = ('preflight_and_isolation', 'auth_fail_closed', 'not_found', 'catalog_and_bytes_direct',
-         'route_go_public', 'catalog_and_bytes_public', 'image_for_nova', 'nova_boot_from_go',
-         'nova_glance_flow', 'server_and_image_removed')
+CASES = ('preflight_and_isolation', 'auth_fail_closed', 'not_found', 'notifications_original',
+         'catalog_and_bytes_direct', 'route_go_public', 'catalog_and_bytes_public', 'notifications_go',
+         'image_for_nova', 'nova_boot_from_go', 'nova_glance_flow', 'server_and_image_removed')
+# Fields that legitimately differ between two runs of the same cycle (their
+# format is still compared); every other payload value must be identical.
+NOTIFICATION_VOLATILE = {'id', 'image_id', 'created_at', 'updated_at', 'deleted_at'}
+ISOTIME = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$')
+
+
+def compare_notifications(original, go):
+    """Differences between the notifications of the same cycle (empty = same)."""
+    def shape(m):
+        return (m['event_type'], m['priority'], m['routing_key'], m['publisher_id'],
+                tuple(sorted((m.get('properties') or {}).items())))
+    diffs = []
+    if [shape(m) for m in original] != [shape(m) for m in go]:
+        return ['sequence: original %s, go %s' % ([shape(m)[:2] for m in original], [shape(m)[:2] for m in go])]
+    for n, (a, b) in enumerate(zip(original, go)):
+        pa, pb = a['payload'], b['payload']
+        if type(pa) is not type(pb):
+            diffs.append('%d %s payload type' % (n, a['event_type']))
+            continue
+        if not isinstance(pa, dict):
+            if pa != pb:
+                diffs.append('%d %s message %r != %r' % (n, a['event_type'], pa, pb))
+            continue
+        if set(pa) != set(pb):
+            diffs.append('%d %s keys %s' % (n, a['event_type'], sorted(set(pa) ^ set(pb))))
+            continue
+        for key in sorted(pa):
+            x, y = pa[key], pb[key]
+            if key in NOTIFICATION_VOLATILE:
+                same = (x is None) == (y is None) and (key in ('id', 'image_id') or x is None or (ISOTIME.match(str(x)) and ISOTIME.match(str(y))))
+            else:
+                same = x == y
+            if not same:
+                diffs.append('%d %s %s: %r != %r' % (n, a['event_type'], key, x, y))
+    return diffs
 CLEANUP = ('original_unchanged', 'runtime_removed', 'identity_removed', 'private_root_removed',
            'controls_restored', 'server_removed', 'service_validator_removed')
 # --with-placement-go: Nova also schedules/claims through Placement Go.
@@ -368,7 +403,8 @@ class Suite(Session):
         self.service_validator()
         self.action('glance-runtime', placement_runtime, action='prepare', domain='glance', root=self.runtime,
                     binary=self.args.binary, auth_root=self.auth, mysql_port=13317, listen_port=19293,
-                    public_url=self.args.url, keystone_url='http://192.168.122.10/identity/v3')
+                    public_url=self.args.url, keystone_url='http://192.168.122.10/identity/v3',
+                    notifications='original')
         save_json(self.args.output / 'runtime.json', json.loads((self.runtime / 'public-report.json').read_text()))
         if self.joint:
             providers = json.loads((self.args.output / 'placement-before/report.json').read_text())['providers']
@@ -535,6 +571,78 @@ class Suite(Session):
     def case_catalog_and_bytes_public(self):
         self.cycle('go-public-1m', self.args.url, MIB)
         return {}
+
+    # -- notifications: the same cycle through the public route, before/after --
+    def notification_cycle(self, label):
+        """POST, PATCH, PUT 1 MiB, GET, DELETE through /image while a private
+        exclusive queue listens on the 'glance' exchange (declared as
+        oslo.messaging does). Returns this image's messages, in order."""
+        from kombu import Connection, Exchange, Queue
+        from glance_http import Client, payload
+        conf = subprocess.run(['sudo', '-n', 'cat', '/etc/glance/glance-api.conf'], check=True, capture_output=True, text=True).stdout
+        settings = placement_runtime.glance_notification_settings(conf)
+        require(settings['driver'] == 'messagingv2', 'original Glance sends notifications (messagingv2)')
+        data = self.root / 'notif-1m.bin'
+        if not data.exists():
+            save_json(self.root / 'notif-1m.json', payload(data, MIB, seed=b'glance-notifications'), private=True)
+        expected = json.loads((self.root / 'notif-1m.json').read_text())
+        ident = str(uuid.uuid4())
+        messages = []
+        with Connection(settings['transport_url'].replace('rabbit://', 'amqp://', 1)) as conn:
+            exchange = Exchange('glance', type='topic', durable=False, auto_delete=False)
+            queue = Queue('tt-notif-' + uuid.uuid4().hex[:8], exchange=exchange, routing_key='#', exclusive=True, auto_delete=True, durable=False)
+            queue(conn.default_channel).declare()
+            client = Client(self.args.url, self.token)
+            body = {'id': ident, 'name': 'tt-glance-preflight-notif', 'tags': [self.tag], 'disk_format': 'raw',
+                    'container_format': 'bare', 'visibility': 'private', 'tt_notif': 'v1'}
+            self.pending[(label + '-notif', ident)] = {'url': self.args.url, 'name': body['name']}
+            if label == 'original':
+                self.python_ids.append(ident)
+            try:
+                for method, path, status, kw in (
+                        ('POST', '/v2/images', 201, {'body': body}),
+                        ('PATCH', '/v2/images/' + ident, 200, {'body': [{'op': 'replace', 'path': '/name', 'value': 'tt-glance-preflight-notif-p'}],
+                                                              'content_type': 'application/openstack-images-v2.1-json-patch'}),
+                        ('PUT', '/v2/images/' + ident + '/file', 204, {'upload': data, 'content_type': 'application/octet-stream'}),
+                        ('GET', '/v2/images/' + ident + '/file', 200, {'expected_payload': expected}),
+                        ('DELETE', '/v2/images/' + ident, 204, {})):
+                    sample, _ = client.request(method, path, **kw)
+                    require(sample['status'] == status and sample['error_kind'] is None, label + ' notification cycle ' + method)
+                    if path.endswith(ident) and method == 'PATCH':
+                        self.pending[(label + '-notif', ident)]['name'] = 'tt-glance-preflight-notif-p'
+                self.pending.pop((label + '-notif', ident))
+            finally:
+                client.close()
+            time.sleep(3)  # asynchronous publishers (Go) finish their queue
+            with conn.SimpleQueue(queue) as q:
+                while True:
+                    try:
+                        m = q.get(timeout=2)
+                    except q.Empty:
+                        break
+                    outer = m.payload if isinstance(m.payload, dict) else json.loads(m.body)
+                    inner = json.loads(outer['oslo.message'])
+                    p = inner.get('payload')
+                    if isinstance(p, dict) and ident in (p.get('id'), p.get('image_id')) or isinstance(p, str) and ident in p:
+                        messages.append({'event_type': inner['event_type'], 'priority': inner['priority'],
+                                         'publisher_id': inner['publisher_id'], 'routing_key': m.delivery_info.get('routing_key'),
+                                         'properties': {k: m.properties.get(k) for k in ('content_type', 'content_encoding', 'delivery_mode')},
+                                         'oslo_version': outer.get('oslo.version'), 'payload': p})
+                    m.ack()
+        save_json(self.args.output / ('notifications-' + label + '.json'), messages)
+        return messages
+
+    def case_notifications_original(self):
+        self.notification_runs = {'original': self.notification_cycle('original')}
+        require(len(self.notification_runs['original']) >= 9, 'original Glance notified the whole cycle')
+        return {'events': [m['event_type'] for m in self.notification_runs['original']]}
+
+    def case_notifications_go(self):
+        go = self.notification_cycle('go')
+        diffs = compare_notifications(self.notification_runs['original'], go)
+        save_json(self.args.output / 'notifications-compare.json', {'differences': diffs, 'events': [m['event_type'] for m in go]})
+        require(not diffs, 'Glance Go notifications equal the original: ' + '; '.join(diffs[:3]))
+        return {'events': [m['event_type'] for m in go], 'differences': 0}
 
     def case_image_for_nova(self):
         path = cirros_image(self.args.cirros_image)

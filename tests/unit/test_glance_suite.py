@@ -411,6 +411,62 @@ class SuiteGuardTests(unittest.TestCase):
             self.assertIn(op, suite.AUDIT_OPS)
         self.assertEqual([size[0] for size in suite.AUDIT_SIZES], ['1m', '16m', '64m'])
 
+    def official_cycle(self):
+        fixture = json.loads((Path(__file__).resolve().parents[2] / 'internal/glance/notify/testdata/official-cycle.json').read_text())
+        return [{'event_type': m['message']['event_type'], 'priority': m['message']['priority'],
+                 'publisher_id': m['message']['publisher_id'], 'routing_key': m['routing_key'],
+                 'properties': {k: m['properties'][k] for k in ('content_type', 'content_encoding', 'delivery_mode')},
+                 'payload': m['message']['payload']} for m in fixture['messages']]
+
+    def test_notifications_compare_values_but_not_ids_or_times(self):
+        import copy
+        original = self.official_cycle()
+        go = copy.deepcopy(original)
+        for m in go:  # another image of the same cycle, a few seconds later
+            for key in ('id', 'image_id'):
+                if key in m['payload']:
+                    m['payload'][key] = IMAGE
+            for key in ('created_at', 'updated_at', 'deleted_at'):
+                if m['payload'].get(key):
+                    m['payload'][key] = '2026-11-19T19:00:00Z'
+        self.assertEqual(suite.compare_notifications(original, go), [])
+        cases = {
+            'missing event': lambda g: g.pop(4),
+            'priority': lambda g: g[7].update(priority='ERROR'),
+            'routing': lambda g: g[0].update(routing_key='notifications.error'),
+            'publisher': lambda g: g[0].update(publisher_id='image.go'),
+            'delivery': lambda g: g[0]['properties'].update(delivery_mode=1),
+            'extra key': lambda g: g[1]['payload'].update(os_hidden=False),
+            'value': lambda g: g[4]['payload'].update(size=1),
+            'time format': lambda g: g[0]['payload'].update(created_at='2026-11-19 19:00:00'),
+            'null vs value': lambda g: g[0]['payload'].update(checksum='x'),
+        }
+        for name, change in cases.items():
+            broken = copy.deepcopy(go)
+            change(broken)
+            self.assertTrue(suite.compare_notifications(original, broken), name)
+
+    def test_original_notification_settings_are_read_like_oslo_config(self):
+        runtime = load('placement_runtime')
+        conf = ('[DEFAULT]\ntransport_url = rabbit://stackrabbit:s3cret@192.168.122.10:5672/\n'
+                '[oslo_messaging_notifications]\ndriver = messagingv2\n')
+        got = runtime.glance_notification_settings(conf)
+        self.assertEqual(got, {'driver': 'messagingv2', 'transport_url': 'rabbit://stackrabbit:s3cret@192.168.122.10:5672/',
+                               'topics': ['notifications'], 'publisher_id': 'image.localhost', 'disabled': []})
+        own = conf + 'transport_url = rabbit://n:p@10.0.0.9:5672/\ntopics = notifications, audit\n'
+        own = own.replace('[DEFAULT]\n', '[DEFAULT]\ndisabled_notifications = image.send\ndefault_publisher_id = image.h1\n')
+        got = runtime.glance_notification_settings(own)
+        self.assertEqual((got['transport_url'], got['topics'], got['disabled'], got['publisher_id']),
+                         ('rabbit://n:p@10.0.0.9:5672/', ['notifications', 'audit'], ['image.send'], 'image.h1'))
+        self.assertEqual(runtime.glance_notification_settings('[DEFAULT]\nverbose = true\n')['driver'], 'noop')
+        with self.assertRaises(ValueError):
+            runtime.glance_notification_settings('[oslo_messaging_notifications]\ndriver = messagingv2\n')
+
+    def test_notification_cases_wrap_the_route_switch(self):
+        cases = suite.required_cases(False)
+        self.assertLess(cases.index('notifications_original'), cases.index('route_go_public'))
+        self.assertGreater(cases.index('notifications_go'), cases.index('catalog_and_bytes_public'))
+
     def test_server_image_id_accepts_sdk_shapes(self):
         self.assertEqual(suite.server_image_id(SimpleNamespace(image={'id': IMAGE})), IMAGE)
         self.assertEqual(suite.server_image_id(SimpleNamespace(image=SimpleNamespace(id=IMAGE))), IMAGE)
