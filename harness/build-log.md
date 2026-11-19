@@ -1150,3 +1150,22 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   `make check` OK y `glance-test-rbd` 9/9. Una carga lenta en la comparación
   rápida resultó ser ruido (se alternaron los binarios: 244 frente a 228–244 ms).
   [Evidencia](../evidence/sprint5/glance-resources-20261118/README.md).
+- 2026-11-19, notificaciones en Glance Go y corrección de un deadlock.
+  - **Deadlock:** la campaña en el PC de Juan se detuvo en
+    `upload-1m-c16-r01-go` con un 409. Con 16 cargas simultáneas de imágenes
+    distintas, los gap locks de InnoDB producían deadlocks (1213) que el
+    repositorio informaba como conflicto. Ahora las transacciones de escritura
+    se reintentan (hasta 20 veces, con backoff), como el oficial
+    (`wrap_db_retry(retry_on_deadlock=True)`). Hay una prueba nueva con MySQL
+    real (`sql-contention`, 32 imágenes en paralelo) que antes fallaba.
+  - **Notificaciones:** Glance Go envía las mismas que el oficial (oslo.messaging
+    v2 sobre RabbitMQ): create, update, prepare, upload, activate, send, delete
+    y el ERROR de carga. Las pruebas Go comparan el contenido con 9 mensajes
+    reales capturados. En la VM, la suite compara el mismo ciclo del oficial y
+    de Go: 0 diferencias.
+  - **Auditoría justa:** con los dos enviando notificaciones, Go no es más lento
+    en ninguna de las 22 operaciones.
+
+  Verificación: B26 en Glance Go 12/12 y en el modo conjunto 16/16, `make check`
+  OK y `glance-test-rbd` 10/10.
+  [Evidencia](../evidence/sprint5/glance-notifications-20261119/README.md).

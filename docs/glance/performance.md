@@ -142,3 +142,19 @@ mitad de las CPU con mínimo 2; en RBD no hay cola.
 - Go ocupa 13–17 MiB de PSS, frente a 233–325 MiB del oficial.
 
 [Evidencia](../../evidence/sprint5/glance-resources-20261118/README.md).
+
+## Auditoría justa: los dos envían notificaciones (2026-11-19)
+
+En la auditoría anterior el oficial enviaba notificaciones a RabbitMQ y Glance
+Go no. Ahora Go envía las mismas ([notificaciones](notifications.md)), así que
+los dos hacen el mismo trabajo. Resultado en dos corridas: **Go no es más lento
+en ninguna de las 22 operaciones**. Crear queda en 0,02 del tiempo del oficial,
+la carga de 64 MiB en 0,33 y 64 MiB con 16 clientes da 25,1 frente a 15,3
+req/s. La CPU y la memoria no cambian. Go publica fuera de la solicitud (cola
+acotada), por eso los avisos no le suman latencia.
+[Evidencia](../../evidence/sprint5/glance-notifications-20261119/README.md).
+
+En la misma rama se corrigió un error real que encontró la campaña en el PC de
+Juan: con 16 cargas simultáneas, un deadlock de InnoDB entre imágenes distintas
+llegaba al cliente como 409. Ahora las transacciones abortadas por deadlock se
+reintentan, como hace el oficial con oslo.db (`retry_on_deadlock`).
