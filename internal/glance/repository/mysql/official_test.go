@@ -37,6 +37,13 @@ func TestOfficialCatalogQualifiesTablesAndSkipsDeletedChildren(t *testing.T) {
 			t.Fatalf("%q\n-> %q\nwant %q", q, got, want)
 		}
 	}
+	// The one-round-trip image read also skips deleted children.
+	full := r.sql(fullImageQuery)
+	for _, want := range []string{"FROM `glance`.images i WHERE i.id=?", "FROM `glance`.image_properties WHERE deleted=0 AND image_id=i.id", "FROM `glance`.image_tags WHERE deleted=0 AND image_id=i.id"} {
+		if !strings.Contains(full, want) {
+			t.Fatalf("%q missing in %q", want, full)
+		}
+	}
 	// Transfer bookkeeping stays in the paired shared database.
 	if got := r.sql(readDataOperation); got != readDataOperation {
 		t.Fatalf("data operations must not move: %q", got)

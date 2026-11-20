@@ -165,3 +165,42 @@ func (r *Repository) destroyChildren(ctx context.Context, tx *sql.Tx, id string,
 	}
 	return nil
 }
+
+// AdoptOriginalUploads records, once at startup, the committed operation of
+// every active original upload that has none yet, so downloads no longer
+// look up its location on each request. Each image is adopted in its own
+// locking transaction with the same checks as on demand.
+func (r *Repository) AdoptOriginalUploads(ctx context.Context) (int, error) {
+	if r.official == nil {
+		return 0, nil
+	}
+	rows, err := r.db.QueryContext(ctx, r.sql("SELECT i.id FROM images i WHERE i.deleted=FALSE AND i.status='active' AND i.os_hash_algo='sha512'")+
+		" AND NOT EXISTS (SELECT 1 FROM image_data_operations o WHERE o.image_id=i.id)")
+	if err != nil {
+		return 0, err
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			_ = rows.Close()
+			return 0, err
+		}
+		ids = append(ids, id)
+	}
+	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+		return 0, err
+	}
+	adopted := 0
+	for _, id := range ids {
+		var s model.DataState
+		err := r.dataTransaction(ctx, id, func(_ context.Context, _ *sql.Tx, state model.DataState) error { s = state; return nil })
+		if err != nil {
+			return adopted, err
+		}
+		if s.Operation != nil && s.Operation.AttemptID == OfficialAttempt(id) {
+			adopted++
+		}
+	}
+	return adopted, nil
+}

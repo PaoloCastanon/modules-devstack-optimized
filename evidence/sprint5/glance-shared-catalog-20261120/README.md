@@ -36,3 +36,21 @@ Escribe cada imagen directo como `<id>`, sin staging ni fsync, y borra el archiv
 
 - E2E compartido con Nova: **10/10 rondas** ([e2e-10-rounds-original-config.jsonl](e2e-10-rounds-original-config.jsonl)).
 - B26 en modo propio: **5/5 corridas**, 12/12 casos ([b26-own-mode-5-runs-original-config.jsonl](b26-own-mode-5-runs-original-config.jsonl)). La sexta se detuvo a pedido y el laboratorio quedó restaurado.
+
+## Optimizaciones de la auditoría (binario `54fcb48f…`)
+
+1. **Ver y listar:** imagen, propiedades y tags en una sola consulta, con `JSON_OBJECTAGG`/`JSON_ARRAYAGG` por fila, como el `joinedload` del original. Antes eran 3 consultas.
+2. **Descargar:** la fila de la imagen se lee una sola vez por descarga; antes se leía dos veces.
+3. **Adopción:** las subidas del original se adoptan una vez al arrancar (`adopted_uploads`), y no en cada descarga.
+
+Medición directa a Glance Go (`127.0.0.1:19292`), con un pedido a la vez: 300 pedidos por caso (100 en la descarga de 21 MiB), tras 30 de calentamiento. Es la mediana de 3 ejecuciones, en ms ([antes](optimization-before.jsonl), [después](optimization-after.jsonl)):
+
+| Caso | Antes | Después | Ahorro |
+|---|---:|---:|---:|
+| Ver imagen (con 1 propiedad y 2 tags) | 1,391 | 1,290 | −0,10 ms (7 %) |
+| Listar (3 imágenes) | 2,217 | 1,654 | −0,56 ms (25 %) |
+| Descargar 1 MiB | 1,707 | 1,519 | −0,19 ms (11 %) |
+| Ver una imagen subida por el original | 1,477 | 1,340 | −0,14 ms (9 %) |
+| Descargar CirrOS, subida por el original (21 MiB) | 12,752 | 12,209 | −0,54 ms (4 %) |
+
+E2E compartido con Nova después de las optimizaciones: **5/5 rondas** ([e2e-5-rounds-optimized.jsonl](e2e-5-rounds-optimized.jsonl)).

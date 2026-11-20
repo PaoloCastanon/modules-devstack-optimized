@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -16,7 +17,44 @@ import (
 
 const imageColumns = "id, owner, name, status, visibility, disk_format, container_format, min_disk, min_ram, protected, os_hidden, size, virtual_size, checksum, os_hash_algo, os_hash_value, created_at, updated_at"
 
+// imageAlias is imageColumns qualified with the alias i.
+const imageAlias = "i.id, i.owner, i.name, i.status, i.visibility, i.disk_format, i.container_format, i.min_disk, i.min_ram, i.protected, i.os_hidden, i.size, i.virtual_size, i.checksum, i.os_hash_algo, i.os_hash_value, i.created_at, i.updated_at"
+
 type scanner interface{ Scan(...any) error }
+
+// childColumns load properties and tags in the image's own row (one round
+// trip, as the original's joinedload), aggregated as JSON per image.
+const childColumns = ", (SELECT JSON_OBJECTAGG(name, value) FROM image_properties WHERE image_id=i.id), (SELECT JSON_ARRAYAGG(value) FROM image_tags WHERE image_id=i.id)"
+
+// scanImageWithChildren scans imageColumns plus childColumns.
+func scanImageWithChildren(row scanner) (model.Image, error) {
+	i := model.Image{Tags: []string{}, Properties: map[string]string{}}
+	var props, tags sql.NullString
+	err := row.Scan(&i.ID, &i.Owner, &i.Name, &i.Status, &i.Visibility, &i.DiskFormat, &i.ContainerFormat, &i.MinDisk, &i.MinRAM, &i.Protected, &i.Hidden, &i.Size, &i.VirtualSize, &i.Checksum, &i.HashAlgorithm, &i.HashValue, &i.CreatedAt, &i.UpdatedAt, &props, &tags)
+	if err != nil {
+		return i, err
+	}
+	if props.Valid {
+		values := map[string]*string{}
+		if json.Unmarshal([]byte(props.String), &values) != nil {
+			return i, errors.New("unreadable image properties")
+		}
+		for k, v := range values {
+			if v != nil {
+				i.Properties[k] = *v
+			} else {
+				i.Properties[k] = ""
+			}
+		}
+	}
+	if tags.Valid {
+		if json.Unmarshal([]byte(tags.String), &i.Tags) != nil {
+			return i, errors.New("unreadable image tags")
+		}
+		sort.Strings(i.Tags) // same order as the former ORDER BY value
+	}
+	return i, nil
+}
 
 func scanImage(row scanner) (model.Image, error) {
 	i := model.Image{Tags: []string{}, Properties: map[string]string{}}
@@ -26,28 +64,22 @@ func scanImage(row scanner) (model.Image, error) {
 
 const (
 	readImageQuery     = "SELECT " + imageColumns + " FROM images WHERE id=? AND deleted=FALSE"
-	lockImageQuery     = readImageQuery + " FOR UPDATE"
+	fullImageQuery     = "SELECT " + imageAlias + childColumns + " FROM images i WHERE i.id=? AND i.deleted=FALSE"
+	lockImageQuery     = fullImageQuery + " FOR UPDATE"
 	oneImagePropsQuery = "SELECT image_id, name, value FROM image_properties WHERE image_id IN (?) ORDER BY image_id, name"
 	oneImageTagsQuery  = "SELECT image_id, value FROM image_tags WHERE image_id IN (?) ORDER BY image_id, value"
 )
 
 func (r *Repository) readImage(ctx context.Context, tx *sql.Tx, id string, lock bool) (model.Image, error) {
-	query := readImageQuery
+	query := fullImageQuery
 	if lock {
 		query = lockImageQuery
 	}
-	i, err := scanImage(r.queryRow(ctx, tx, query, id))
+	i, err := scanImageWithChildren(r.queryRow(ctx, tx, query, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return i, repository.ErrNotFound
 	}
-	if err != nil {
-		return i, err
-	}
-	images := []model.Image{i}
-	if err = r.readChildren(ctx, tx, images); err != nil {
-		return i, err
-	}
-	return images[0], nil
+	return i, err
 }
 
 // All cursors are closed before issuing another statement on the pinned tx.
@@ -368,7 +400,7 @@ func listQuery(o model.ListOptions, marker *model.Image) (string, []any) {
 	for n := range columns {
 		columns[n] = "i." + columns[n]
 	}
-	return "SELECT " + strings.Join(columns, ", ") + " FROM images i WHERE " + strings.Join(where, " AND ") + " ORDER BY " + strings.Join(order, ", ") + " LIMIT ?", args
+	return "SELECT " + strings.Join(columns, ", ") + childColumns + " FROM images i WHERE " + strings.Join(where, " AND ") + " ORDER BY " + strings.Join(order, ", ") + " LIMIT ?", args
 }
 
 func (r *Repository) List(ctx context.Context, o model.ListOptions) ([]model.Image, error) {
@@ -404,7 +436,7 @@ func (r *Repository) List(ctx context.Context, o model.ListOptions) ([]model.Ima
 	}
 	images := []model.Image{}
 	for rows.Next() {
-		image, e := scanImage(rows)
+		image, e := scanImageWithChildren(rows)
 		if e != nil {
 			err = e
 			break
@@ -421,9 +453,6 @@ func (r *Repository) List(ctx context.Context, o model.ListOptions) ([]model.Ima
 	}
 	if closeErr != nil {
 		return nil, closeErr
-	}
-	if err = r.readChildren(ctx, tx, images); err != nil {
-		return nil, err
 	}
 	if err = tx.Commit(); err != nil {
 		return nil, err

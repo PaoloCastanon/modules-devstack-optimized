@@ -10,7 +10,7 @@ import (
 // bound server-side (InterpolateParams=false); reusing the prepared statement
 // saves the PREPARE round trip on every call.
 var hotStatements = []string{
-	readImageQuery, lockImageQuery, oneImagePropsQuery, oneImageTagsQuery,
+	readImageQuery, fullImageQuery, lockImageQuery,
 	readDataImage, readDataOperation, lockDataImage, lockDataOperation,
 }
 

@@ -119,7 +119,11 @@ func run(args []string, logger *slog.Logger) (result error) {
 		if err = r.VerifyOfficialCatalog(startup); err != nil {
 			return err
 		}
-		logger.Info("serving the official catalog", "database", c.OfficialCatalog, "store", c.Binary.OfficialStoreDir)
+		adopted, err := r.AdoptOriginalUploads(startup)
+		if err != nil {
+			return errors.New("cannot adopt the original's uploads")
+		}
+		logger.Info("serving the official catalog", "database", c.OfficialCatalog, "store", c.Binary.OfficialStoreDir, "adopted_uploads", adopted)
 	}
 	if err = r.PrepareStatements(startup); err != nil {
 		// Correctness does not depend on it: every query still runs unprepared.

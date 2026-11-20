@@ -1213,3 +1213,18 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   - **Modo propio:** conserva sus protecciones.
   - **Verificación:** E2E 10/10 con Nova, B26 5/5 y `make check` OK.
     [Evidencia](../evidence/sprint5/glance-shared-catalog-20261120/README.md).
+- 2026-11-20, optimizaciones del catálogo, de la auditoría:
+  - imagen, propiedades y tags en una sola consulta, como `joinedload`;
+  - una sola lectura de la imagen por descarga;
+  - adopción de las subidas del original al arrancar.
+
+  Medido directo contra Glance Go (mediana de 3 ejecuciones):
+
+  | Operación | Antes (ms) | Después (ms) | Mejora |
+  |---|---:|---:|---:|
+  | Listar | 2,22 | 1,65 | −25 % |
+  | Descargar 1 MiB | 1,71 | 1,52 | −11 % |
+  | Ver una imagen | 1,39 | 1,29 | −7 % |
+
+  E2E 5/5 con Nova y pruebas con race OK.
+  [Evidencia](../evidence/sprint5/glance-shared-catalog-20261120/README.md).

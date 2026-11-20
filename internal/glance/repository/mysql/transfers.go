@@ -351,8 +351,16 @@ func (r *Repository) DownloadView(ctx context.Context, id string) (model.Image, 
 	if err != nil {
 		return model.Image{}, model.DataState{}, err
 	}
-	s, err := r.queryDataState(ctx, tx, id, readDataImage, readDataOperation)
-	if err != nil {
+	// The image row just read already holds the data columns (and is live:
+	// deleted=FALSE): read only the operation, not the same row again.
+	s := model.DataState{ImageID: image.ID, Status: image.Status, Size: image.Size, VirtualSize: image.VirtualSize,
+		Checksum: image.Checksum, HashAlgorithm: image.HashAlgorithm, HashValue: image.HashValue, UpdatedAt: image.UpdatedAt}
+	o, err := scanOperation(r.queryRow(ctx, tx, readDataOperation, id))
+	if err == nil {
+		s.Operation = &o
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return model.Image{}, model.DataState{}, err
+	} else if s.Operation, err = r.adoptable(ctx, tx, s); err != nil {
 		return model.Image{}, model.DataState{}, err
 	}
 	if err = tx.Commit(); err != nil {
