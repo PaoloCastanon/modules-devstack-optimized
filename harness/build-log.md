@@ -1187,3 +1187,20 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   encontró el deadlock corregido en `525608f`.
   [Evidencia](../evidence/sprint5/benchmarks/glance-compact-v4-pcjuan-20261119/README.md)
   y [resultados](../docs/benchmarks/glance-results-v4-pc-juan-20261119.md).
+- 2026-11-20, Glance Go sobre el catálogo y el store del Glance original
+  (`GLANCE_GO_CATALOG=official`, `glance_replace.py install`), pedido por Juan.
+  - **Implementación:** Glance Go lee y escribe las tablas `images`,
+    `image_properties`, `image_tags` e `image_locations` de la base `glance`,
+    con la forma de los modelos SQLAlchemy, y publica los archivos como
+    `<id>` en `filesystem_store_datadir`. Su contabilidad de cargas queda en
+    `glance_go_shared`, y las imágenes subidas por el original se adoptan
+    como cargas confirmadas.
+  - **Seguridad:** la cuenta de servicio solo tiene DML sobre `glance`, y la
+    revisión alembic se verifica al arrancar.
+  - **Otros cambios:** `go_settings` de las campañas ahora sale del binario
+    en ejecución, con la línea `effective settings`.
+  - **Verificación:** E2E compartido 10/10 con Nova, B26 en modo propio
+    10/10, la prueba de reinicio y `make check` OK.
+    [Evidencia](../evidence/sprint5/glance-shared-catalog-20261120/README.md).
+  - **Nota:** esto revisa la ADR de bases separadas para el reemplazo
+    permanente. El modo propio sigue por defecto para la suite y las campañas.

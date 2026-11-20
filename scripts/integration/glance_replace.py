@@ -211,6 +211,9 @@ def ensure_service_user(root):
     user = found[0] if found else admin.users.create(SERVICE_USER, domain=domain, password=password, default_project=project[0].id)
     if found:
         admin.users.update(user, password=password)
+        # Keystone revokes by whole second: a token issued in the same second
+        # as the password change is rejected.
+        time.sleep(1.5)
     role = [r for r in admin.roles.list() if r.name == 'service'][0]
     admin.roles.grant(role.id, user=user.id, project=project[0].id)
     own = client.Client(session=session.Session(auth=v3.Password(auth_url=KEYSTONE_URL, user_id=user.id, password=password,
@@ -279,7 +282,7 @@ def adopt_own_catalog():
         return []
     original_port = backend_port(original_site())
     command(['sudo', 'systemctl', 'start', ORIGINAL_UNIT])
-    command(['sudo', 'systemctl', 'start', UNIT])
+    command(['sudo', 'systemctl', 'restart', UNIT])  # it must use the renewed validator credential
     wait_up('http://127.0.0.1:' + str(original_port))
     wait_up('http://127.0.0.1:' + str(LISTEN_PORT))
     return copy_images('http://127.0.0.1:' + str(LISTEN_PORT), 'http://127.0.0.1:' + str(original_port), keep_owner=True)
