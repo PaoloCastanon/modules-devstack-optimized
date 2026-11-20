@@ -342,3 +342,41 @@ func TestKeystoneRefreshFailureTimeoutRecovery(t *testing.T) {
 		})
 	}
 }
+
+func TestServiceAuthBodyPasswordAndApplicationCredential(t *testing.T) {
+	if _, ok := serviceAuthBody(config.ServiceCredential{}); ok {
+		t.Fatal("empty credential accepted")
+	}
+	b, ok := serviceAuthBody(config.ServiceCredential{ID: "i", Secret: "s"})
+	if !ok || b["auth"].(map[string]any)["identity"].(map[string]any)["methods"].([]string)[0] != "application_credential" {
+		t.Fatal("application credential body", b)
+	}
+	b, ok = serviceAuthBody(config.ServiceCredential{Username: "glance", Password: "p", ProjectName: "service", UserDomainName: "Default", ProjectDomainName: "Default"})
+	auth := b["auth"].(map[string]any)
+	if !ok || auth["identity"].(map[string]any)["methods"].([]string)[0] != "password" ||
+		auth["scope"].(map[string]any)["project"].(map[string]any)["name"] != "service" {
+		t.Fatal("password body", b)
+	}
+}
+
+// The original's own service user (password credential) keeps DevStack's
+// roles, admin included, as keystonemiddleware accepts it; "service" is still
+// required.
+func TestOriginalServiceUserMayCarryAdmin(t *testing.T) {
+	original := config.ServiceCredential{Username: "glance", Password: "p", ProjectName: "service", UserDomainName: "Default", ProjectDomainName: "Default"}
+	for _, tc := range []struct {
+		roles  []string
+		usable bool
+	}{{[]string{"service", "admin"}, true}, {[]string{"admin"}, false}} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Subject-Token", "service-token")
+			w.WriteHeader(201)
+			_ = json.NewEncoder(w).Encode(tokenBody(time.Now().Add(time.Hour), "s", tc.roles...))
+		}))
+		_, err := NewKeystone(server.URL+"/v3", server.Client(), original).fetchServiceToken(context.Background())
+		server.Close()
+		if (err == nil) != tc.usable {
+			t.Fatalf("roles %v: %v", tc.roles, err)
+		}
+	}
+}

@@ -295,7 +295,8 @@ class GlanceCampaignTests(unittest.TestCase):
                                    remote_code=Path('/home/stack/code'), remote_work=Path('/home/stack/w'),
                                    remote_output=Path('/home/stack/o'), private_root=Path(tmp), domain='glance',
                                    notification_policy='noop', go_notification_policy='original')
-            placement_campaign.Remote(args)
+            remote = placement_campaign.Remote(args)
+            remote.stderr.close()  # Popen is mocked; close the private log it opened
             command = popen.call_args[0][0][-1]
             self.assertIn('--notification-policy noop', command)
             self.assertIn('--go-notifications original', command)
@@ -309,3 +310,19 @@ class GlanceCampaignTests(unittest.TestCase):
         validate_fd_stability({'open_fds_start':40,'open_fds_end':44,'open_fds_peak':64},256)
         with self.assertRaises(ValueError):validate_fd_stability({},256)
         with self.assertRaises(ValueError):validate_fd_stability({'open_fds_start':40,'open_fds_end':1540,'open_fds_peak':1540},256)
+
+
+class EffectiveGoSettingsTests(unittest.TestCase):
+    def test_reads_last_effective_settings_line_from_the_journal(self):
+        from glance_lab import effective_go_settings
+        journal = "\n".join([
+            'not json',
+            '{"time":"t","level":"INFO","msg":"effective settings","sql_pool_open":4}',
+            '{"time":"t","level":"INFO","msg":"image API listening"}',
+            '{"time":"t","level":"INFO","msg":"effective settings","sql_pool_open":55,"sql_pool_idle":16,"token_cache_s":300}'])
+        self.assertEqual(effective_go_settings(journal), {'sql_pool_open': 55, 'sql_pool_idle': 16, 'token_cache_s': 300})
+
+    def test_missing_settings_line_fails_closed(self):
+        from glance_lab import effective_go_settings
+        with self.assertRaises(Exception):
+            effective_go_settings('{"msg":"image API listening"}')

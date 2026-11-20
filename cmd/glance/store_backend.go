@@ -11,6 +11,9 @@ func openStore(b config.Binary, scope string) (store.Backend, error) {
 	if b.Backend == "rbd" {
 		return openRBD(b, scope)
 	}
+	if b.OfficialStoreDir != "" {
+		return store.NewSharedFilesystem(b.Root, scope, b.OfficialStoreDir)
+	}
 	return store.NewFilesystem(b.Root, scope)
 }
 

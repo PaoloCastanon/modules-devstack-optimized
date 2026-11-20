@@ -52,6 +52,32 @@ class GlanceReplaceTests(unittest.TestCase):
                                 'owner_specified.openstack.md5': ''})
         self.assertEqual(skipped, ['odd'])
 
+    def test_official_catalog_settings(self):
+        conf = '[glance_store]\nfilesystem_store_datadir = /opt/stack/data/glance/images/\n'
+        self.assertEqual(replace.official_store_dir(conf), '/opt/stack/data/glance/images')
+        with self.assertRaises(ValueError):
+            replace.official_store_dir('[glance_store]\n')
+        with self.assertRaises(ValueError):
+            replace.official_store_dir('filesystem_store_datadir = images/\n')
+        root = Path('/opt/stack/data/glance-go')
+        env = replace.serve_env(root, 's', {'driver': 'noop'}, '/opt/stack/data/glance/images')
+        for line in ('GLANCE_GO_CATALOG=official', 'GLANCE_GO_OFFICIAL_STORE_DIR=/opt/stack/data/glance/images',
+                     'GLANCE_GO_DATABASE_DSN_FILE=/opt/stack/data/glance-go/shared-app.dsn',
+                     'GLANCE_GO_STORE_ROOT=/opt/stack/data/glance-go/shared-store'):
+            self.assertIn(line + '\n', env)
+
+    def test_original_config_env_has_only_what_glance_api_conf_does_not_say(self):
+        env = replace.serve_env_original(Path('/opt/stack/data/glance-go'), 'scope-uuid')
+        self.assertIn('GLANCE_GO_CONFIG_FILE=/etc/glance/glance-api.conf\n', env)
+        self.assertIn('GLANCE_GO_LISTEN_ADDR=127.0.0.1:19292\n', env)
+        for absent in ('DSN', 'KEYSTONE', 'NOTIFICATION', 'TRANSPORT', 'OFFICIAL'):
+            self.assertNotIn(absent, env)
+
+    def test_copy_to_the_original_keeps_the_owner_only_when_asked(self):
+        meta = {'id': 'i', 'name': 'n', 'owner': 'p', 'disk_format': 'raw', 'container_format': 'bare'}
+        self.assertNotIn('owner', replace.copied_image(meta)[0])
+        self.assertEqual(replace.copied_image(meta, keep_owner=True)[0]['owner'], 'p')
+
 
 if __name__ == '__main__':
     unittest.main()

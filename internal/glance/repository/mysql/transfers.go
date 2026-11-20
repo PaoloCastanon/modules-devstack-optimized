@@ -39,25 +39,41 @@ func scanOperation(row scanner) (model.DataOperation, error) {
 }
 
 func (r *Repository) lockedDataState(ctx context.Context, tx *sql.Tx, id string) (model.DataState, error) {
-	return r.queryDataState(ctx, tx, id, lockDataImage, lockDataOperation)
+	s, adopted, err := r.readDataState(ctx, tx, id, lockDataImage, lockDataOperation)
+	if err == nil && adopted {
+		// Writers act on a real row: record the adopted original upload.
+		err = r.materialize(ctx, tx, s.Operation)
+	}
+	return s, err
 }
 
 func (r *Repository) queryDataState(ctx context.Context, tx *sql.Tx, id, imageQuery, operationQuery string) (model.DataState, error) {
+	s, _, err := r.readDataState(ctx, tx, id, imageQuery, operationQuery)
+	return s, err
+}
+
+// readDataState also reports whether the operation was adopted (no row).
+func (r *Repository) readDataState(ctx context.Context, tx *sql.Tx, id, imageQuery, operationQuery string) (model.DataState, bool, error) {
 	var s model.DataState
 	err := r.queryRow(ctx, tx, imageQuery, id).Scan(&s.ImageID, &s.Status, &s.Deleted, &s.Size, &s.VirtualSize, &s.Checksum, &s.HashAlgorithm, &s.HashValue, &s.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
-		return s, repository.ErrNotFound
+		return s, false, repository.ErrNotFound
 	}
 	if err != nil {
-		return s, err
+		return s, false, err
 	}
 	o, err := scanOperation(r.queryRow(ctx, tx, operationQuery, id))
 	if err == nil {
 		s.Operation = &o
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return s, err
+		return s, false, nil
 	}
-	return s, nil
+	if !errors.Is(err, sql.ErrNoRows) {
+		return s, false, err
+	}
+	if s.Operation, err = r.adoptable(ctx, tx, s); err != nil {
+		return s, false, err
+	}
+	return s, s.Operation != nil, nil
 }
 
 // Always lock parent first, as PATCH/DELETE do. No caller callback or filesystem
@@ -142,18 +158,18 @@ func (r *Repository) ReserveData(ctx context.Context, id, attempt string, expect
 		}
 		at := dataTime(now, s)
 		out = model.DataOperation{ImageID: id, AttemptID: attempt, Phase: model.DataReserved, ExpectedSize: expected, CreatedAt: at, UpdatedAt: at}
-		if err := acknowledged(ctx, tx, "UPDATE images SET status='saving', updated_at=? WHERE id=? AND status='queued' AND deleted=FALSE", at, id); err != nil {
+		if err := r.ack(ctx, tx, "UPDATE images SET status='saving', updated_at=? WHERE id=? AND status='queued' AND deleted=FALSE", at, id); err != nil {
 			return err
 		}
 		if s.Operation == nil {
-			err := acknowledged(ctx, tx, "INSERT INTO image_data_operations (image_id, attempt_id, phase, expected_size, created_at, updated_at) VALUES (?, ?, 'reserved', ?, ?, ?)", id, attempt, expected, at, at)
+			err := r.ack(ctx, tx, "INSERT INTO image_data_operations (image_id, attempt_id, phase, expected_size, created_at, updated_at) VALUES (?, ?, 'reserved', ?, ?, ?)", id, attempt, expected, at, at)
 			var my *driver.MySQLError
 			if errors.As(err, &my) && my.Number == 1062 {
 				return repository.ErrDuplicate
 			}
 			return err
 		}
-		return acknowledged(ctx, tx, "UPDATE image_data_operations SET attempt_id=?, phase='reserved', expected_size=?, size=NULL, virtual_size=NULL, checksum=NULL, os_hash_value=NULL, cleanup_target=NULL, last_error_code=NULL, created_at=?, updated_at=? WHERE image_id=? AND attempt_id=? AND phase='cleaned'", attempt, expected, at, at, id, s.Operation.AttemptID)
+		return r.ack(ctx, tx, "UPDATE image_data_operations SET attempt_id=?, phase='reserved', expected_size=?, size=NULL, virtual_size=NULL, checksum=NULL, os_hash_value=NULL, cleanup_target=NULL, last_error_code=NULL, created_at=?, updated_at=? WHERE image_id=? AND attempt_id=? AND phase='cleaned'", attempt, expected, at, at, id, s.Operation.AttemptID)
 	})
 	// Return the proposed attempt even on uncertain commit so the caller can resolve
 	// it by image/attempt before performing any filesystem action.
@@ -177,7 +193,7 @@ func (r *Repository) StageData(ctx context.Context, id, attempt string, c model.
 		if err := c.Validate(s.Operation.ExpectedSize); err != nil {
 			return err
 		}
-		return acknowledged(ctx, tx, "UPDATE image_data_operations SET phase='staged', size=?, virtual_size=?, checksum=?, os_hash_value=?, updated_at=? WHERE image_id=? AND attempt_id=? AND phase='reserved'", c.Size, c.VirtualSize, c.Checksum, c.SHA512, dataTime(now, s), id, attempt)
+		return r.ack(ctx, tx, "UPDATE image_data_operations SET phase='staged', size=?, virtual_size=?, checksum=?, os_hash_value=?, updated_at=? WHERE image_id=? AND attempt_id=? AND phase='reserved'", c.Size, c.VirtualSize, c.Checksum, c.SHA512, dataTime(now, s), id, attempt)
 	})
 }
 
@@ -192,7 +208,7 @@ func (r *Repository) PublishData(ctx context.Context, id, attempt string, now ti
 		if err := currentAttempt(s, attempt, model.DataStaged); err != nil {
 			return err
 		}
-		return acknowledged(ctx, tx, "UPDATE image_data_operations SET phase='published', updated_at=? WHERE image_id=? AND attempt_id=? AND phase='staged'", dataTime(now, s), id, attempt)
+		return r.ack(ctx, tx, "UPDATE image_data_operations SET phase='published', updated_at=? WHERE image_id=? AND attempt_id=? AND phase='staged'", dataTime(now, s), id, attempt)
 	})
 }
 
@@ -209,10 +225,15 @@ func (r *Repository) CommitData(ctx context.Context, id, attempt string, now tim
 		}
 		o := s.Operation
 		at := dataTime(now, s)
-		if err := acknowledged(ctx, tx, "UPDATE images SET status='active', size=?, virtual_size=?, checksum=?, os_hash_algo='sha512', os_hash_value=?, updated_at=? WHERE id=? AND status='saving' AND deleted=FALSE", o.Size, o.VirtualSize, o.Checksum, o.SHA512, at, id); err != nil {
+		if err := r.ack(ctx, tx, "UPDATE images SET status='active', size=?, virtual_size=?, checksum=?, os_hash_algo='sha512', os_hash_value=?, updated_at=? WHERE id=? AND status='saving' AND deleted=FALSE", o.Size, o.VirtualSize, o.Checksum, o.SHA512, at, id); err != nil {
 			return err
 		}
-		return acknowledged(ctx, tx, "UPDATE image_data_operations SET phase='committed', updated_at=? WHERE image_id=? AND attempt_id=? AND phase='published'", at, id, attempt)
+		if r.official != nil { // the original serves an active image from its location row
+			if err := r.ack(ctx, tx, "INSERT INTO image_locations (image_id, value, meta_data, status, created_at, updated_at, deleted) VALUES (?, ?, '{}', 'active', ?, ?, 0)", id, r.location(id), at, at); err != nil {
+				return err
+			}
+		}
+		return r.ack(ctx, tx, "UPDATE image_data_operations SET phase='committed', updated_at=? WHERE image_id=? AND attempt_id=? AND phase='published'", at, id, attempt)
 	})
 }
 
@@ -244,7 +265,7 @@ func (r *Repository) BeginDataCleanup(ctx context.Context, id, attempt, target s
 				return repository.ErrConflict
 			}
 		}
-		return acknowledged(ctx, tx, "UPDATE image_data_operations SET phase='cleanup', cleanup_target=?, last_error_code=?, updated_at=? WHERE image_id=? AND attempt_id=? AND phase=?", target, code, dataTime(now, s), id, attempt, string(o.Phase))
+		return r.ack(ctx, tx, "UPDATE image_data_operations SET phase='cleanup', cleanup_target=?, last_error_code=?, updated_at=? WHERE image_id=? AND attempt_id=? AND phase=?", target, code, dataTime(now, s), id, attempt, string(o.Phase))
 	})
 }
 
@@ -266,11 +287,11 @@ func (r *Repository) CompleteDataCleanup(ctx context.Context, id, attempt string
 			if !saving(s) {
 				return repository.ErrConflict
 			}
-			if err := acknowledged(ctx, tx, "UPDATE images SET status=?, size=NULL, virtual_size=NULL, checksum=NULL, os_hash_algo=NULL, os_hash_value=NULL, updated_at=? WHERE id=? AND status='saving' AND deleted=FALSE", target, at, id); err != nil {
+			if err := r.ack(ctx, tx, "UPDATE images SET status=?, size=NULL, virtual_size=NULL, checksum=NULL, os_hash_algo=NULL, os_hash_value=NULL, updated_at=? WHERE id=? AND status='saving' AND deleted=FALSE", target, at, id); err != nil {
 				return err
 			}
 		}
-		return acknowledged(ctx, tx, "UPDATE image_data_operations SET phase='cleaned', updated_at=? WHERE image_id=? AND attempt_id=? AND phase='cleanup'", at, id, attempt)
+		return r.ack(ctx, tx, "UPDATE image_data_operations SET phase='cleaned', updated_at=? WHERE image_id=? AND attempt_id=? AND phase='cleanup'", at, id, attempt)
 	})
 }
 
@@ -330,8 +351,16 @@ func (r *Repository) DownloadView(ctx context.Context, id string) (model.Image, 
 	if err != nil {
 		return model.Image{}, model.DataState{}, err
 	}
-	s, err := r.queryDataState(ctx, tx, id, readDataImage, readDataOperation)
-	if err != nil {
+	// The image row just read already holds the data columns (and is live:
+	// deleted=FALSE): read only the operation, not the same row again.
+	s := model.DataState{ImageID: image.ID, Status: image.Status, Size: image.Size, VirtualSize: image.VirtualSize,
+		Checksum: image.Checksum, HashAlgorithm: image.HashAlgorithm, HashValue: image.HashValue, UpdatedAt: image.UpdatedAt}
+	o, err := scanOperation(r.queryRow(ctx, tx, readDataOperation, id))
+	if err == nil {
+		s.Operation = &o
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return model.Image{}, model.DataState{}, err
+	} else if s.Operation, err = r.adoptable(ctx, tx, s); err != nil {
 		return model.Image{}, model.DataState{}, err
 	}
 	if err = tx.Commit(); err != nil {

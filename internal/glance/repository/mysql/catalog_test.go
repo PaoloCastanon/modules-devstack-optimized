@@ -21,11 +21,12 @@ func fixtureRow() []driver.Value {
 	return []driver.Value{catalogID, "p", "original", "queued", "shared", nil, nil, int64(0), int64(0), false, false, nil, nil, nil, nil, nil, time.Unix(100, 0).UTC(), time.Unix(100, 0).UTC()}
 }
 func imageReadSteps(lock bool) []sqlStep {
-	q := "SELECT " + imageColumns + " FROM images WHERE id=? AND deleted=FALSE"
+	// One round trip: the image row carries its properties and tags as JSON.
+	q := "SELECT " + imageAlias + childColumns + " FROM images i WHERE i.id=? AND i.deleted=FALSE"
 	if lock {
 		q += " FOR UPDATE"
 	}
-	return []sqlStep{{query: q, rows: [][]driver.Value{fixtureRow()}}, {query: "SELECT image_id, name, value FROM image_properties WHERE image_id IN (?) ORDER BY image_id, name", rows: [][]driver.Value{{catalogID, "x", "original"}}}, {query: "SELECT image_id, value FROM image_tags WHERE image_id IN (?) ORDER BY image_id, value", rows: [][]driver.Value{{catalogID, "a"}}}}
+	return []sqlStep{{query: q, rows: [][]driver.Value{append(fixtureRow(), `{"x": "original"}`, `["a"]`)}}}
 }
 
 const updateImageSQL = "UPDATE images SET name=?, visibility=?, disk_format=?, container_format=?, min_disk=?, min_ram=?, protected=?, os_hidden=?, updated_at=? WHERE id=? AND deleted=FALSE"
@@ -42,7 +43,7 @@ func changed(i model.Image) (model.Image, error) {
 
 func TestSQLPatchCommitsAndRollsBackFailures(t *testing.T) {
 	steps := patchSteps()
-	steps[4].checkArgs = func(args []driver.NamedValue) {
+	steps[2].checkArgs = func(args []driver.NamedValue) {
 		if len(args) != 10 || args[9].Value != catalogID {
 			t.Error("update identity not bound")
 		}
@@ -52,12 +53,12 @@ func TestSQLPatchCommitsAndRollsBackFailures(t *testing.T) {
 	if err != nil || got.Properties["x"] != "changed" {
 		t.Fatal(got, err)
 	}
-	for _, at := range []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9} {
+	for _, at := range []int{0, 1, 2, 3, 4, 5, 6, 7} {
 		t.Run("failure-"+string(rune('a'+at)), func(t *testing.T) {
 			steps := patchSteps()
 			steps[at].err = errors.New("isolated SQL failure")
 			steps = steps[:at+1]
-			if at != 0 && at != 9 {
+			if at != 0 && at != 7 {
 				steps = append(steps, execute("ROLLBACK"))
 			}
 			db := scriptDB(t, steps)
@@ -68,8 +69,8 @@ func TestSQLPatchCommitsAndRollsBackFailures(t *testing.T) {
 	}
 	t.Run("zero affected", func(t *testing.T) {
 		steps := patchSteps()
-		steps[4].affected = 0
-		steps = append(steps[:5], execute("ROLLBACK"))
+		steps[2].affected = 0
+		steps = append(steps[:3], execute("ROLLBACK"))
 		db := scriptDB(t, steps)
 		if _, err := New(db, time.Second).Update(context.Background(), catalogID, changed); !errors.Is(err, repository.ErrConflict) {
 			t.Fatal(err)
@@ -176,7 +177,7 @@ func TestSQLListScopesFiltersMarkersAndReadback(t *testing.T) {
 			steps := []sqlStep{execute("BEGIN")}
 			if tc == "missing-marker" {
 				o.Marker = catalogID
-				steps = append(steps, sqlStep{query: "SELECT " + imageColumns + " FROM images WHERE id=? AND deleted=FALSE"}, execute("ROLLBACK"))
+				steps = append(steps, sqlStep{query: fullImageQuery}, execute("ROLLBACK"))
 			} else if tc == "foreign-marker" {
 				o.Marker = catalogID
 				m := imageReadSteps(false)
@@ -186,8 +187,11 @@ func TestSQLListScopesFiltersMarkersAndReadback(t *testing.T) {
 			} else {
 				q, _ := listQuery(o, nil)
 				step := sqlStep{query: q}
-				if tc == "multiple" || tc == "properties-error" {
-					step.rows = [][]driver.Value{fixtureRow()}
+				if tc == "multiple" {
+					step.rows = [][]driver.Value{append(fixtureRow(), `{"x": "original"}`, `["a"]`)}
+				}
+				if tc == "properties-error" { // unreadable aggregated children fail the read
+					step.rows = [][]driver.Value{append(fixtureRow(), `{broken`, nil)}
 				}
 				if tc == "row-error" {
 					step.rowsErr = errors.New("cursor failed")
@@ -196,14 +200,6 @@ func TestSQLListScopesFiltersMarkersAndReadback(t *testing.T) {
 					step.err = errors.New("query failed")
 				}
 				steps = append(steps, step)
-				if tc == "multiple" || tc == "properties-error" {
-					children := imageReadSteps(false)[1:]
-					if tc == "properties-error" {
-						children = children[:1]
-						children[0].err = errors.New("child failed")
-					}
-					steps = append(steps, children...)
-				}
 				if tc == "empty" || tc == "multiple" || tc == "commit-error" {
 					step := execute("COMMIT")
 					if tc == "commit-error" {

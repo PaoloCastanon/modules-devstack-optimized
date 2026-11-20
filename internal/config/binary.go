@@ -20,8 +20,10 @@ type Binary struct {
 	Backend                   string
 	Root, Scope               string
 	RBDConf, RBDUser, RBDPool string
-	MaxUploadBytes            int64
-	MaxConcurrent             int
+	// OfficialStoreDir: published objects live in the original's directory.
+	OfficialStoreDir string
+	MaxUploadBytes   int64
+	MaxConcurrent    int
 	// MaxDownloadStreams caps image bytes being sent at once; more downloads
 	// wait in line instead of being refused (0 = no cap beyond MaxConcurrent).
 	MaxDownloadStreams                                                                  int
@@ -93,14 +95,15 @@ func loadBinary(c *Config, env func(string) string, mode string) error {
 		}
 		b.MaxConcurrent = n
 	}
-	// Official Glance serves downloads from its uwsgi workers (2 on the 4-vCPU
-	// lab VM) and leaves the rest queued. Go sent all 16 at once, and with 16
-	// clients of 64 MiB it lost throughput through Apache (12.9 vs 15.2 req/s);
-	// queued to 2 it reached 25.4 (evidence/sprint5/glance-resources-20261118).
-	// Measured on the filesystem store only: RBD reads wait on the network, so
-	// they keep no extra cap unless configured.
+	// Official Glance has no cap of its own. With the current download path
+	// (sendfile, no rehash), 16 clients of 64 MiB through Apache on the 4-vCPU
+	// lab VM reached 745 MiB/s capped at 2, 990 at 4 (= GOMAXPROCS) and 968
+	// uncapped; 16 MiB was ~900 in all three (evidence/sprint5/
+	// glance-download-streams-20261120). The 2026-11-18 cap of
+	// max(2, GOMAXPROCS/2) predates that path. Filesystem store only: RBD
+	// reads wait on the network, so they keep no extra cap unless configured.
 	if b.Backend == "filesystem" {
-		b.MaxDownloadStreams = min(max(2, runtime.GOMAXPROCS(0)/2), b.MaxConcurrent)
+		b.MaxDownloadStreams = min(max(2, runtime.GOMAXPROCS(0)), b.MaxConcurrent)
 	}
 	if v := env("GLANCE_GO_MAX_DOWNLOAD_STREAMS"); v != "" {
 		n, err := strconv.Atoi(v)

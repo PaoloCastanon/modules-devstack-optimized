@@ -56,7 +56,7 @@ func TestTombstoneDataAtomicTransitionsAndRetainedReceipts(t *testing.T) {
 				}
 			}
 			steps := deletionSQLSteps(tc.status, o)
-			steps[5].checkArgs = func(args []driver.NamedValue) {
+			steps[3].checkArgs = func(args []driver.NamedValue) {
 				if len(args) != 4 || args[2].Value != catalogID || args[3].Value != tc.status {
 					t.Error("unfenced tombstone", args)
 				}
@@ -68,7 +68,7 @@ func TestTombstoneDataAtomicTransitionsAndRetainedReceipts(t *testing.T) {
 				}
 			}
 			if o != nil {
-				steps[6].checkArgs = func(args []driver.NamedValue) {
+				steps[4].checkArgs = func(args []driver.NamedValue) {
 					if len(args) != 4 || args[1].Value != catalogID || args[2].Value != attemptA || args[3].Value != string(tc.phase) {
 						t.Error("unfenced operation", args)
 					}
@@ -135,7 +135,7 @@ func TestTombstoneDataRejectsFencesPolicyAndContradictions(t *testing.T) {
 			}
 			steps := deletionReadSteps(status, o)
 			if tc == "protected" || tc == "policy" {
-				steps = steps[:4]
+				steps = steps[:2]
 				if tc == "protected" {
 					steps[1].rows[0][9] = true
 				}
@@ -162,24 +162,24 @@ func TestTombstoneDataRejectsFencesPolicyAndContradictions(t *testing.T) {
 }
 
 func TestTombstoneDataFailuresRollbackOrReportUncertainty(t *testing.T) {
-	for at := 0; at < 8; at++ {
+	for at := 0; at < 6; at++ {
 		t.Run(string(rune('a'+at)), func(t *testing.T) {
 			steps := deletionSQLSteps("active", dataFixture(model.DataCommitted))
 			steps[at].err = errors.New("SQL disconnected")
 			steps = steps[:at+1]
-			if at != 0 && at != 7 {
+			if at != 0 && at != 5 {
 				steps = append(steps, execute("ROLLBACK"))
 			}
 			out, err := New(scriptDB(t, steps), time.Second).TombstoneData(context.Background(), catalogID, str(attemptA), dataNow, allowDeletion)
 			if err == nil {
 				t.Fatal("failure reported success")
 			}
-			if at == 7 && (!errors.Is(err, repository.ErrCommitUncertain) || !out.Deleted || out.Operation == nil || !isTarget(out.Operation, "deleted")) {
+			if at == 5 && (!errors.Is(err, repository.ErrCommitUncertain) || !out.Deleted || out.Operation == nil || !isTarget(out.Operation, "deleted")) {
 				t.Fatal("commit outcome was hidden", out, err)
 			}
 		})
 	}
-	for _, at := range []int{5, 6} {
+	for _, at := range []int{3, 4} {
 		t.Run("unacknowledged-"+string(rune('a'+at)), func(t *testing.T) {
 			steps := deletionSQLSteps("active", dataFixture(model.DataCommitted))
 			steps[at].affected = 0
