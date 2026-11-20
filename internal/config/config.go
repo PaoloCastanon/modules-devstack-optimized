@@ -30,9 +30,11 @@ type Config struct {
 	RequestTimeout, DependencyTimeout                  time.Duration
 	MaxBodyBytes                                       int64
 	Binary                                             Binary
-	// TokenCacheTime mirrors keystonemiddleware's token_cache_time (Glance only;
-	// 0 = validate every request). Default 300s, as in official Glance.
+	// TokenCacheTime mirrors keystonemiddleware's token_cache_time
+	// (0 = validate every request). Default 300s, as in official Glance and Placement.
 	TokenCacheTime time.Duration
+	// DBMaxConnections bounds the Placement SQL pool (Placement only; 0 in Glance).
+	DBMaxConnections int
 	// Notifications is Glance only and read only by serve.
 	Notifications Notifications
 	// OfficialCatalog is the original Glance database Glance Go serves from
@@ -169,6 +171,10 @@ func load(getenv func(string) string, mode, prefix, defaultAddress string) (Conf
 			return Config{}, errors.New("empty database configuration")
 		}
 	}
+	// Default token cache before the original's glance-api.conf may override it.
+	if c.TokenCacheTime, err = tokenCacheTime(getenv, prefix); err != nil {
+		return Config{}, err
+	}
 	// Binary storage is Glance policy; Placement must not read that namespace.
 	if prefix == "GLANCE_GO_" {
 		if err := loadBinary(&c, getenv, mode); err != nil {
@@ -179,18 +185,20 @@ func load(getenv func(string) string, mode, prefix, defaultAddress string) (Conf
 				return Config{}, err
 			}
 		}
-		c.TokenCacheTime = 300 * time.Second
-		if value := getenv("GLANCE_GO_TOKEN_CACHE_TIME"); value != "" {
-			n, err := strconv.Atoi(value)
-			if err != nil || n == 0 || n < -1 || n > 86400 {
-				return Config{}, errors.New("GLANCE_GO_TOKEN_CACHE_TIME must be -1 (disabled) or 1..86400 seconds")
-			}
-			c.TokenCacheTime = time.Duration(max(n, 0)) * time.Second
-		}
 		if original != nil {
 			if err := applyOriginalConfig(&c, original, getenv, mode); err != nil {
 				return Config{}, err
 			}
+		}
+	}
+	if prefix == "PLACEMENT_GO_" {
+		c.DBMaxConnections = 16
+		if value := getenv(prefix + "DB_MAX_CONNECTIONS"); value != "" {
+			n, err := strconv.Atoi(value)
+			if err != nil || n < 1 || n > 256 {
+				return Config{}, errors.New(prefix + "DB_MAX_CONNECTIONS must be between 1 and 256")
+			}
+			c.DBMaxConnections = n
 		}
 	}
 	if mode != "serve" {
@@ -219,4 +227,18 @@ func load(getenv func(string) string, mode, prefix, defaultAddress string) (Conf
 		return Config{}, errors.New("invalid Keystone application credential file")
 	}
 	return c, nil
+}
+
+// tokenCacheTime reads <prefix>TOKEN_CACHE_TIME like keystonemiddleware's
+// token_cache_time: 300 s by default, -1 disables the cache.
+func tokenCacheTime(getenv func(string) string, prefix string) (time.Duration, error) {
+	value := getenv(prefix + "TOKEN_CACHE_TIME")
+	if value == "" {
+		return 300 * time.Second, nil
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n == 0 || n < -1 || n > 86400 {
+		return 0, errors.New(prefix + "TOKEN_CACHE_TIME must be -1 (disabled) or 1..86400 seconds")
+	}
+	return time.Duration(max(n, 0)) * time.Second, nil
 }

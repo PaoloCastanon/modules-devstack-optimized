@@ -184,3 +184,60 @@ func TestOfficialCatalogConfiguration(t *testing.T) {
 		}
 	}
 }
+
+func placementEnvironment(t *testing.T) map[string]string {
+	return map[string]string{"PLACEMENT_GO_DATABASE_DSN_FILE": secretFile(t, "placement_go_app:example@tcp(127.0.0.1:3306)/placement_go"), "PLACEMENT_GO_KEYSTONE_AUTH_URL": "http://127.0.0.1:5000/v3", "PLACEMENT_GO_KEYSTONE_CREDENTIAL_FILE": secretFile(t, `{"application_credential_id":"fixture-id","application_credential_secret":"fixture-secret"}`)}
+}
+
+// Official Placement runs keystonemiddleware with token_cache_time 300 s.
+func TestPlacementTokenCacheTime(t *testing.T) {
+	e := placementEnvironment(t)
+	c, err := LoadPlacement(func(k string) string { return e[k] }, "serve")
+	if err != nil || c.TokenCacheTime != 300*time.Second {
+		t.Fatal("default token cache time", c.TokenCacheTime, err)
+	}
+	for value, want := range map[string]time.Duration{"-1": 0, "1": time.Second, "600": 10 * time.Minute} {
+		e["PLACEMENT_GO_TOKEN_CACHE_TIME"] = value
+		if c, err = LoadPlacement(func(k string) string { return e[k] }, "serve"); err != nil || c.TokenCacheTime != want {
+			t.Fatal(value, c.TokenCacheTime, err)
+		}
+	}
+	for _, bad := range []string{"0", "-2", "86401", "5m", "x"} {
+		e["PLACEMENT_GO_TOKEN_CACHE_TIME"] = bad
+		if _, err = LoadPlacement(func(k string) string { return e[k] }, "serve"); err == nil {
+			t.Fatal("accepted", bad)
+		}
+	}
+	// The Glance variable must not configure Placement.
+	delete(e, "PLACEMENT_GO_TOKEN_CACHE_TIME")
+	e["GLANCE_GO_TOKEN_CACHE_TIME"] = "-1"
+	if c, err = LoadPlacement(func(k string) string { return e[k] }, "serve"); err != nil || c.TokenCacheTime != 300*time.Second {
+		t.Fatal("Glance namespace leaked into Placement", c.TokenCacheTime, err)
+	}
+}
+
+func TestPlacementDatabasePoolSize(t *testing.T) {
+	e := placementEnvironment(t)
+	c, err := LoadPlacement(func(k string) string { return e[k] }, "serve")
+	if err != nil || c.DBMaxConnections != 16 {
+		t.Fatal("default pool size", c.DBMaxConnections, err)
+	}
+	for value, want := range map[string]int{"1": 1, "32": 32, "256": 256} {
+		e["PLACEMENT_GO_DB_MAX_CONNECTIONS"] = value
+		if c, err = LoadPlacement(func(k string) string { return e[k] }, "serve"); err != nil || c.DBMaxConnections != want {
+			t.Fatal(value, c.DBMaxConnections, err)
+		}
+	}
+	for _, bad := range []string{"0", "-1", "257", "x", "1.5"} {
+		e["PLACEMENT_GO_DB_MAX_CONNECTIONS"] = bad
+		if _, err = LoadPlacement(func(k string) string { return e[k] }, "serve"); err == nil {
+			t.Fatal("accepted", bad)
+		}
+	}
+	// Glance keeps its own fixed pool; the setting is Placement only.
+	g := environment(t)
+	g["GLANCE_GO_DB_MAX_CONNECTIONS"] = "8"
+	if c, err = Load(func(k string) string { return g[k] }, "serve"); err != nil || c.DBMaxConnections != 0 {
+		t.Fatal("pool setting leaked into Glance", c.DBMaxConnections, err)
+	}
+}
