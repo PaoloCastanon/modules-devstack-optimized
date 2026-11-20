@@ -1228,3 +1228,8 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 
   E2E 5/5 con Nova y pruebas con race OK.
   [Evidencia](../evidence/sprint5/glance-shared-catalog-20261120/README.md).
+- 2026-11-20, límite de descargas simultáneas en el store filesystem: pasa de
+  `max(2, GOMAXPROCS/2)` a `GOMAXPROCS`. Con 16 clientes de 64 MiB a través
+  de Apache, el rendimiento sube de 745 a 990 MiB/s (+33 %); sin límite da
+  968 MiB/s y con 16 MiB no cambia. E2E 5/5.
+  [Evidencia](../evidence/sprint5/glance-download-streams-20261120/README.md).
