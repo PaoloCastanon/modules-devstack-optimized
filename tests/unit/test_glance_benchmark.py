@@ -363,3 +363,24 @@ class MemoryExtrasTests(unittest.TestCase):
         out = memory_extras(records, 'go', 4, 7, 3)
         self.assertEqual((out['rss_mean_bytes'], out['rss_peak_observed_bytes']), (40, 50))
         self.assertEqual(out['vm_ram_used_extra_peak_bytes'], (1000 - 800) * 1024)
+
+
+class CgroupMemoryTests(unittest.TestCase):
+    def test_reader_and_window_summary(self):
+        import json, tempfile
+        from pathlib import Path
+        import glance_memory
+        from analyze_glance import cgroup_memory
+        with tempfile.TemporaryDirectory() as tmp:
+            g = Path(tmp) / 'system.slice' / 'unit'
+            g.mkdir(parents=True)
+            (g / 'memory.current').write_text('500\n')
+            (g / 'memory.stat').write_text('anon 300\nfile 150\nkernel 40\nsock 0\nshmem 0\nother 9\n')
+            self.assertEqual(glance_memory.read_group('/system.slice/unit', root=Path(tmp)),
+                             {'current': 500, 'anon': 300, 'file': 150, 'kernel': 40, 'sock': 0, 'shmem': 0})
+            rows = Path(tmp) / 'm.jsonl'
+            rows.write_text('\n'.join(json.dumps({'utc_ns': t, 'groups': {'go': {'anon': a, 'file': 10}}})
+                                      for t, a in [(1, 999), (5, 100), (6, 300), (7, 200), (20, 999)]))
+            out = cgroup_memory(rows, 'go', 4, 10)
+            self.assertEqual((out['cgroup_anon_mean_bytes'], out['cgroup_anon_peak_bytes'], out['cgroup_samples']), (200, 300, 3))
+            self.assertEqual(cgroup_memory(Path(tmp) / 'missing', 'go', 0, 1), {})

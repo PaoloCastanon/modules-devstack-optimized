@@ -14,6 +14,24 @@ from placement_resources import interval_summary
 
 
 
+
+def cgroup_memory(path, implementation, start, end):
+    """Unit memory from glance_memory.py (10 Hz cgroup v2) inside the window:
+    private anon mean/peak and page cache ('file') mean. Absent file: {}."""
+    if not path.exists():
+        return {}
+    anon, file = [], []
+    for line in path.read_text().splitlines():
+        row = json.loads(line)
+        value = row['groups'].get(implementation)
+        if value and start <= row['utc_ns'] <= end and 'anon' in value:
+            anon.append(value['anon'])
+            file.append(value.get('file', 0))
+    if len(anon) < 3:
+        return {}
+    return {'cgroup_anon_mean_bytes': statistics.mean(anon), 'cgroup_anon_peak_bytes': max(anon),
+            'cgroup_file_mean_bytes': statistics.mean(file), 'cgroup_samples': len(anon)}
+
 def memory_extras(records, implementation, start, end, warmup_start):
     """RAM beyond PSS, from the same 1 Hz samples: the service's RSS (mean and
     observed peak) inside the window, and the VM's RAM used beyond its idle
@@ -120,6 +138,13 @@ def analyze(root):
                 raise ValueError('insufficient idle PSS baseline')
             resources.update(idle_pss_mean_bytes=statistics.mean(idle), idle_samples=len(idle))
             resources.update(memory_extras(records, report['implementation'], start, end, warmup_start))
+            resources.update(cgroup_memory(root / 'lab' / (ident + '-memory.jsonl'), report['implementation'], start, end))
+            if 'memcached' in records[0]['groups']:
+                cache = [sum(proc['pss_bytes'] for proc in row['groups']['memcached']['processes']) for row in records
+                         if start <= row['read_finished_utc_ns'] <= end and row['groups']['memcached']['processes']
+                         and all(proc['pss_bytes'] is not None for proc in row['groups']['memcached']['processes'])]
+                if cache:
+                    resources['memcached_pss_mean_bytes'] = statistics.mean(cache)
             controls = {}
             for label in records[0]['groups']:
                 if label == report['implementation']:
@@ -143,7 +168,8 @@ def analyze(root):
     metrics = ['correct_ops_s', 'complete_cycles_s', 'validated_payload_mib_s', 'p50_ms', 'p95_ms', 'p99_ms']
     resource_metrics = ['cpu_seconds', 'cpu_fraction_of_four_cores', 'cpu_s_per_correct_request', 'pss_mean_bytes',
                         'pss_peak_observed_bytes', 'idle_pss_mean_bytes', 'collector_core_fraction',
-                        'rss_mean_bytes', 'rss_peak_observed_bytes', 'vm_ram_used_extra_peak_bytes', 'vm_mem_available_min_bytes']
+                        'rss_mean_bytes', 'rss_peak_observed_bytes', 'vm_ram_used_extra_peak_bytes', 'vm_mem_available_min_bytes',
+                        'cgroup_anon_mean_bytes', 'cgroup_anon_peak_bytes', 'cgroup_file_mean_bytes', 'memcached_pss_mean_bytes']
     for scenario in p['scenarios']:
         for c in p['concurrency']:
             group = {'scenario': scenario['id'], 'concurrency': c, 'implementations': {}, 'paired_go_over_python': {}}

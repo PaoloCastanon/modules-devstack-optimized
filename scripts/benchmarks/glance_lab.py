@@ -282,7 +282,8 @@ class Lab(Session):
         units = [('python', 'devstack@g-api.service'), ('go', self.runtime_state['go_unit']),
                  ('mysql-python', 'mysql.service'), ('mysql-go', self.runtime_state['db_unit']),
                  ('apache', 'apache2.service'), ('keystone', 'devstack@keystone.service'),
-                 ('placement-control', 'devstack@placement-api.service'), ('nova-compute', 'devstack@n-cpu.service'), ('nova-scheduler', 'devstack@n-sch.service')]
+                 ('placement-control', 'devstack@placement-api.service'), ('nova-compute', 'devstack@n-cpu.service'), ('nova-scheduler', 'devstack@n-sch.service'),
+                 ('memcached', 'memcached.service')]  # the original's token cache lives here
         groups = {label: subprocess.check_output(['systemctl', 'show', '--value', '-p', 'ControlGroup', unit], text=True).strip() for label, unit in units}
         groups = {k: v for k, v in groups.items() if v}
         require(self.current['implementation'] in groups, 'measured Glance cgroup')
@@ -292,9 +293,13 @@ class Lab(Session):
         log = (self.args.output / (run_id + '-collector.log')).open('x')
         process = subprocess.Popen(['sudo', sys.executable, str(HERE / 'placement_resources.py'), '--groups', str(path), '--output', str(output),
                                     '--stop-file', str(stop), '--maximum-seconds', '900'], stdout=log, stderr=log)
+        memory = subprocess.Popen(['sudo', sys.executable, str(HERE / 'glance_memory.py'), '--groups', str(path),
+                                   '--output', str(self.args.output / (run_id + '-memory.jsonl')), '--stop-file', str(stop),
+                                   '--maximum-seconds', '900'], stdout=log, stderr=log)
         self.collector = process, log, output, stop
+        self.memory_sampler = memory
         time.sleep(5)
-        require(process.poll() is None, 'collector running')
+        require(process.poll() is None and memory.poll() is None, 'collectors running')
         return {'groups': groups, 'idle_s': 5}
 
     def stop_collector(self):
@@ -304,9 +309,13 @@ class Lab(Session):
         time.sleep(2)  # Explicit post-load membership bracket, outside timers.
         stop.touch(mode=0o600)
         process.wait(timeout=10)
+        memory = getattr(self, 'memory_sampler', None)
+        if memory is not None:
+            memory.wait(timeout=10)
+            self.memory_sampler = None
         log.close()
         self.collector = None
-        require(process.returncode == 0, 'collector exit')
+        require(process.returncode == 0 and (memory is None or memory.returncode == 0), 'collector exit')
         return {'stopped': True, 'output': str(output)}
 
     def cleanup(self):

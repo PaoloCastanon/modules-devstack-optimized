@@ -1272,3 +1272,13 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - **Laboratorio:** original sin cambios, recursos propios retirados, timers apt
   reactivados y VM apagada.
   [Evidencia](../evidence/sprint5/benchmarks/placement-compact-v2-nova-20261120/README.md).
+- 2026-11-20, método de RAM de las campañas de Glance:
+  - **Cambios:** se agrega `glance_memory.py` (cgroup v2 `memory.stat`
+    `anon`/`file` a 10 Hz por unidad) y memcached como grupo de control. El
+    análisis informa `cgroup_anon_mean/peak`, `cgroup_file_mean` y
+    `memcached_pss_mean`. La PSS sigue como métrica principal y la RSS queda
+    como cota.
+  - **Validación en la VM con carga:** la PSS del colector coincide con
+    `smem` (≤0,3 MiB) y el `anon` del cgroup con la suma de `Pss_Anon`. La
+    suma de RSS sobreestima al original en ~68 MiB.
+  - [Evidencia](../evidence/sprint5/glance-memory-method-20261120/README.md).
