@@ -52,6 +52,20 @@ def owned_descriptor(values, image, owner):
     return image.get('id') == str(uuid.uuid5(uuid.UUID(values['namespace']), key))
 
 
+def effective_go_settings(journal):
+    """Last "effective settings" line the running Glance Go logged (non-secret)."""
+    found = None
+    for line in journal.splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(entry, dict) and entry.get('msg') == 'effective settings':
+            found = {k: v for k, v in entry.items() if k not in ('time', 'level', 'msg')}
+    require(found is not None, 'Glance Go effective settings logged')
+    return found
+
+
 class Lab(Session):
     def __init__(self, args):
         super().__init__(args)
@@ -142,8 +156,7 @@ class Lab(Session):
                 'go_notification_policy': getattr(self.args, 'go_notifications', 'noop'),
                 'uwsgi': {k: uwsgi.get('uwsgi', k) for k in ['processes', 'threads', 'master', 'enable-threads', 'lazy-apps', 'max-requests', 'harakiri'] if uwsgi.has_option('uwsgi', k)},
                 'mysql_python': original_mysql, 'mysql_go': own_mysql,
-                'go_settings': {'transfer_limit': 16, 'metadata_timeout_s': 10, 'binary_timeout_s': 120,
-                                'sql_pool_open': 4, 'sql_pool_idle': 2, 'token_cache': False},
+                'go_settings': effective_go_settings(cmd(['sudo', 'journalctl', '-u', self.runtime_state['go_unit'], '-o', 'cat', '--no-pager'])),
                 'systemd': {unit: cmd(['systemctl', 'show', unit, '-p', 'ControlGroup', '-p', 'ExecMainPID',
                                      '-p', 'CPUQuotaPerSecUSec', '-p', 'MemoryMax', '-p', 'TasksMax'])
                             for unit in ['devstack@g-api.service', self.runtime_state['go_unit']]},

@@ -89,14 +89,20 @@ func Open(dsn string) (*sql.DB, error) {
 	db := sql.OpenDB(connector)
 	// Official Glance uses oslo.db's SQLAlchemy pool: 5 kept + 50 overflow.
 	// Same ceiling; more kept idle so bursts do not reconnect (was 4 / 2).
-	db.SetMaxOpenConns(55)
-	db.SetMaxIdleConns(16)
+	db.SetMaxOpenConns(PoolMaxOpen)
+	db.SetMaxIdleConns(PoolMaxIdle)
 	db.SetConnMaxLifetime(3 * time.Minute)
 	return db, nil
 }
 
 // CheckAccount refuses grants outside the dedicated schema, global privileges,
 // delegated roles and grant options. No grant text is returned or logged.
+// PoolMaxOpen and PoolMaxIdle are the SQL pool limits set by Open.
+const (
+	PoolMaxOpen = 55
+	PoolMaxIdle = 16
+)
+
 func CheckAccount(ctx context.Context, db *sql.DB, mode string) error {
 	conn, err := db.Conn(ctx)
 	if err != nil {

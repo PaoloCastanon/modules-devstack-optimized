@@ -138,6 +138,7 @@ func run(args []string, logger *slog.Logger) (result error) {
 		return errors.New("HTTP listener failed")
 	}
 	defer ln.Close()
+	logger.Info("effective settings", effectiveSettings(c)...)
 	logger.Info("image API listening", "address", c.ListenAddress, "binary_enabled", c.Binary.Enabled, "startup_ms", time.Since(started).Milliseconds())
 	var owner *service.UploadCoordinator
 	if binary != nil {
