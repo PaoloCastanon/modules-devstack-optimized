@@ -1169,16 +1169,21 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   Verificación: B26 en Glance Go 12/12 y en el modo conjunto 16/16, `make check`
   OK y `glance-test-rbd` 10/10.
   [Evidencia](../evidence/sprint5/glance-notifications-20261119/README.md).
-- 2026-11-20, reemplazo permanente del Glance original por Glance Go
-  (`scripts/integration/glance_replace.py`). Instala:
-  - la base `glance_go` en el MySQL de DevStack;
-  - el usuario `glance-go` en Keystone;
-  - `glance-go.service`, habilitado;
-  - las notificaciones copiadas del original;
-  - las imágenes copiadas con el mismo ID y hashes verificados;
-  - la ruta `/image` hacia Go, con `devstack@g-api` deshabilitado.
+- 2026-11-19, campaña Glance compact v4 en el PC de Juan (piloto 36/36 y
+  oficial 108/108, aceptada). Es la misma matriz que la v3, con el oficial en
+  `noop` y Go enviando notificaciones (`messagingv2`), así que Go hace más
+  trabajo. Fuente `4290e64`, binario `fa62bdd7…`.
 
-  Verificación: CirrOS copiado, Nova crea un servidor `ACTIVE` desde Glance
-  Go, `use-original` y `use-go` funcionan en los dos sentidos y el cambio
-  sobrevive al reinicio de la VM.
-  [Evidencia](../evidence/sprint5/glance-replace-20261120/README.md).
+  Go gana en las 18 celdas, incluidas las que perdía en la v3:
+  - consulta: 0,81–0,94 → 5,3–9,8;
+  - descarga de 1 MiB con un cliente: 0,70 → 4,7;
+  - descargas de 16 y 64 MiB: 0,24–0,31 → 1,09–2,47.
+
+  CPU y memoria: PSS de Go 16–41 MiB frente a 234–240 MiB. La CPU de Go en la
+  descarga de 64 MiB es 10–12 ms por solicitud, frente a 188–208 en la v3.
+
+  Límites: otro hardware (VM de 6 GiB). No se comparan los valores absolutos
+  con la v3; solo la dirección Go/Python. La primera corrida del piloto
+  encontró el deadlock corregido en `525608f`.
+  [Evidencia](../evidence/sprint5/benchmarks/glance-compact-v4-pcjuan-20261119/README.md)
+  y [resultados](../docs/benchmarks/glance-results-v4-pc-juan-20261119.md).
