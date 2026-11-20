@@ -154,6 +154,7 @@ class Lab(Session):
                 'python_config_explicit_allowlist': settings,
                 'notification_policy': self.args.notification_policy,
                 'go_notification_policy': getattr(self.args, 'go_notifications', 'noop'),
+                'go_route': getattr(self.args, 'go_route', 'direct'),
                 'uwsgi': {k: uwsgi.get('uwsgi', k) for k in ['processes', 'threads', 'master', 'enable-threads', 'lazy-apps', 'max-requests', 'harakiri'] if uwsgi.has_option('uwsgi', k)},
                 'mysql_python': original_mysql, 'mysql_go': own_mysql,
                 'go_settings': effective_go_settings(cmd(['sudo', 'journalctl', '-u', self.runtime_state['go_unit'], '-o', 'cat', '--no-pager'])),
@@ -181,6 +182,11 @@ class Lab(Session):
                 super().restore_route()
 
     def target(self):
+        # Both through Apache's /image (route() points it at the implementation
+        # measured), as Nova and Horizon reach Glance. Up to v4 Go was measured
+        # directly on its port while Python went through Apache.
+        if getattr(self.args, 'go_route', 'direct') == 'public':
+            return self.args.url
         return 'http://127.0.0.1:19293' if self.current['implementation'] == 'go' else self.args.url
 
     def catalog(self):
@@ -330,6 +336,7 @@ def main():
     for name in ['work-root', 'output', 'binary']:
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--url', default='http://192.168.122.10/image')
+    parser.add_argument('--go-route', choices=['direct', 'public'], default='direct')
     parser.add_argument('--allow-mutations', action='store_true')
     parser.add_argument('--notification-policy', choices=['original', 'noop'], default='original')
     parser.add_argument('--go-notifications', choices=['original', 'noop'], default='noop',

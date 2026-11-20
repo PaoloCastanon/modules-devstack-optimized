@@ -29,7 +29,23 @@ def save(path, value):
     temp.replace(path)
 
 
+def windows(p, pilot=False):
+    return len(p['scenarios']) * len(p['concurrency']) * 2 * (1 if pilot else p['repetitions'])
+
+
 def validate_protocol(p):
+    if p['protocol'] == 'glance-compact-v5':
+        # v5: the matrix of the Placement campaign (C=1/4/8/16, 5 repetitions)
+        # and both implementations measured through Apache's /image.
+        if ([s['id'] for s in p['scenarios']] != SCENARIOS or p['concurrency'] != [1, 4, 8, 16] or p['repetitions'] != 5
+                or p['warmup_s'] != 10 or p['measurement_s'] != 30 or p['catalog_seed_count'] != 100
+                or p['required_official_windows'] != windows(p)
+                or p['pilot'] != {'concurrency': [1, 4, 8, 16], 'repetitions': 1, 'warmup_s': 1, 'measurement_s': 4, 'required_windows': windows(p, True)}
+                or p['payload_sizes_bytes'] != [1048576, 16777216, 67108864] or p.get('route') != 'public-both'
+                or p.get('notification_policy') != 'noop' or p.get('go_notification_policy') != 'original'
+                or p.get('maximum_open_fd_growth_per_window') != 256):
+            raise ValueError('unsupported or incomplete frozen compact Glance v5 matrix')
+        return windows(p)
     if (p['protocol'] not in ('glance-compact-v2', 'glance-compact-v3', 'glance-compact-v4') or [s['id'] for s in p['scenarios']] != SCENARIOS
             or p['concurrency'] != [1, 16] or p['repetitions'] != 3 or p['warmup_s'] != 10 or p['measurement_s'] != 30
             or p['required_official_windows'] != 108 or p['catalog_seed_count'] != 100
@@ -110,6 +126,7 @@ def run(args):
     p = json.loads(args.protocol.read_text()); validate_protocol(p)
     args.notification_policy = p.get('notification_policy', 'original')
     args.go_notification_policy = p.get('go_notification_policy', 'noop')
+    args.go_route = 'public' if p.get('route') == 'public-both' else 'direct'
     storage_check(args.storage_path, p['host_free_minimum_bytes'])
     args.output.mkdir(parents=True, exist_ok=False)
     args.private_root.mkdir(mode=0o700, exist_ok=False)

@@ -326,3 +326,29 @@ class EffectiveGoSettingsTests(unittest.TestCase):
         from glance_lab import effective_go_settings
         with self.assertRaises(Exception):
             effective_go_settings('{"msg":"image API listening"}')
+
+
+class CompactV5Tests(unittest.TestCase):
+    def test_v5_uses_the_placement_matrix_and_the_public_route_for_both(self):
+        import json
+        from pathlib import Path
+        from glance_campaign import schedule, validate_protocol, windows
+        p = json.loads((Path(__file__).resolve().parents[2] / 'docs/benchmarks/glance-protocol-compact-v5.json').read_text())
+        self.assertEqual((validate_protocol(p), windows(p, True)), (360, 72))
+        self.assertEqual({r['concurrency'] for r in schedule(p, '00000000-0000-4000-8000-000000000005')}, {1, 4, 8, 16})
+        for change in ({'route': 'direct'}, {'repetitions': 3}, {'concurrency': [1, 16]}):
+            with self.assertRaises(ValueError):
+                validate_protocol({**p, **change})
+
+    def test_public_route_reaches_the_lab_command(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest import mock
+        import placement_campaign
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(placement_campaign.subprocess, 'Popen') as popen:
+            args = SimpleNamespace(known_hosts=Path(tmp) / 'k', ssh_key=Path(tmp) / 'id', host='stack@192.168.122.10',
+                                   remote_code=Path('/c'), remote_work=Path('/w'), remote_output=Path('/o'), private_root=Path(tmp),
+                                   domain='glance', notification_policy='noop', go_notification_policy='original', go_route='public')
+            placement_campaign.Remote(args).stderr.close()
+            self.assertIn('--go-route public', popen.call_args[0][0][-1])

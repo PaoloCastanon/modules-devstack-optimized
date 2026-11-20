@@ -149,7 +149,7 @@ def analyze(root):
             'runs_required': len(expected_ids), 'runs_observed': len(runs), 'errors': errors, 'runs': runs, 'groups': groups,
             'notification_policy': p.get('notification_policy', 'original'), 'go_notification_policy': p.get('go_notification_policy', 'noop'), 'protocol': p, 'measurement_head': manifest['git_base'], 'protocol_sha256': manifest['protocol_sha256'],
             'limitations': ['Notification policy: Python ' + p.get('notification_policy', 'original') + ', Go ' + p.get('go_notification_policy', 'noop') + '; Python without bus notifications (v3/v4); does not validate stock messagingv2 stability',
-                            'Three independent paired repetitions per cell; median and observed range, no statistical significance claim',
+                            'Independent paired repetitions per cell; median and observed range, no statistical significance claim',
                             'Closed-loop complete cycles including drain; upload cycle includes create/verify/delete and is not pure PUT throughput',
                             'Download checks every full payload; upload load verifies active metadata/hash, worker canaries round-trip outside measured windows',
                             'Public Apache path fixed; Python caches/workers/shared DB differ from Go isolated DB/store; no language-only attribution',
