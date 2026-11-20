@@ -59,6 +59,34 @@ type Filesystem struct {
 	keys    map[string]*keyLock
 	staged  map[string]stagedIdentity // guarded by keysMu
 	ops     fileOps
+	// flat: objects is the official Glance filesystem_store_datadir and each
+	// published image is <image-id>, the name glance_store uses (one attempt
+	// per image there). Staging stays private in root.
+	flat bool
+}
+
+// final is the published name for a staged key name (<image>-<attempt>).
+func (s *Filesystem) final(name string) string {
+	if s.flat {
+		return name[:36]
+	}
+	return name + ".blob"
+}
+
+// checkObject verifies a published file. The official store creates 0644
+// files, so flat mode also accepts group/other read bits (never write/exec).
+func (s *Filesystem) checkObject(f *os.File) error {
+	if !s.flat {
+		return checkEntry(f, false, s.root)
+	}
+	var stat, anchor syscall.Stat_t
+	if syscall.Fstat(int(f.Fd()), &stat) != nil || syscall.Fstat(int(s.root.Fd()), &anchor) != nil {
+		return ErrUnsafe
+	}
+	if stat.Uid != uint32(os.Geteuid()) || stat.Mode&syscall.S_IFMT != syscall.S_IFREG || stat.Mode&07133 != 0 || stat.Mode&0600 != 0600 || stat.Dev != anchor.Dev {
+		return ErrUnsafe
+	}
+	return nil
 }
 
 // stagedIdentity proves a .ready is the very file this instance's Stage just
@@ -230,6 +258,54 @@ func NewFilesystem(rootPath, scope string) (*Filesystem, error) {
 	return s, nil
 }
 
+// NewSharedFilesystem opens an initialized private root (lock, marker and
+// staging) whose published objects live in the official Glance store
+// directory objectsPath, named <image-id> as glance_store does. That
+// directory must be owned by this user, not group/other writable, and on the
+// root's filesystem so publication stays an atomic hard link.
+func NewSharedFilesystem(rootPath, scope, objectsPath string) (*Filesystem, error) {
+	s, err := NewFilesystem(rootPath, scope)
+	if err != nil {
+		return nil, err
+	}
+	dir, err := openDirectory(objectsPath)
+	if err == nil {
+		var stat, anchor syscall.Stat_t
+		if syscall.Fstat(int(dir.Fd()), &stat) != nil || syscall.Fstat(int(s.root.Fd()), &anchor) != nil ||
+			stat.Uid != uint32(os.Geteuid()) || stat.Mode&syscall.S_IFMT != syscall.S_IFDIR || stat.Mode&0022 != 0 || stat.Dev != anchor.Dev {
+			_ = dir.Close()
+			err = ErrUnsafe
+		}
+	}
+	if err != nil {
+		_ = s.Close()
+		return nil, err
+	}
+	_ = s.objects.Close()
+	s.objects, s.flat = dir, true
+	return s, nil
+}
+
+// openDirectory walks an absolute clean path with O_NOFOLLOW at every step.
+func openDirectory(name string) (*os.File, error) {
+	if !filepath.IsAbs(name) || filepath.Clean(name) != name || name == "/" {
+		return nil, ErrUnsafe
+	}
+	fd, err := syscall.Open("/", syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_CLOEXEC, 0)
+	if err != nil {
+		return nil, opError("open directory anchor", err)
+	}
+	for _, part := range strings.Split(strings.TrimPrefix(name, "/"), "/") {
+		next, e := syscall.Openat(fd, part, syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
+		_ = syscall.Close(fd)
+		if e != nil {
+			return nil, opError("open directory component", e)
+		}
+		fd = next
+	}
+	return os.NewFile(uintptr(fd), name), nil
+}
+
 // openRoot walks every component with O_NOFOLLOW, pins descriptors and checks
 // the opened inode. It never does Lstat(path) followed by Open(path).
 func openRoot(name string) (*os.File, error) {
@@ -378,7 +454,7 @@ func (s *Filesystem) Close() error {
 }
 
 func (s *Filesystem) noFinal(name string) error {
-	f, err := openEntry(s.objects, name+".blob", syscall.O_RDONLY, 0)
+	f, err := openEntry(s.objects, s.final(name), syscall.O_RDONLY, 0)
 	if err == nil {
 		_ = f.Close()
 		return ErrExists
@@ -606,7 +682,7 @@ func (s *Filesystem) Publish(ctx context.Context, key Key, expected Info) error 
 	if err = ctx.Err(); err != nil {
 		return err
 	}
-	if err = s.ops.link(f, s.objects, name+".blob"); err != nil {
+	if err = s.ops.link(f, s.objects, s.final(name)); err != nil {
 		return opError("publish", err)
 	}
 	// Destination is durable BEFORE removing either staging name. Any error
@@ -631,7 +707,7 @@ func (s *Filesystem) Open(ctx context.Context, key Key) (ReadSeekCloser, Info, e
 	if err = ctx.Err(); err != nil {
 		return nil, Info{}, err
 	}
-	f, err := openEntry(s.objects, name+".blob", syscall.O_RDONLY, 0)
+	f, err := openEntry(s.objects, s.final(name), syscall.O_RDONLY, 0)
 	if errors.Is(err, syscall.ENOENT) {
 		return nil, Info{}, ErrNotFound
 	}
@@ -644,7 +720,7 @@ func (s *Filesystem) Open(ctx context.Context, key Key) (ReadSeekCloser, Info, e
 			_ = f.Close()
 		}
 	}()
-	if err = checkEntry(f, false, s.root); err != nil {
+	if err = s.checkObject(f); err != nil {
 		return nil, Info{}, err
 	}
 	stat, err := f.Stat()
@@ -673,14 +749,14 @@ func (s *Filesystem) OpenStream(ctx context.Context, key Key) (ReadSeekCloser, i
 	if err = ctx.Err(); err != nil {
 		return nil, 0, err
 	}
-	f, err := openEntry(s.objects, name+".blob", syscall.O_RDONLY, 0)
+	f, err := openEntry(s.objects, s.final(name), syscall.O_RDONLY, 0)
 	if errors.Is(err, syscall.ENOENT) {
 		return nil, 0, ErrNotFound
 	}
 	if err != nil {
 		return nil, 0, opError("open content", err)
 	}
-	if err = checkEntry(f, false, s.root); err != nil {
+	if err = s.checkObject(f); err != nil {
 		_ = f.Close()
 		return nil, 0, err
 	}
@@ -706,12 +782,16 @@ func (s *Filesystem) Delete(ctx context.Context, key Key) error {
 	for _, item := range []struct {
 		dir    *os.File
 		suffix string
-	}{{s.objects, ".blob"}, {s.staging, ".ready"}, {s.staging, ".part"}} {
+	}{{s.objects, ""}, {s.staging, ".ready"}, {s.staging, ".part"}} {
 		if err = ctx.Err(); err != nil {
 			result = errors.Join(result, err)
 			break
 		}
-		if err = s.ops.unlink(item.dir, name+item.suffix); err != nil && !errors.Is(err, syscall.ENOENT) {
+		target := name + item.suffix
+		if item.dir == s.objects {
+			target = s.final(name)
+		}
+		if err = s.ops.unlink(item.dir, target); err != nil && !errors.Is(err, syscall.ENOENT) {
 			result = errors.Join(result, opError("delete", err))
 		}
 	}

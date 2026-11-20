@@ -16,6 +16,18 @@ const transferChecksQuery = "SELECT CONSTRAINT_NAME, ENFORCED FROM information_s
 // Verify essential table/column/key/enforcement metadata, not a SQL expression
 // equivalence proof. Migration checksums bind the approved CHECK definitions.
 func verifyTransferStructure(ctx context.Context, q querier) error {
+	return verifyTransfers(ctx, q, false)
+}
+
+func verifySharedTransferStructure(ctx context.Context, q querier) error {
+	return verifyTransfers(ctx, q, true)
+}
+
+func verifyTransfers(ctx context.Context, q querier, shared bool) error {
+	foreign := [][]string{{"image_id", "images", "id", "NO ACTION", "NO ACTION"}}
+	if shared {
+		foreign = nil
+	}
 	specs := []struct {
 		query    string
 		expected [][]string
@@ -42,7 +54,7 @@ func verifyTransferStructure(ctx context.Context, q querier) error {
 			{"data_operation_reconcile", "image_id", "3", "1", "<NULL>"},
 			{"PRIMARY", "image_id", "1", "0", "<NULL>"},
 		}},
-		{transferForeignQuery, [][]string{{"image_id", "images", "id", "NO ACTION", "NO ACTION"}}},
+		{transferForeignQuery, foreign},
 		{transferChecksQuery, [][]string{
 			{"data_operation_cleanup", "YES"}, {"data_operation_error", "YES"}, {"data_operation_md5", "YES"},
 			{"data_operation_phase", "YES"}, {"data_operation_receipt", "YES"}, {"data_operation_sha512", "YES"}, {"data_operation_sizes", "YES"},
@@ -55,7 +67,7 @@ func verifyTransferStructure(ctx context.Context, q querier) error {
 		}
 		var got [][]string
 		for rows.Next() {
-			values := make([]sql.NullString, len(spec.expected[0]))
+			values := make([]sql.NullString, columnsOf(spec.query))
 			args := make([]any, len(values))
 			for n := range values {
 				args[n] = &values[n]
@@ -94,4 +106,16 @@ func verifyTransferStructure(ctx context.Context, q querier) error {
 		}
 	}
 	return nil
+}
+
+func columnsOf(query string) int {
+	switch query {
+	case transferTableQuery:
+		return 2
+	case transferColumnsQuery:
+		return 7
+	case transferIndexesQuery, transferForeignQuery:
+		return 5
+	}
+	return 2 // transferChecksQuery
 }

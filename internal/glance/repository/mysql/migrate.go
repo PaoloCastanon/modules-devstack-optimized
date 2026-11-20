@@ -104,6 +104,32 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 	return migrateVersions(ctx, db, migrations())
 }
 
+// sharedFK is the only line of migration 2 that a shared database cannot
+// keep: images lives in the official catalog, owned by the original Glance.
+const sharedFK = "    CONSTRAINT data_operation_image_fk FOREIGN KEY (image_id) REFERENCES images(id),\n"
+
+// sharedMigrations is the registry of a database paired with the official
+// catalog: only transfer bookkeeping, without a cross-schema foreign key.
+func sharedMigrations() []migration {
+	if !strings.Contains(dataOperationsSQL, sharedFK) {
+		panic("shared migration derivation out of date")
+	}
+	return []migration{{version: 1, sql: strings.Replace(dataOperationsSQL, sharedFK, "", 1), verify: verifySharedTransferStructure}}
+}
+
+// VerifySharedSchema is VerifySchema for a database paired with the official catalog.
+func VerifySharedSchema(ctx context.Context, db *sql.DB) error {
+	if _, err := readHistory(ctx, db, sharedMigrations(), false); err != nil {
+		return err
+	}
+	return verifySharedTransferStructure(ctx, db)
+}
+
+// MigrateShared is Migrate for a database paired with the official catalog.
+func MigrateShared(ctx context.Context, db *sql.DB) error {
+	return migrateVersions(ctx, db, sharedMigrations())
+}
+
 func migrateVersions(ctx context.Context, db *sql.DB, registry []migration) (result error) {
 	if err := validateRegistry(registry); err != nil {
 		return err
@@ -125,6 +151,10 @@ func migrateVersions(ctx context.Context, db *sql.DB, registry []migration) (res
 	var name string
 	if conn.QueryRowContext(ctx, "SELECT DATABASE()").Scan(&name) != nil || !AllowedDatabase(name) {
 		return errors.New("unsafe migration database")
+	}
+	// A shared database takes only the shared registry, and vice versa.
+	if Shared(name) != (registry[0].sql == sharedMigrations()[0].sql) {
+		return errors.New("migration registry does not match the database kind")
 	}
 	var locked sql.NullInt64
 	lockName := fmt.Sprintf("glance_go:%x", sha256.Sum256([]byte(name)))[:63]

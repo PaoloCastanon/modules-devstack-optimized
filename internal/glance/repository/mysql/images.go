@@ -19,6 +19,8 @@ type Repository struct {
 	// created once by PrepareStatements (outside any transaction) and then
 	// only read. nil means every query is prepared and executed per call.
 	stmts map[string]*sql.Stmt
+	// official, when set, makes this repository use the original Glance tables.
+	official *officialCatalog
 }
 
 var _ repository.Repository = (*Repository)(nil)
@@ -40,9 +42,9 @@ func (r *Repository) create(ctx context.Context, image model.Image) error {
 		return fmt.Errorf("begin metadata transaction: %w", err)
 	}
 	defer tx.Rollback()
-	_, err = tx.ExecContext(ctx, `INSERT INTO images
-		(id, owner, name, status, visibility, disk_format, container_format, min_disk, min_ram, protected, os_hidden, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	_, err = r.exec(ctx, tx, `INSERT INTO images
+		(id, owner, name, status, visibility, disk_format, container_format, min_disk, min_ram, protected, os_hidden, created_at, updated_at, deleted)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)`,
 		image.ID, image.Owner, image.Name, image.Status, image.Visibility, image.DiskFormat, image.ContainerFormat,
 		image.MinDisk, image.MinRAM, image.Protected, image.Hidden, image.CreatedAt.UTC(), image.UpdatedAt.UTC())
 	if err != nil {
@@ -52,7 +54,7 @@ func (r *Repository) create(ctx context.Context, image model.Image) error {
 		}
 		return fmt.Errorf("insert image: %w", err)
 	}
-	if err = insertChildren(ctx, tx, image.ID, image.Properties, image.Tags); err != nil {
+	if err = r.insertChildren(ctx, tx, image.ID, image.Properties, image.Tags); err != nil {
 		return err
 	}
 	if err = tx.Commit(); err != nil {

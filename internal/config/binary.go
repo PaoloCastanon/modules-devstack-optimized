@@ -20,8 +20,10 @@ type Binary struct {
 	Backend                   string
 	Root, Scope               string
 	RBDConf, RBDUser, RBDPool string
-	MaxUploadBytes            int64
-	MaxConcurrent             int
+	// OfficialStoreDir: published objects live in the original's directory.
+	OfficialStoreDir string
+	MaxUploadBytes   int64
+	MaxConcurrent    int
 	// MaxDownloadStreams caps image bytes being sent at once; more downloads
 	// wait in line instead of being refused (0 = no cap beyond MaxConcurrent).
 	MaxDownloadStreams                                                                  int

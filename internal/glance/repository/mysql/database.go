@@ -15,7 +15,21 @@ import (
 
 var testDatabase = regexp.MustCompile(`^glance_go_test_[a-z0-9_]+$`)
 
-func AllowedDatabase(name string) bool { return name == "glance_go" || testDatabase.MatchString(name) }
+func AllowedDatabase(name string) bool {
+	return name == "glance_go" || name == SharedDatabase || testDatabase.MatchString(name) || sharedTestDatabase.MatchString(name)
+}
+
+// SharedDatabase holds only Glance Go's own transfer bookkeeping when the
+// catalog is the official Glance database (OfficialDatabase).
+const (
+	SharedDatabase   = "glance_go_shared"
+	OfficialDatabase = "glance"
+)
+
+var sharedTestDatabase = regexp.MustCompile(`^glance_go_shared_test_[a-z0-9_]+$`)
+
+// Shared reports whether a Glance Go database pairs with the official catalog.
+func Shared(name string) bool { return name == SharedDatabase || sharedTestDatabase.MatchString(name) }
 
 func parseDSN(value string) (*driver.Config, error) {
 	c, err := driver.ParseDSN(value)
@@ -72,7 +86,9 @@ func parseDSN(value string) (*driver.Config, error) {
 		}
 	}
 	c.Params["autocommit"] = "1"
-	c.Params["sql_mode"] = "'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'"
+	// TIME_TRUNCATE_FRACTIONAL: the official catalog stores whole seconds;
+	// truncate like Python's oslo.db instead of rounding up.
+	c.Params["sql_mode"] = "'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,TIME_TRUNCATE_FRACTIONAL'"
 	return c, nil
 }
 
@@ -160,6 +176,13 @@ func checkAccount(ctx context.Context, conn *sql.Conn, mode string) error {
 	return nil
 }
 
+// OfficialCatalogName matches the official database a shared one pairs with.
+func OfficialCatalogName(name string) bool {
+	return name == OfficialDatabase || officialTestDatabase.MatchString(name)
+}
+
+var officialTestDatabase = regexp.MustCompile(`^glance_official_test_[a-z0-9_]+$`)
+
 func allowedGrant(grant, database, mode string, literalWildcards bool) bool {
 	upper := strings.ToUpper(grant)
 	if strings.Contains(upper, "WITH GRANT OPTION") {
@@ -168,13 +191,38 @@ func allowedGrant(grant, database, mode string, literalWildcards bool) bool {
 	if strings.HasPrefix(upper, "GRANT USAGE ON *.* TO ") {
 		return true
 	}
-	// With partial_revokes disabled, underscores in schema-level grants are
-	// wildcards even in backticks. Only the escaped literal scope is accepted.
-	scope := database
-	if !literalWildcards {
-		scope = strings.ReplaceAll(scope, "_", `\_`)
+	// A shared serving account also has DML (never DDL) on the official
+	// catalog, whose schema belongs to the original Glance.
+	if official := grantSchema(grant); Shared(database) && mode == "serve" && OfficialCatalogName(official) {
+		return grantedOnly(grant, " ON `"+escapeScope(official, literalWildcards)+"`.* TO ", "serve")
 	}
-	marker := " ON `" + scope + "`.* TO "
+	return grantedOnly(grant, " ON `"+escapeScope(database, literalWildcards)+"`.* TO ", mode)
+}
+
+// With partial_revokes disabled, underscores in schema-level grants are
+// wildcards even in backticks. Only the escaped literal scope is accepted.
+func escapeScope(name string, literalWildcards bool) string {
+	if !literalWildcards {
+		return strings.ReplaceAll(name, "_", `\_`)
+	}
+	return name
+}
+
+// grantSchema is the unescaped schema a schema-level grant names, or "".
+func grantSchema(grant string) string {
+	start := strings.Index(grant, " ON `")
+	if start < 0 {
+		return ""
+	}
+	rest := grant[start+5:]
+	end := strings.Index(rest, "`.* TO ")
+	if end < 0 {
+		return ""
+	}
+	return strings.ReplaceAll(rest[:end], `\_`, "_")
+}
+
+func grantedOnly(grant, marker, mode string) bool {
 	parts := strings.SplitN(grant, marker, 2)
 	if len(parts) != 2 || !strings.HasPrefix(parts[0], "GRANT ") {
 		return false

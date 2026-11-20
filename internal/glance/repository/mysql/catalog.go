@@ -122,7 +122,7 @@ const childBatch = 500
 // insertChildren writes properties (sorted by key) and tags (in their order)
 // with one multi-row INSERT per table and batch instead of one per row. A
 // single row produces exactly the former single-row statement.
-func insertChildren(ctx context.Context, tx *sql.Tx, id string, properties map[string]string, tags []string) error {
+func (r *Repository) insertChildren(ctx context.Context, tx *sql.Tx, id string, properties map[string]string, tags []string) error {
 	keys := make([]string, 0, len(properties))
 	for key := range properties {
 		keys = append(keys, key)
@@ -135,7 +135,10 @@ func insertChildren(ctx context.Context, tx *sql.Tx, id string, properties map[s
 			args = append(args, id, key, properties[key])
 		}
 		q := "INSERT INTO image_properties (image_id, name, value) VALUES " + valueRows("(?, ?, ?)", len(batch))
-		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+		if r.official != nil {
+			q = "INSERT INTO image_properties (image_id, name, value, created_at, deleted) VALUES " + valueRows("(?, ?, ?, UTC_TIMESTAMP(), 0)", len(batch))
+		}
+		if _, err := r.exec(ctx, tx, q, args...); err != nil {
 			return fmt.Errorf("insert image property: %w", err)
 		}
 	}
@@ -146,7 +149,10 @@ func insertChildren(ctx context.Context, tx *sql.Tx, id string, properties map[s
 			args = append(args, id, tag)
 		}
 		q := "INSERT INTO image_tags (image_id, value) VALUES " + valueRows("(?, ?)", len(batch))
-		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+		if r.official != nil {
+			q = "INSERT INTO image_tags (image_id, value, created_at, deleted) VALUES " + valueRows("(?, ?, UTC_TIMESTAMP(), 0)", len(batch))
+		}
+		if _, err := r.exec(ctx, tx, q, args...); err != nil {
 			return fmt.Errorf("insert image tag: %w", err)
 		}
 	}
@@ -189,7 +195,7 @@ func (r *Repository) update(ctx context.Context, id string, change func(model.Im
 	if result.ID != id || result.Owner != current.Owner || result.Status != current.Status || !result.CreatedAt.Equal(current.CreatedAt) {
 		return model.Image{}, errors.New("immutable image fields changed")
 	}
-	updated, err := tx.ExecContext(ctx, `UPDATE images SET name=?, visibility=?, disk_format=?, container_format=?, min_disk=?, min_ram=?, protected=?, os_hidden=?, updated_at=? WHERE id=? AND deleted=FALSE`,
+	updated, err := r.exec(ctx, tx, `UPDATE images SET name=?, visibility=?, disk_format=?, container_format=?, min_disk=?, min_ram=?, protected=?, os_hidden=?, updated_at=? WHERE id=? AND deleted=FALSE`,
 		result.Name, result.Visibility, result.DiskFormat, result.ContainerFormat, result.MinDisk, result.MinRAM, result.Protected, result.Hidden, result.UpdatedAt.UTC(), id)
 	if err != nil {
 		return model.Image{}, err
@@ -200,13 +206,13 @@ func (r *Repository) update(ctx context.Context, id string, change func(model.Im
 		return model.Image{}, repository.ErrConflict
 	}
 	// Parent lock serializes writers; child changes and parent update share commit.
-	if _, err = tx.ExecContext(ctx, "DELETE FROM image_properties WHERE image_id=?", id); err != nil {
+	if _, err = r.exec(ctx, tx, "DELETE FROM image_properties WHERE image_id=?", id); err != nil {
 		return model.Image{}, err
 	}
-	if _, err = tx.ExecContext(ctx, "DELETE FROM image_tags WHERE image_id=?", id); err != nil {
+	if _, err = r.exec(ctx, tx, "DELETE FROM image_tags WHERE image_id=?", id); err != nil {
 		return model.Image{}, err
 	}
-	if err = insertChildren(ctx, tx, id, result.Properties, result.Tags); err != nil {
+	if err = r.insertChildren(ctx, tx, id, result.Properties, result.Tags); err != nil {
 		return model.Image{}, err
 	}
 	if err = tx.Commit(); err != nil {
@@ -238,7 +244,7 @@ func (r *Repository) deleteImage(ctx context.Context, id string, now time.Time, 
 	if !now.After(current.UpdatedAt) {
 		now = current.UpdatedAt.Add(time.Microsecond)
 	}
-	res, err := tx.ExecContext(ctx, "UPDATE images SET deleted=TRUE, deleted_at=?, status='deleted', updated_at=? WHERE id=? AND deleted=FALSE", now, now, id)
+	res, err := r.exec(ctx, tx, "UPDATE images SET deleted=TRUE, deleted_at=?, status='deleted', updated_at=? WHERE id=? AND deleted=FALSE", now, now, id)
 	if err != nil {
 		return err
 	}
@@ -249,7 +255,11 @@ func (r *Repository) deleteImage(ctx context.Context, id string, now time.Time, 
 	if n != 1 {
 		return repository.ErrConflict
 	}
-	// Keep properties/tags associated with the tombstone; UUID remains reserved.
+	// Own catalog keeps properties/tags with the tombstone (UUID stays reserved);
+	// the official one soft-deletes them with the locations, as the original.
+	if err = r.destroyChildren(ctx, tx, id, now); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
@@ -388,7 +398,7 @@ func (r *Repository) List(ctx context.Context, o model.ListOptions) ([]model.Ima
 		marker = &image
 	}
 	query, args := listQuery(o, marker)
-	rows, err := tx.QueryContext(ctx, query, args...)
+	rows, err := r.query(ctx, tx, query, args...)
 	if err != nil {
 		return nil, err
 	}

@@ -31,6 +31,10 @@ type Config struct {
 	TokenCacheTime time.Duration
 	// Notifications is Glance only and read only by serve.
 	Notifications Notifications
+	// OfficialCatalog is the original Glance database Glance Go serves from
+	// (GLANCE_GO_CATALOG=official), "" for its own catalog. Its files are then
+	// in Binary.OfficialStoreDir, the original's filesystem_store_datadir.
+	OfficialCatalog string
 }
 
 // ReadSecret rejects group/world-readable files and never returns their contents in errors.
@@ -150,6 +154,9 @@ func load(getenv func(string) string, mode, prefix, defaultAddress string) (Conf
 	// Binary storage is Glance policy; Placement must not read that namespace.
 	if prefix == "GLANCE_GO_" {
 		if err := loadBinary(&c, getenv, mode); err != nil {
+			return Config{}, err
+		}
+		if err := loadCatalog(&c, getenv); err != nil {
 			return Config{}, err
 		}
 		c.TokenCacheTime = 300 * time.Second

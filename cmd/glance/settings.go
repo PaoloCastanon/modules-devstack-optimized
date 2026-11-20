@@ -17,5 +17,13 @@ func effectiveSettings(c config.Config) []any {
 		"request_timeout_s", c.RequestTimeout.Seconds(), "dependency_timeout_s", c.DependencyTimeout.Seconds(),
 		"sql_pool_open", mysql.PoolMaxOpen, "sql_pool_idle", mysql.PoolMaxIdle,
 		"token_cache_s", c.TokenCacheTime.Seconds(), "notification_driver", c.Notifications.Driver,
+		"catalog", catalogName(c),
 	}
+}
+
+func catalogName(c config.Config) string {
+	if c.OfficialCatalog != "" {
+		return "official"
+	}
+	return "own"
 }

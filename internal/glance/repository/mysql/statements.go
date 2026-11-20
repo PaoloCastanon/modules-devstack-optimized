@@ -25,7 +25,7 @@ func (r *Repository) PrepareStatements(ctx context.Context) error {
 	}
 	prepared := make(map[string]*sql.Stmt, len(hotStatements))
 	for _, q := range hotStatements {
-		st, err := r.db.PrepareContext(ctx, q)
+		st, err := r.db.PrepareContext(ctx, r.sql(q))
 		if err != nil {
 			for _, p := range prepared {
 				_ = p.Close()
@@ -42,12 +42,12 @@ func (r *Repository) queryRow(ctx context.Context, tx *sql.Tx, q string, args ..
 	if st := r.stmts[q]; st != nil {
 		return tx.StmtContext(ctx, st).QueryRowContext(ctx, args...)
 	}
-	return tx.QueryRowContext(ctx, q, args...)
+	return tx.QueryRowContext(ctx, r.sql(q), args...)
 }
 
 func (r *Repository) query(ctx context.Context, tx *sql.Tx, q string, args ...any) (*sql.Rows, error) {
 	if st := r.stmts[q]; st != nil {
 		return tx.StmtContext(ctx, st).QueryContext(ctx, args...)
 	}
-	return tx.QueryContext(ctx, q, args...)
+	return tx.QueryContext(ctx, r.sql(q), args...)
 }
