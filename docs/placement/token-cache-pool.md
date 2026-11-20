@@ -61,11 +61,41 @@ indica un entorno comparable. La desventaja anterior se debía a la
 validación de tokens contra Keystone en cada petición y al pool reducido, no
 al lenguaje.
 
+### Candidates, claim-cycle y nova-mix
+
+Protocolo `placement-compact-v2-nova`, mismo binario: 36/36 ventanas válidas,
+0 errores, original restaurado y VM apagada. [Evidencia](../../evidence/sprint5/benchmarks/placement-compact-v2-nova-20261120/README.md).
+
+| Carga | Conc. | Python ops/s | Go ops/s | Go/Python | p50 Py/Go (ms) | p99 Py/Go (ms) | Go oct → nov |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| candidates | 1 | 41 | 389 | 9,40 [8,60–9,60] | 22,5 / 1,8 | 43,7 / 3,6 | 120 → 389 (3,2×) |
+| candidates | 16 | 68 | 647 | 9,47 [9,35–9,53] | 227,9 / 22,2 | 323,4 / 48,7 | 404 → 647 (1,6×) |
+| claim-cycle | 1 | 39 | 121 | 2,98 [2,93–3,20] | 25,4 / 5,9 | 81,2 / 25,6 | 97 → 121 (1,25×) |
+| claim-cycle | 16 | 60 | 849 | 14,14 [13,94–15,19] | 235,6 / 19,5 | 844,9 / 58,4 | 320 → 849 (2,65×) |
+| nova-mix | 1 | 54 | 294 | 5,44 [5,34–5,58] | 14,8 / 1,9 | 56,4 / 19,9 | 108 → 294 (2,7×) |
+| nova-mix | 16 | 99 | 1070 | 10,86 [10,27–11,26] | 170,0 / 11,7 | 392,2 / 44,7 | 401 → 1070 (2,7×) |
+
+CPU por petición correcta: Go/Python 0,060–0,106. PSS: Python ~181–194 MiB,
+Go ~15–17 MiB.
+
+**Cautela:** en esta campaña Python rindió 20–30 % menos que el 31-oct en
+candidates c16, claim-cycle y nova-mix (por ejemplo, nova-mix c16: 143 → 99
+ops/s), de forma estable entre repeticiones y sin causa identificada. Esa baja
+infla los cocientes Go/Python. La comparación Go contra Go (última columna)
+no depende de Python: el binario nuevo es 1,25–3,2× más rápido que el de
+octubre en estas cargas.
+
+## Conclusión
+
+Con la misma política de caché de tokens que el original y un pool adecuado,
+Placement Go supera a Python en las seis cargas medidas: 4,9–7,5× en lecturas
+y 3–14× en candidates, claims y la mezcla tipo Nova, con ~6–10 % de la CPU por
+petición y ~8 % de la memoria.
+
 Límites: tres pares por celda y dos concurrencias, sin significancia
 estadística. Ambos servicios cachean tokens (Python en memcached, Go en
 memoria del proceso), pero workers, pools y configuración MySQL siguen siendo
-distintos. Las cargas candidates, claim-cycle y nova-mix no se repitieron; sus
-resultados de compact-v2 corresponden al binario anterior.
+distintos. Se comparan despliegues, no lenguajes aislados.
 
 ## Verificación
 

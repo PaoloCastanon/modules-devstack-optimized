@@ -1195,3 +1195,16 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - **Límites:** tres pares, sin significancia estadística; las otras tres cargas
   no se repitieron con el binario nuevo.
   [Evidencia](../evidence/sprint5/benchmarks/placement-compact-v2-reads-20261120/README.md).
+
+### 2026-11-20 — Placement: re-medición de candidates, claim-cycle y nova-mix
+
+- **Hecho:** protocolo `placement-compact-v2-nova`, mismo binario que las
+  lecturas. Piloto 12/12 y oficial **36/36** válidas, 0 errores; B17/B18
+  aceptados por el análisis.
+- **Resultado:** Go/Python 3–14× en throughput; Go contra Go (oct → nov)
+  1,25–3,2× más rápido. CPU por petición 0,06–0,11×; PSS ~16 MiB contra ~188 MiB.
+- **Cautela:** Python rindió 20–30 % menos que el 31-oct en cuatro celdas,
+  estable entre repeticiones y sin causa identificada; infla los cocientes.
+- **Laboratorio:** original sin cambios, recursos propios retirados, timers apt
+  reactivados y VM apagada.
+  [Evidencia](../evidence/sprint5/benchmarks/placement-compact-v2-nova-20261120/README.md).
