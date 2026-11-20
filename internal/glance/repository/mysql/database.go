@@ -31,7 +31,12 @@ var sharedTestDatabase = regexp.MustCompile(`^glance_go_shared_test_[a-z0-9_]+$`
 // Shared reports whether a Glance Go database pairs with the official catalog.
 func Shared(name string) bool { return name == SharedDatabase || sharedTestDatabase.MatchString(name) }
 
-func parseDSN(value string) (*driver.Config, error) {
+func parseDSN(value string) (*driver.Config, error) { return parseDSNFor(value, false) }
+
+// parseDSNFor with originalAccount accepts the original Glance's own account
+// (DevStack's root) for the shared database: it is the same account the
+// original uses, read from its glance-api.conf, not a new privileged one.
+func parseDSNFor(value string, originalAccount bool) (*driver.Config, error) {
 	c, err := driver.ParseDSN(value)
 	if err != nil {
 		return nil, errors.New("invalid MySQL DSN")
@@ -42,9 +47,14 @@ func parseDSN(value string) (*driver.Config, error) {
 	if c.User == "" {
 		return nil, errors.New("a dedicated database account is required")
 	}
+	if originalAccount && !Shared(c.DBName) {
+		return nil, errors.New("the original's account is accepted only for the shared database")
+	}
 	switch strings.ToLower(c.User) {
 	case "root", "admin", "stack", "glance", "nova", "placement", "keystone":
-		return nil, errors.New("original service and administrative database accounts are prohibited")
+		if !originalAccount {
+			return nil, errors.New("original service and administrative database accounts are prohibited")
+		}
 	}
 	if c.MultiStatements || c.AllowAllFiles || c.AllowCleartextPasswords || c.AllowOldPasswords || c.AllowFallbackToPlaintext || c.TLSConfig == "skip-verify" || c.TLSConfig == "preferred" {
 		return nil, errors.New("unsafe MySQL DSN options")
@@ -93,8 +103,13 @@ func parseDSN(value string) (*driver.Config, error) {
 }
 
 // Open constructs a pool; it does not connect, create schemas or run migrations.
-func Open(dsn string) (*sql.DB, error) {
-	c, err := parseDSN(dsn)
+func Open(dsn string) (*sql.DB, error) { return open(dsn, false) }
+
+// OpenOriginalAccount opens the shared database with the original's account.
+func OpenOriginalAccount(dsn string) (*sql.DB, error) { return open(dsn, true) }
+
+func open(dsn string, originalAccount bool) (*sql.DB, error) {
+	c, err := parseDSNFor(dsn, originalAccount)
 	if err != nil {
 		return nil, err
 	}

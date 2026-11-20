@@ -130,7 +130,17 @@ func MigrateShared(ctx context.Context, db *sql.DB) error {
 	return migrateVersions(ctx, db, sharedMigrations())
 }
 
-func migrateVersions(ctx context.Context, db *sql.DB, registry []migration) (result error) {
+func migrateVersions(ctx context.Context, db *sql.DB, registry []migration) error {
+	return migrateWith(ctx, db, registry, true)
+}
+
+// MigrateSharedOriginalAccount migrates the shared database with the
+// original's account, whose grants are not Glance Go's to restrict.
+func MigrateSharedOriginalAccount(ctx context.Context, db *sql.DB) error {
+	return migrateWith(ctx, db, sharedMigrations(), false)
+}
+
+func migrateWith(ctx context.Context, db *sql.DB, registry []migration, checkGrants bool) (result error) {
 	if err := validateRegistry(registry); err != nil {
 		return err
 	}
@@ -139,8 +149,10 @@ func migrateVersions(ctx context.Context, db *sql.DB, registry []migration) (res
 		return errors.New("cannot acquire migration connection")
 	}
 	defer conn.Close()
-	if err := checkAccount(ctx, conn, "migrate"); err != nil {
-		return err
+	if checkGrants {
+		if err := checkAccount(ctx, conn, "migrate"); err != nil {
+			return err
+		}
 	}
 	// Check the actual pinned session, not only the DSN. Every history DML
 	// statement must be committed before subsequent DDL or a success result.

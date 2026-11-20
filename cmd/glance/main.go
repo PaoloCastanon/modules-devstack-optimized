@@ -37,7 +37,11 @@ func run(args []string, logger *slog.Logger) (result error) {
 	if err != nil {
 		return err
 	}
-	db, err := mysql.Open(c.DatabaseDSN)
+	open := mysql.Open
+	if c.OriginalAccount {
+		open = mysql.OpenOriginalAccount
+	}
+	db, err := open(c.DatabaseDSN)
 	if err != nil {
 		return err
 	}
@@ -63,13 +67,21 @@ func run(args []string, logger *slog.Logger) (result error) {
 		if official {
 			migrate = mysql.MigrateShared
 		}
+		if c.OriginalAccount {
+			migrate = mysql.MigrateSharedOriginalAccount
+		}
 		if err = migrate(startup, db); err != nil {
 			return err
 		}
 		logger.Info("metadata migration verified")
 		return nil
 	}
-	checks := startupChecks{ping: db.PingContext, account: func(ctx context.Context) error { return mysql.CheckAccount(ctx, db, "serve") }, schema: func(ctx context.Context) error {
+	checks := startupChecks{ping: db.PingContext, account: func(ctx context.Context) error {
+		if c.OriginalAccount { // the original's own account: its grants are not ours to restrict
+			return nil
+		}
+		return mysql.CheckAccount(ctx, db, "serve")
+	}, schema: func(ctx context.Context) error {
 		if official {
 			return mysql.VerifySharedSchema(ctx, db)
 		}

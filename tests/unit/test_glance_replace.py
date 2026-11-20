@@ -66,6 +66,13 @@ class GlanceReplaceTests(unittest.TestCase):
                      'GLANCE_GO_STORE_ROOT=/opt/stack/data/glance-go/shared-store'):
             self.assertIn(line + '\n', env)
 
+    def test_original_config_env_has_only_what_glance_api_conf_does_not_say(self):
+        env = replace.serve_env_original(Path('/opt/stack/data/glance-go'), 'scope-uuid')
+        self.assertIn('GLANCE_GO_CONFIG_FILE=/etc/glance/glance-api.conf\n', env)
+        self.assertIn('GLANCE_GO_LISTEN_ADDR=127.0.0.1:19292\n', env)
+        for absent in ('DSN', 'KEYSTONE', 'NOTIFICATION', 'TRANSPORT', 'OFFICIAL'):
+            self.assertNotIn(absent, env)
+
     def test_copy_to_the_original_keeps_the_owner_only_when_asked(self):
         meta = {'id': 'i', 'name': 'n', 'owner': 'p', 'disk_format': 'raw', 'container_format': 'bare'}
         self.assertNotIn('owner', replace.copied_image(meta)[0])

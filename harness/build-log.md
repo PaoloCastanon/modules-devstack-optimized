@@ -1204,3 +1204,12 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     [Evidencia](../evidence/sprint5/glance-shared-catalog-20261120/README.md).
   - **Nota:** esto revisa la ADR de bases separadas para el reemplazo
     permanente. El modo propio sigue por defecto para la suite y las campañas.
+- 2026-11-20, catálogo oficial igual al original, pedido por Juan:
+  - **Configuración y cuenta:** Glance Go lee `/etc/glance/glance-api.conf`
+    (`GLANCE_GO_CONFIG_FILE`) y usa la misma cuenta MySQL y el mismo
+    usuario `glance` de Keystone, con autenticación por contraseña como
+    keystonemiddleware. Placement no cambia.
+  - **Escritura:** directa en `<id>`, como `glance_store`.
+  - **Modo propio:** conserva sus protecciones.
+  - **Verificación:** E2E 10/10 con Nova, B26 5/5 y `make check` OK.
+    [Evidencia](../evidence/sprint5/glance-shared-catalog-20261120/README.md).

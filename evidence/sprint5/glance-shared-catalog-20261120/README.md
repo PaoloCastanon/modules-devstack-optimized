@@ -24,3 +24,15 @@ Límites:
 - Solo store filesystem. Las imágenes con otro hash o con ubicaciones remotas o múltiples no se adoptan.
 - `image_members` sigue fuera del alcance.
 - Las pruebas de integración MySQL con contenedor no incluyen todavía el esquema del oficial. La verificación del dialecto es la de la VM, contra el esquema real.
+
+## Misma configuración, misma cuenta y escritura directa (2026-11-20, binario `726f4e90…`)
+
+Glance Go lee el mismo `/etc/glance/glance-api.conf` del original (`GLANCE_GO_CONFIG_FILE`). De ahí toma:
+- la misma cuenta MySQL (`[database] connection`);
+- el mismo usuario de Keystone (`[keystone_authtoken]`, `glance` con contraseña);
+- las notificaciones, `public_endpoint` y `filesystem_store_datadir`.
+
+Escribe cada imagen directo como `<id>`, sin staging ni fsync, y borra el archivo parcial si falla, como `glance_store`.
+
+- E2E compartido con Nova: **10/10 rondas** ([e2e-10-rounds-original-config.jsonl](e2e-10-rounds-original-config.jsonl)).
+- B26 en modo propio: **5/5 corridas**, 12/12 casos ([b26-own-mode-5-runs-original-config.jsonl](b26-own-mode-5-runs-original-config.jsonl)). La sexta se detuvo a pedido y el laboratorio quedó restaurado.

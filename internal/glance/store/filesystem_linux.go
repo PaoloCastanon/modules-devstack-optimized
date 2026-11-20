@@ -485,6 +485,9 @@ func (s *Filesystem) Stage(ctx context.Context, key Key, src io.Reader, limit in
 	if err = ctx.Err(); err != nil {
 		return Info{}, err
 	}
+	if s.flat {
+		return s.stageDirect(ctx, name, src, limit, declared)
+	}
 	if err = s.noFinal(name); err != nil {
 		return Info{}, err
 	}
@@ -653,6 +656,9 @@ func (s *Filesystem) Publish(ctx context.Context, key Key, expected Info) error 
 	if err = ctx.Err(); err != nil {
 		return err
 	}
+	if s.flat {
+		return s.publishDirect(ctx, name, expected)
+	}
 	if err = s.noFinal(name); err != nil {
 		return err
 	}
@@ -806,4 +812,66 @@ func validHash(value string, length int) bool {
 	}
 	_, err := hex.DecodeString(value)
 	return err == nil
+}
+
+// stageDirect writes the upload straight to <image-id> in the official
+// directory, as glance_store's filesystem driver does: no staging copy, no
+// fsync, and a failed write removes the partial file. The caller holds the key.
+func (s *Filesystem) stageDirect(ctx context.Context, name string, src io.Reader, limit int64, declared *int64) (info Info, result error) {
+	final := s.final(name)
+	f, err := openEntry(s.objects, final, syscall.O_WRONLY|syscall.O_CREAT|syscall.O_EXCL, 0644)
+	if errors.Is(err, syscall.EEXIST) {
+		return Info{}, ErrExists
+	}
+	if err != nil {
+		return Info{}, opError("create image file", err)
+	}
+	ok := false
+	defer func() {
+		if e := f.Close(); e != nil && result == nil {
+			result, info = opError("close image file", e), Info{}
+		}
+		if !ok || result != nil {
+			_ = s.ops.unlink(s.objects, final)
+		}
+	}()
+	if err = s.checkObject(f); err != nil {
+		return Info{}, err
+	}
+	info, err = measure(ctx, src, func(b []byte) (int, error) { return s.ops.write(f, b) }, limit, declared)
+	if err != nil {
+		return Info{}, opError("write image file", err)
+	}
+	if err = ctx.Err(); err != nil {
+		return Info{}, err
+	}
+	if id, known := fileIdentity(f, info); known {
+		s.rememberStaged(name, id)
+	}
+	ok = true
+	return info, nil
+}
+
+// publishDirect confirms the directly written file is still the staged one;
+// its final name already exists, so there is nothing to link.
+func (s *Filesystem) publishDirect(ctx context.Context, name string, expected Info) error {
+	f, err := openEntry(s.objects, s.final(name), syscall.O_RDONLY, 0)
+	if errors.Is(err, syscall.ENOENT) {
+		return ErrIncomplete
+	}
+	if err != nil {
+		return opError("open image file", err)
+	}
+	defer f.Close()
+	if err = s.checkObject(f); err != nil {
+		return err
+	}
+	if !s.unchangedSinceStage(name, f, expected) {
+		actual, err := measure(ctx, f, nil, expected.Size, &expected.Size)
+		if err != nil || actual != expected {
+			return ErrIntegrity
+		}
+	}
+	s.forgetStaged(name)
+	return nil
 }

@@ -3,6 +3,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -99,5 +100,45 @@ func TestSharedStoreRefusesUnsafeOfficialDirectory(t *testing.T) {
 	if s, err := NewSharedFilesystem(root, scope, "relative/images"); err == nil {
 		_ = s.Close()
 		t.Fatal("relative path accepted")
+	}
+}
+
+func TestSharedStoreWritesDirectlyLikeGlanceStore(t *testing.T) {
+	s, official := sharedFixture(t)
+	k, data := key(), []byte("direct bytes")
+	info, err := s.Stage(context.Background(), k, bytes.NewReader(data), int64(len(data)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Already under its final name before Publish, as the original writes it.
+	if got, err := os.ReadFile(filepath.Join(official, k.ImageID)); err != nil || string(got) != string(data) {
+		t.Fatalf("direct write: %q %v", got, err)
+	}
+	if entries, _ := os.ReadDir(filepath.Join(filepath.Dir(official), "glance-go", "staging")); len(entries) != 0 {
+		t.Fatal("no staging copy expected", entries)
+	}
+	if err = s.Publish(context.Background(), k, info); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.Stage(context.Background(), k, bytes.NewReader(data), int64(len(data)), nil); !errors.Is(err, ErrExists) {
+		t.Fatal("existing image file must not be overwritten", err)
+	}
+	if err = os.WriteFile(filepath.Join(official, k.ImageID), []byte("tampered!!!!"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Publish(context.Background(), k, info); !errors.Is(err, ErrIntegrity) {
+		t.Fatal("changed bytes must fail publication", err)
+	}
+}
+
+func TestSharedStoreRemovesPartialDirectWrite(t *testing.T) {
+	s, official := sharedFixture(t)
+	k := key()
+	declared := int64(100)
+	if _, err := s.Stage(context.Background(), k, bytes.NewReader([]byte("short")), 1000, &declared); err == nil {
+		t.Fatal("short upload accepted")
+	}
+	if _, err := os.Stat(filepath.Join(official, k.ImageID)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("partial file must be removed, as glance_store does", err)
 	}
 }

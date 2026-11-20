@@ -7,11 +7,12 @@ installs Glance Go for good:
 - ``install``: Glance Go serves the ORIGINAL catalog (GLANCE_GO_CATALOG=official):
   the official ``glance`` database and its filesystem store directory, so both
   implementations see the same images and files and switching copies nothing.
-  Glance Go keeps only its transfer bookkeeping in ``glance_go_shared`` (DevStack's
-  MySQL): a migration account with DDL there and a serving account with DML
-  there and on ``glance`` (never DDL on the original's schema). Also a permanent
-  Keystone service user, the original's notification settings and an enabled
-  ``glance-go.service``. Images that only an earlier own-catalog installation
+  Glance Go reads the original's own ``/etc/glance/glance-api.conf``
+  (GLANCE_GO_CONFIG_FILE): the same MySQL account ([database] connection), the
+  same Keystone service user ([keystone_authtoken]), notifications, store
+  directory and public endpoint. It writes image files directly as
+  ``<id>``, as glance_store does, and keeps only its transfer bookkeeping in
+  ``glance_go_shared`` on the same MySQL server. ``glance-go.service`` is enabled. Images that only an earlier own-catalog installation
   (database ``glance_go``) holds are first copied into the original catalog,
   same ID and verified hashes; that old data is kept, unused. Then ``use-go``.
 - ``use-go``: /image points to Glance Go; ``devstack@g-api`` is stopped and
@@ -103,6 +104,14 @@ def official_store_dir(conf_text):
     if not path.startswith('/') or os.path.normpath(path) != path:
         raise ValueError('original store directory must be absolute and clean')
     return path
+
+
+def serve_env_original(root, scope):
+    """Only what glance-api.conf does not say: Glance Go's own port and its
+    private store root (lock and scope marker)."""
+    env = {'GLANCE_GO_LISTEN_ADDR': '127.0.0.1:' + str(LISTEN_PORT), 'GLANCE_GO_CONFIG_FILE': str(GLANCE_CONF),
+           'GLANCE_GO_BINARY_ENABLED': 'true', 'GLANCE_GO_STORE_ROOT': str(root / 'shared-store'), 'GLANCE_GO_STORE_SCOPE': scope}
+    return ''.join(k + '=' + v + '\n' for k, v in env.items())
 
 
 def serve_env(root, scope, notifications, store_dir=None):
@@ -232,30 +241,30 @@ def private(path, text):
 
 
 def install(args):
-    import placement_runtime
+    import pymysql
     if not args.binary.is_file():
         raise ValueError('Glance Go binary required')
     command(['sudo', 'install', '-d', '-m', '700', '-o', str(os.getuid()), '-g', str(os.getgid()), str(ROOT)])
     (ROOT / 'bin').mkdir(exist_ok=True)
     conf = sudo_read(GLANCE_CONF)
     store_dir = official_store_dir(conf)
-    ensure_shared_database(ROOT)
-    ensure_service_user(ROOT)
-    notifications = placement_runtime.glance_notification_settings(conf)
-    if notifications['driver'] == 'messagingv2':
-        private(ROOT / 'transport.url', notifications['transport_url'] + '\n')
-    report = {'catalog': 'official', 'store_dir': store_dir, 'copied_from_own_catalog': adopt_own_catalog()}
+    db = database_from_glance_conf(conf)  # the original's own account creates the bookkeeping database
+    with pymysql.connect(host=db['host'], port=db['port'], user=db['user'], password=db['password'], connect_timeout=10) as conn:
+        with conn.cursor() as cur:
+            cur.execute('CREATE DATABASE IF NOT EXISTS `glance_go_shared`')
+        conn.commit()
+    report = {'catalog': 'official', 'config_file': str(GLANCE_CONF), 'store_dir': store_dir,
+              'copied_from_own_catalog': adopt_own_catalog()}
     tmp = ROOT / 'bin/.glance.new'
     tmp.write_bytes(args.binary.read_bytes())
     tmp.chmod(0o700)
     tmp.replace(ROOT / 'bin/glance')
     base = {k: v for k, v in os.environ.items() if not k.startswith('GLANCE_GO_')}
     glance = str(ROOT / 'bin/glance')
-    official = {'GLANCE_GO_CATALOG': 'official', 'GLANCE_GO_OFFICIAL_STORE_DIR': store_dir}
     with (ROOT / 'shared-migrate.log').open('w') as log:
-        command([glance, 'migrate'], env={**base, **official, 'GLANCE_GO_DATABASE_DSN_FILE': str(ROOT / 'shared-migrate.dsn')}, stdout=log, stderr=subprocess.STDOUT)
+        command([glance, 'migrate'], env={**base, 'GLANCE_GO_CONFIG_FILE': str(GLANCE_CONF)}, stdout=log, stderr=subprocess.STDOUT)
     pre = dict(base)
-    for line in serve_env(ROOT, '', {'driver': 'noop'}, store_dir).splitlines():
+    for line in serve_env_original(ROOT, '').splitlines():
         k, _, v = line.partition('=')
         pre[k] = v
     (ROOT / 'shared-store').mkdir(mode=0o700, exist_ok=True)
@@ -264,11 +273,11 @@ def install(args):
     if not any((ROOT / 'shared-store').iterdir()):
         with (ROOT / 'shared-store-init.log').open('w') as log:
             command([glance, 'store-init'], env=pre, stdout=log, stderr=subprocess.STDOUT)
-    private(ROOT / 'serve.env', serve_env(ROOT, scope, notifications, store_dir))
+    private(ROOT / 'serve.env', serve_env_original(ROOT, scope))
     command(['sudo', 'tee', str(UNIT_FILE)], input=unit_text(ROOT, os.environ.get('USER', 'stack')), text=True, stdout=subprocess.DEVNULL)
     command(['sudo', 'systemctl', 'daemon-reload'])
     report.update(use_go(restart=True))
-    report.update({'installed': True, 'root': str(ROOT), 'unit': UNIT, 'listen': LISTEN_PORT, 'notifications': notifications['driver'],
+    report.update({'installed': True, 'root': str(ROOT), 'unit': UNIT, 'listen': LISTEN_PORT,
                    'binary_sha256': digest((ROOT / 'bin/glance').read_bytes())})
     print(json.dumps(report, indent=1))
     return 0
@@ -278,7 +287,7 @@ def adopt_own_catalog():
     """Copy images that only an earlier own-catalog Glance Go holds into the
     original catalog (served by the original on its own port meanwhile)."""
     serve = ROOT / 'serve.env'
-    if not (ROOT / 'app.dsn').exists() or (serve.exists() and 'GLANCE_GO_CATALOG=official' in serve.read_text()):
+    if not (ROOT / 'app.dsn').exists() or (serve.exists() and ('GLANCE_GO_CATALOG=official' in serve.read_text() or 'GLANCE_GO_CONFIG_FILE' in serve.read_text())):
         return []
     original_port = backend_port(original_site())
     command(['sudo', 'systemctl', 'start', ORIGINAL_UNIT])

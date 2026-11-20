@@ -26,17 +26,31 @@ que el Glance original** (`GLANCE_GO_CATALOG=official`). Los dos ven las mismas
 imágenes: lo que sube uno lo descarga el otro, y lo que borra uno desaparece
 en el otro. Al cambiar con `use-go` o `use-original` no se copia nada.
 
-| Pieza | Permanente |
-|---|---|
-| Catálogo | Las tablas del oficial en la base `glance`: `images`, `image_properties`, `image_tags` e `image_locations`. Glance Go escribe con la forma que usan los modelos SQLAlchemy del original: hijos con `created_at`/`deleted`, una fila en `image_locations` `file:///…/<id>` por cada imagen activa y borrado lógico de las ubicaciones, propiedades y tags al borrar la imagen |
-| Archivos | El directorio `filesystem_store_datadir` del oficial (`/opt/stack/data/glance/images`), con el nombre `<id>` que usa `glance_store`. La escritura temporal es privada (`/opt/stack/data/glance-go/shared-store`) y se publica con un `link` atómico en el mismo sistema de archivos |
-| Contabilidad propia | `image_data_operations` (recuperación de cargas) en la base `glance_go_shared`, sin FK hacia `images`. Las imágenes que subió el original se *adoptan* como cargas confirmadas si su metadato es SHA-512 y tienen una sola ubicación local, la de su ID |
-| Cuentas MySQL | `glance_go_shared_migrate`: DDL solo en `glance_go_shared`. `glance_go_shared_app`: DML en `glance_go_shared` y en `glance`, nunca DDL sobre el esquema del original. Glance Go lo verifica al arrancar |
-| Revisión del original | Al arrancar se comprueba `glance.alembic_version` (`2024_1_contract01`). Con otra revisión, Glance Go no arranca |
-| Credencial | Usuario `glance-go` en Keystone, con el rol `service` en el proyecto `service` y una credencial de aplicación |
-| Servicio | `glance-go.service` (systemd, habilitado), en `127.0.0.1:19292` |
-| Notificaciones | Las mismas del oficial (`messagingv2`) |
-| Ruta | `/image` en Apache apunta a Glance Go; `devstack@g-api` queda deshabilitado, sin borrarlo |
+Además, Glance Go **lee el mismo `/etc/glance/glance-api.conf` del original**
+(`GLANCE_GO_CONFIG_FILE`) y usa lo mismo que él:
+
+| Pieza | Glance (original) | Glance Go |
+|---|---|---|
+| Configuración | `/etc/glance/glance-api.conf` | El mismo archivo, leído como oslo.config. `serve.env` solo agrega lo que el archivo no dice: el puerto propio (`127.0.0.1:19292`) y la raíz privada del store |
+| Base de datos | `[database] connection` (en DevStack, `root`) | La misma cuenta, en el mismo servidor |
+| Catálogo | `images`, `image_properties`, `image_tags` e `image_locations` en `glance` | Las mismas tablas, con la forma de los modelos SQLAlchemy: borrado lógico y una ubicación `file:///…/<id>` por imagen activa |
+| Archivos | `filesystem_store_datadir`, cada imagen como `<id>`, escrita directo | Igual: escribe directo en `<id>`, sin copia intermedia ni fsync, y borra el archivo parcial si falla, como `glance_store` |
+| Usuario de Keystone | `[keystone_authtoken]` (`glance`, contraseña, proyecto `service`) | El mismo usuario y la misma contraseña, con `token_cache_time` |
+| Notificaciones | `[oslo_messaging_notifications]` + `transport_url` | Las mismas |
+| Endpoint público | `public_endpoint` | El mismo |
+
+Lo único propio de Glance Go es la tabla `image_data_operations`, que usa para
+recuperar cargas interrumpidas. Está en la base `glance_go_shared` del mismo
+servidor, porque el original no la tiene. Las imágenes que subió el original
+se *adoptan* como cargas confirmadas si su hash es SHA-512 y tienen una sola
+ubicación local, la de su ID. Al arrancar, Glance Go verifica
+`glance.alembic_version` (`2024_1_contract01`): con otra revisión no arranca.
+
+El modo propio (sin `GLANCE_GO_CONFIG_FILE`) conserva las protecciones de
+Glance Go, porque lo usan la suite B26 y las campañas:
+- cuentas MySQL dedicadas, con permisos mínimos;
+- credencial de aplicación sin `admin`;
+- staging con `link` atómico y fsync.
 
 Si antes había una instalación con catálogo propio (base `glance_go`), las
 imágenes que solo tenía ella se copian primero al catálogo oficial, con el
@@ -60,4 +74,5 @@ alcance.
   - el cambio funciona en los dos sentidos y sobrevive al reinicio.
 - [Catálogo compartido](../../evidence/sprint5/glance-shared-catalog-20261120/README.md):
   - `scripts/integration/glance_shared_e2e.py` pasó **10/10 rondas**;
-  - la suite B26 se corrió 10 veces en modo propio.
+  - la suite B26 se corrió 10 veces en modo propio;
+  - con la misma configuración, la misma cuenta y la escritura directa, se repitió todo: 10/10 y 10/10.

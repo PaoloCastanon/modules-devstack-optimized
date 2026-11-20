@@ -17,7 +17,7 @@ func effectiveSettings(c config.Config) []any {
 		"request_timeout_s", c.RequestTimeout.Seconds(), "dependency_timeout_s", c.DependencyTimeout.Seconds(),
 		"sql_pool_open", mysql.PoolMaxOpen, "sql_pool_idle", mysql.PoolMaxIdle,
 		"token_cache_s", c.TokenCacheTime.Seconds(), "notification_driver", c.Notifications.Driver,
-		"catalog", catalogName(c),
+		"catalog", catalogName(c), "original_account", c.OriginalAccount, "store_layout", storeLayout(c),
 	}
 }
 
@@ -26,4 +26,11 @@ func catalogName(c config.Config) string {
 		return "official"
 	}
 	return "own"
+}
+
+func storeLayout(c config.Config) string {
+	if c.Binary.OfficialStoreDir != "" {
+		return "official-direct"
+	}
+	return "own-staged"
 }
