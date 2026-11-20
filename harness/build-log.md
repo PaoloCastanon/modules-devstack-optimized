@@ -1169,3 +1169,16 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   Verificación: B26 en Glance Go 12/12 y en el modo conjunto 16/16, `make check`
   OK y `glance-test-rbd` 10/10.
   [Evidencia](../evidence/sprint5/glance-notifications-20261119/README.md).
+- 2026-11-20, reemplazo permanente del Glance original por Glance Go
+  (`scripts/integration/glance_replace.py`). Instala:
+  - la base `glance_go` en el MySQL de DevStack;
+  - el usuario `glance-go` en Keystone;
+  - `glance-go.service`, habilitado;
+  - las notificaciones copiadas del original;
+  - las imágenes copiadas con el mismo ID y hashes verificados;
+  - la ruta `/image` hacia Go, con `devstack@g-api` deshabilitado.
+
+  Verificación: CirrOS copiado, Nova crea un servidor `ACTIVE` desde Glance
+  Go, `use-original` y `use-go` funcionan en los dos sentidos y el cambio
+  sobrevive al reinicio de la VM.
+  [Evidencia](../evidence/sprint5/glance-replace-20261120/README.md).
