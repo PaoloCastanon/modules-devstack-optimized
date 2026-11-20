@@ -53,6 +53,9 @@ func run(args []string, logger *slog.Logger) error {
 		logger.Info("provider/inventory migration verified")
 		return nil
 	}
+	if err = mysql.ConfigurePool(db, c.DBMaxConnections); err != nil {
+		return err
+	}
 	if err = mysql.CheckAccount(startup, db, "serve"); err != nil {
 		return err
 	}
@@ -60,7 +63,7 @@ func run(args []string, logger *slog.Logger) error {
 		return err
 	}
 	client := &http.Client{Timeout: c.DependencyTimeout}
-	authenticator := auth.NewKeystone(c.KeystoneURL, client, c.Credential)
+	authenticator := auth.NewKeystone(c.KeystoneURL, client, c.Credential, auth.WithTokenCache(c.TokenCacheTime, 10000))
 	handler, err := api.New(service.New(mysql.New(db, c.DependencyTimeout)), authenticator, c.PublicURL, c.KeystoneURL, c.MaxBodyBytes, logger)
 	if err != nil {
 		return err
@@ -86,7 +89,8 @@ func run(args []string, logger *slog.Logger) error {
 		case <-closed:
 		}
 	}()
-	logger.Info("provider/inventory API listening", "address", c.ListenAddress)
+	logger.Info("provider/inventory API listening", "address", c.ListenAddress,
+		"token_cache_seconds", int(c.TokenCacheTime/time.Second), "db_max_connections", c.DBMaxConnections)
 	err = server.ListenAndServe()
 	close(closed)
 	<-shutdownFinished

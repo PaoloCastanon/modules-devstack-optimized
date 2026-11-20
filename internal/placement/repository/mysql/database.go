@@ -95,6 +95,17 @@ func Open(dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
+// ConfigurePool sets the serve pool. Idle connections match the limit so a
+// steady concurrent load does not reopen connections on every burst.
+func ConfigurePool(db *sql.DB, maxConnections int) error {
+	if maxConnections < 1 || maxConnections > 256 {
+		return errors.New("database pool size must be between 1 and 256")
+	}
+	db.SetMaxOpenConns(maxConnections)
+	db.SetMaxIdleConns(maxConnections)
+	return nil
+}
+
 // CheckAccount refuses grants outside the dedicated schema, global privileges,
 // delegated roles and grant options. No grant text is returned or logged.
 func CheckAccount(ctx context.Context, db *sql.DB, mode string) error {

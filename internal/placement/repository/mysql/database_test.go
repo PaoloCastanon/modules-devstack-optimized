@@ -111,3 +111,25 @@ func TestDuplicateKeyIsReadWithoutInspectingUserValue(t *testing.T) {
 		}
 	}
 }
+
+func TestConfigurePoolSetsOpenAndIdleLimits(t *testing.T) {
+	db, err := Open("placement_go_app:fixture@tcp(127.0.0.1:1)/placement_go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := ConfigurePool(db, 32); err != nil {
+		t.Fatal(err)
+	}
+	if got := db.Stats().MaxOpenConnections; got != 32 {
+		t.Fatal("max open connections", got)
+	}
+	for _, bad := range []int{0, -1, 257} {
+		if err := ConfigurePool(db, bad); err == nil {
+			t.Fatal("accepted pool size", bad)
+		}
+	}
+	if got := db.Stats().MaxOpenConnections; got != 32 {
+		t.Fatal("rejected size changed the pool", got)
+	}
+}

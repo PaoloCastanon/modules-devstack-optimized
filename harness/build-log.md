@@ -1169,3 +1169,16 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   Verificación: B26 en Glance Go 12/12 y en el modo conjunto 16/16, `make check`
   OK y `glance-test-rbd` 10/10.
   [Evidencia](../evidence/sprint5/glance-notifications-20261119/README.md).
+
+### 2026-11-20 — Placement Go: caché de tokens y pool de MySQL configurable
+
+- **Hecho:** Placement activa el caché de tokens de keystonemiddleware ya usado
+  por Glance (`PLACEMENT_GO_TOKEN_CACHE_TIME`, 300 s por defecto, `-1` lo
+  desactiva). El pool de `serve` pasa de 4 conexiones fijas a
+  `PLACEMENT_GO_DB_MAX_CONNECTIONS` (16 por defecto, 1..256).
+- **Motivo:** desventaja de Go en lecturas simples en B17 compact-v2.
+- **Verificación:** pruebas nuevas en rojo antes de implementar; después
+  `go test -race ./...` y `make check` OK.
+- **Límites:** sin mediciones nuevas en la VM. La fase `revoked` de B12 requiere
+  `PLACEMENT_GO_TOKEN_CACHE_TIME=-1` para repetirse igual.
+  [Detalle](../docs/placement/token-cache-pool.md).
