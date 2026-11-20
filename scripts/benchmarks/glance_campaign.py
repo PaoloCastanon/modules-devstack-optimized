@@ -30,14 +30,17 @@ def save(path, value):
 
 
 def validate_protocol(p):
-    if (p['protocol'] not in ('glance-compact-v2', 'glance-compact-v3') or [s['id'] for s in p['scenarios']] != SCENARIOS
+    if (p['protocol'] not in ('glance-compact-v2', 'glance-compact-v3', 'glance-compact-v4') or [s['id'] for s in p['scenarios']] != SCENARIOS
             or p['concurrency'] != [1, 16] or p['repetitions'] != 3 or p['warmup_s'] != 10 or p['measurement_s'] != 30
             or p['required_official_windows'] != 108 or p['catalog_seed_count'] != 100
             or p['pilot'] != {'concurrency': [1, 16], 'repetitions': 1, 'warmup_s': 1, 'measurement_s': 4, 'required_windows': 36}
             or p['payload_sizes_bytes'] != [1048576, 16777216, 67108864]):
         raise ValueError('unsupported or incomplete frozen compact Glance matrix')
-    if p['protocol'] == 'glance-compact-v3' and (p.get('notification_policy') != 'noop' or p.get('maximum_open_fd_growth_per_window') != 256):
-        raise ValueError('v3 requires explicit API/bytes scope with noop notifications')
+    if p['protocol'] in ('glance-compact-v3', 'glance-compact-v4') and (p.get('notification_policy') != 'noop' or p.get('maximum_open_fd_growth_per_window') != 256):
+        raise ValueError('v3/v4 require explicit API/bytes scope with noop Python notifications')
+    # v4: same matrix as v3, and Go sends its notifications like the original.
+    if (p['protocol'] == 'glance-compact-v4') != (p.get('go_notification_policy') == 'original'):
+        raise ValueError('v4 (and only v4) declares go_notification_policy original')
     for item in p['scenarios']:
         if item['id'].startswith(('upload-', 'download-')):
             size = {'1m': 1048576, '16m': 16777216, '64m': 67108864}[item['id'].split('-')[1]]
@@ -106,6 +109,7 @@ def run(args):
             raise ValueError('readable protocol/SSH trust/key required')
     p = json.loads(args.protocol.read_text()); validate_protocol(p)
     args.notification_policy = p.get('notification_policy', 'original')
+    args.go_notification_policy = p.get('go_notification_policy', 'noop')
     storage_check(args.storage_path, p['host_free_minimum_bytes'])
     args.output.mkdir(parents=True, exist_ok=False)
     args.private_root.mkdir(mode=0o700, exist_ok=False)

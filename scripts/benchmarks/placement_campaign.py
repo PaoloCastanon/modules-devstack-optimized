@@ -81,6 +81,10 @@ class Remote:
             if policy not in ('original', 'noop'):
                 raise ValueError('supported notification policy required')
             command += ' --notification-policy ' + policy
+            go_policy = getattr(args, 'go_notification_policy', 'noop')
+            if go_policy not in ('original', 'noop'):
+                raise ValueError('supported Go notification policy required')
+            command += ' --go-notifications ' + go_policy
         self.stderr = (args.private_root / 'remote-stderr.log').open('x')
         self.process = subprocess.Popen([*self.ssh, 'bash', '-lc', shlex.quote(command)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=self.stderr, text=True, bufsize=1)
