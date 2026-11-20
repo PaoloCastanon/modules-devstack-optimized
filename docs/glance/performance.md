@@ -158,3 +158,13 @@ En la misma rama se corrigió un error real que encontró la campaña en el PC d
 Juan: con 16 cargas simultáneas, un deadlock de InnoDB entre imágenes distintas
 llegaba al cliente como 409. Ahora las transacciones abortadas por deadlock se
 reintentan, como hace el oficial con oslo.db (`retry_on_deadlock`).
+
+## Campaña formal v4 sobre el código actual (2026-11-19)
+
+La campaña `glance-compact-v4` tiene la misma matriz que la v3 (108 ventanas,
+tres pares por celda), con el oficial en `noop` y Go enviando sus
+notificaciones. Se corrió en el PC de Juan y quedó aceptada (108/108).
+**Go gana en las 18 celdas**, incluidas las que perdía en la v3: la consulta
+(de 0,81 a 5,3) y las descargas de 16 y 64 MiB (de 0,24–0,31 a 1,09–2,47).
+Los valores absolutos no se comparan con la v3, porque el hardware es otro.
+[Evidencia](../../evidence/sprint5/benchmarks/glance-compact-v4-pcjuan-20261119/README.md).
