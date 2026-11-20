@@ -139,6 +139,7 @@ class Lab(Session):
                 'binary_sha256': hashlib.sha256(self.args.binary.read_bytes()).hexdigest(),
                 'python_config_explicit_allowlist': settings,
                 'notification_policy': self.args.notification_policy,
+                'go_notification_policy': getattr(self.args, 'go_notifications', 'noop'),
                 'uwsgi': {k: uwsgi.get('uwsgi', k) for k in ['processes', 'threads', 'master', 'enable-threads', 'lazy-apps', 'max-requests', 'harakiri'] if uwsgi.has_option('uwsgi', k)},
                 'mysql_python': original_mysql, 'mysql_go': own_mysql,
                 'go_settings': {'transfer_limit': 16, 'metadata_timeout_s': 10, 'binary_timeout_s': 120,
@@ -318,6 +319,8 @@ def main():
     parser.add_argument('--url', default='http://192.168.122.10/image')
     parser.add_argument('--allow-mutations', action='store_true')
     parser.add_argument('--notification-policy', choices=['original', 'noop'], default='original')
+    parser.add_argument('--go-notifications', choices=['original', 'noop'], default='noop',
+                        help="'original': Glance Go sends notifications with the original's settings")
     args = parser.parse_args()
     require(args.allow_mutations and args.work_root.is_absolute() and args.work_root == args.work_root.resolve()
             and re.fullmatch(r'tt-placement-[a-z0-9-]+', args.work_root.name), 'owned canonical private root and opt-in')

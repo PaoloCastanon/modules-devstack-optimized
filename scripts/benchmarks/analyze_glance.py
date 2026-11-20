@@ -90,7 +90,7 @@ def analyze(root):
             start, end = nanos(m['start_utc']) + offset, nanos(m['end_utc']) + offset
             completions = [start + s['offset_ns'] + s['elapsed_ns'] for s in samples]
             resources = interval_summary(records, report['implementation'], start, end, completions, ticks=collector['clock_ticks_s'])
-            if p['protocol'] == 'glance-compact-v3':
+            if p['protocol'] in ('glance-compact-v3', 'glance-compact-v4'):
                 validate_fd_stability(resources, p['maximum_open_fd_growth_per_window'])
             resources['clock_uncertainty_ns'] = max(c['best']['rtt_ns'] // 2 for c in clocks.values()) + report['clock_drift_ns']
             warmup_start = nanos(report['warmup']['start_utc']) + offset
@@ -147,8 +147,8 @@ def analyze(root):
     return {'schema': 1, 'campaign_id': manifest['campaign_id'], 'stage': manifest['stage'],
             'complete_valid': complete, 'accepted': complete and not pilot, 'pilot_validated': complete and pilot,
             'runs_required': len(expected_ids), 'runs_observed': len(runs), 'errors': errors, 'runs': runs, 'groups': groups,
-            'notification_policy': p.get('notification_policy', 'original'), 'protocol': p, 'measurement_head': manifest['git_base'], 'protocol_sha256': manifest['protocol_sha256'],
-            'limitations': ['Notification policy: ' + p.get('notification_policy', 'original') + '; v3 compares API/catalog/bytes without bus notifications; does not validate stock messagingv2 stability',
+            'notification_policy': p.get('notification_policy', 'original'), 'go_notification_policy': p.get('go_notification_policy', 'noop'), 'protocol': p, 'measurement_head': manifest['git_base'], 'protocol_sha256': manifest['protocol_sha256'],
+            'limitations': ['Notification policy: Python ' + p.get('notification_policy', 'original') + ', Go ' + p.get('go_notification_policy', 'noop') + '; Python without bus notifications (v3/v4); does not validate stock messagingv2 stability',
                             'Three independent paired repetitions per cell; median and observed range, no statistical significance claim',
                             'Closed-loop complete cycles including drain; upload cycle includes create/verify/delete and is not pure PUT throughput',
                             'Download checks every full payload; upload load verifies active metadata/hash, worker canaries round-trip outside measured windows',
@@ -165,7 +165,9 @@ def publish(summary, output):
              f"Resultado: {summary['runs_observed']}/{summary['runs_required']} ventanas válidas; HTTP/bytes/estado y CPU/PSS comprobados.",
              'Tres pares por celda; concurrencias1/16; calentamiento10s y carga30s más drenaje completo.',
              f"Fuente medida: `{summary['measurement_head']}`. Placement Python permanece como control.",
-             'Política de notificaciones: ' + summary['protocol'].get('notification_policy', 'original') + '. La revisión3 mide API/catálogo/bytes sin bus RabbitMQ; conserva caché Python y documenta por separado el fallo stock v2.', '',
+             'Política de notificaciones: Python ' + summary['protocol'].get('notification_policy', 'original') + ', Go ' + summary['protocol'].get('go_notification_policy', 'noop')
+             + ('. La revisión4 repite la matriz v3; Go además envía sus notificaciones (más trabajo que Python).' if summary['protocol']['protocol'] == 'glance-compact-v4'
+                else '. La revisión3 mide API/catálogo/bytes sin bus RabbitMQ; conserva caché Python y documenta por separado el fallo stock v2.'), '',
              '| Carga | C | Ciclos/s Python | Ciclos/s Go | MiB/s Python | MiB/s Go | PSS MiB Python | PSS MiB Go |',
              '|---|---:|---:|---:|---:|---:|---:|---:|']
     for g in summary['groups']:
