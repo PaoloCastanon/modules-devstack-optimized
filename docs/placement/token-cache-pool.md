@@ -36,9 +36,36 @@ Go *antes* de revocarlo y esperaba 401. Para repetirla tal cual hay que usar
 `PLACEMENT_GO_TOKEN_CACHE_TIME=-1`, o bien comparar ambos servicios con el token
 ya visto por los dos.
 
-**Rendimiento.** No hay mediciones nuevas. Para acreditar el efecto hay que
-repetir en la VM las celdas provider, inventories y allocations-read del
-protocolo compact-v2, declarando la nueva configuración.
+## Resultado en la VM (2026-11-20)
+
+Protocolo `placement-compact-v2-reads`: 36/36 ventanas válidas, 0 errores,
+original restaurado y VM apagada. [Evidencia](../../evidence/sprint5/benchmarks/placement-compact-v2-reads-20261120/README.md).
+Medianas de tres pares; entre corchetes, el rango observado del cociente pareado.
+
+| Carga | Conc. | Python ops/s | Go ops/s | Go/Python | p50 Py/Go (ms) | p99 Py/Go (ms) |
+|---|---:|---:|---:|---:|---:|---:|
+| provider | 1 | 302 | 2064 | 6,83 [6,75–6,84] | 3,1 / 0,4 | 5,0 / 0,7 |
+| provider | 16 | 721 | 3516 | 4,88 [4,87–4,88] | 21,4 / 4,2 | 36,6 / 8,6 |
+| inventories | 1 | 191 | 1403 | 7,28 [7,24–7,47] | 5,0 / 0,6 | 7,7 / 1,1 |
+| inventories | 16 | 440 | 3285 | 7,47 [7,14–9,52] | 35,3 / 4,5 | 52,6 / 9,2 |
+| allocations-read | 1 | 201 | 1339 | 6,67 [6,16–7,02] | 4,6 / 0,6 | 8,0 / 1,8 |
+| allocations-read | 16 | 519 | 3289 | 6,26 [6,23–6,45] | 29,2 / 4,6 | 48,5 / 9,5 |
+
+CPU por petición correcta: Go/Python 0,060–0,065. PSS: Python ~182–185 MiB,
+Go ~15–16 MiB.
+
+En compact-v2 (31-oct, sin caché y con pool de 4) Go hacía 0,61–1,04× el
+throughput de Python en estas celdas; ahora hace 4,9–7,5×. Python mide
+valores similares a los de octubre (provider c1: 280 → 302 ops/s), lo que
+indica un entorno comparable. La desventaja anterior se debía a la
+validación de tokens contra Keystone en cada petición y al pool reducido, no
+al lenguaje.
+
+Límites: tres pares por celda y dos concurrencias, sin significancia
+estadística. Ambos servicios cachean tokens (Python en memcached, Go en
+memoria del proceso), pero workers, pools y configuración MySQL siguen siendo
+distintos. Las cargas candidates, claim-cycle y nova-mix no se repitieron; sus
+resultados de compact-v2 corresponden al binario anterior.
 
 ## Verificación
 

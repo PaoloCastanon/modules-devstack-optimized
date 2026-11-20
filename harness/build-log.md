@@ -1182,3 +1182,16 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - **Límites:** sin mediciones nuevas en la VM. La fase `revoked` de B12 requiere
   `PLACEMENT_GO_TOKEN_CACHE_TIME=-1` para repetirse igual.
   [Detalle](../docs/placement/token-cache-pool.md).
+
+### 2026-11-20 — Placement: re-medición de celdas de lectura con caché y pool
+
+- **Hecho:** protocolo `placement-compact-v2-reads` (provider, inventories,
+  allocations-read; c1/c16; tres pares; 10 s + 30 s). Piloto 12/12 y oficial
+  **36/36** válidas, 0 errores; B17/B18 aceptados por el análisis.
+- **Resultado:** Go/Python en throughput 4,9–7,5× (antes 0,61–1,04×); CPU por
+  petición 0,06×; PSS ~15–16 MiB contra ~183 MiB.
+- **Laboratorio:** original sin cambios, recursos propios retirados, timers apt
+  reactivados y VM apagada.
+- **Límites:** tres pares, sin significancia estadística; las otras tres cargas
+  no se repitieron con el binario nuevo.
+  [Evidencia](../evidence/sprint5/benchmarks/placement-compact-v2-reads-20261120/README.md).
