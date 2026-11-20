@@ -95,3 +95,13 @@ func TestOsloParserMergesSectionsAndLastValueWins(t *testing.T) {
 		t.Fatal("option outside a section accepted")
 	}
 }
+
+// The original's token_cache_time must win over the built-in 300 s default.
+func TestOriginalTokenCacheTimeOverridesDefault(t *testing.T) {
+	conf := strings.Replace(devstackConf, "project_domain_name = Default\n", "project_domain_name = Default\ntoken_cache_time = 60\n", 1)
+	env := map[string]string{"GLANCE_GO_CONFIG_FILE": originalConf(t, conf, 0644)}
+	c, err := Load(func(k string) string { return env[k] }, "serve")
+	if err != nil || c.TokenCacheTime != time.Minute {
+		t.Fatal(c.TokenCacheTime, err)
+	}
+}
