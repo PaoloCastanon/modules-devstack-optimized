@@ -1,0 +1,6 @@
+{"streams": 2, "MiB": 16, "reps": [{"mib_s": 878.9, "p50_ms": 283.2, "requests": 1120, "errors": 0}, {"mib_s": 908.8, "p50_ms": 280.8, "requests": 1148, "errors": 0}]}
+{"streams": 2, "MiB": 64, "reps": [{"mib_s": 749.3, "p50_ms": 1362.8, "requests": 249, "errors": 0}, {"mib_s": 741.6, "p50_ms": 1371.4, "requests": 247, "errors": 0}]}
+{"streams": 4, "MiB": 16, "reps": [{"mib_s": 908.9, "p50_ms": 281.8, "requests": 1144, "errors": 0}, {"mib_s": 905.9, "p50_ms": 285.1, "requests": 1139, "errors": 0}]}
+{"streams": 4, "MiB": 64, "reps": [{"mib_s": 990.1, "p50_ms": 1028.8, "requests": 323, "errors": 0}, {"mib_s": 990.7, "p50_ms": 1023.7, "requests": 324, "errors": 0}]}
+{"streams": "sin-limite", "MiB": 16, "reps": [{"mib_s": 900.6, "p50_ms": 284.6, "requests": 1132, "errors": 0}, {"mib_s": 902.5, "p50_ms": 283.4, "requests": 1137, "errors": 0}]}
+{"streams": "sin-limite", "MiB": 64, "reps": [{"mib_s": 968.9, "p50_ms": 1063.0, "requests": 309, "errors": 0}, {"mib_s": 966.9, "p50_ms": 1065.7, "requests": 308, "errors": 0}]}

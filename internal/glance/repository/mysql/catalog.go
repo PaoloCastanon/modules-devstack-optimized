@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -16,7 +17,44 @@ import (
 
 const imageColumns = "id, owner, name, status, visibility, disk_format, container_format, min_disk, min_ram, protected, os_hidden, size, virtual_size, checksum, os_hash_algo, os_hash_value, created_at, updated_at"
 
+// imageAlias is imageColumns qualified with the alias i.
+const imageAlias = "i.id, i.owner, i.name, i.status, i.visibility, i.disk_format, i.container_format, i.min_disk, i.min_ram, i.protected, i.os_hidden, i.size, i.virtual_size, i.checksum, i.os_hash_algo, i.os_hash_value, i.created_at, i.updated_at"
+
 type scanner interface{ Scan(...any) error }
+
+// childColumns load properties and tags in the image's own row (one round
+// trip, as the original's joinedload), aggregated as JSON per image.
+const childColumns = ", (SELECT JSON_OBJECTAGG(name, value) FROM image_properties WHERE image_id=i.id), (SELECT JSON_ARRAYAGG(value) FROM image_tags WHERE image_id=i.id)"
+
+// scanImageWithChildren scans imageColumns plus childColumns.
+func scanImageWithChildren(row scanner) (model.Image, error) {
+	i := model.Image{Tags: []string{}, Properties: map[string]string{}}
+	var props, tags sql.NullString
+	err := row.Scan(&i.ID, &i.Owner, &i.Name, &i.Status, &i.Visibility, &i.DiskFormat, &i.ContainerFormat, &i.MinDisk, &i.MinRAM, &i.Protected, &i.Hidden, &i.Size, &i.VirtualSize, &i.Checksum, &i.HashAlgorithm, &i.HashValue, &i.CreatedAt, &i.UpdatedAt, &props, &tags)
+	if err != nil {
+		return i, err
+	}
+	if props.Valid {
+		values := map[string]*string{}
+		if json.Unmarshal([]byte(props.String), &values) != nil {
+			return i, errors.New("unreadable image properties")
+		}
+		for k, v := range values {
+			if v != nil {
+				i.Properties[k] = *v
+			} else {
+				i.Properties[k] = ""
+			}
+		}
+	}
+	if tags.Valid {
+		if json.Unmarshal([]byte(tags.String), &i.Tags) != nil {
+			return i, errors.New("unreadable image tags")
+		}
+		sort.Strings(i.Tags) // same order as the former ORDER BY value
+	}
+	return i, nil
+}
 
 func scanImage(row scanner) (model.Image, error) {
 	i := model.Image{Tags: []string{}, Properties: map[string]string{}}
@@ -26,28 +64,22 @@ func scanImage(row scanner) (model.Image, error) {
 
 const (
 	readImageQuery     = "SELECT " + imageColumns + " FROM images WHERE id=? AND deleted=FALSE"
-	lockImageQuery     = readImageQuery + " FOR UPDATE"
+	fullImageQuery     = "SELECT " + imageAlias + childColumns + " FROM images i WHERE i.id=? AND i.deleted=FALSE"
+	lockImageQuery     = fullImageQuery + " FOR UPDATE"
 	oneImagePropsQuery = "SELECT image_id, name, value FROM image_properties WHERE image_id IN (?) ORDER BY image_id, name"
 	oneImageTagsQuery  = "SELECT image_id, value FROM image_tags WHERE image_id IN (?) ORDER BY image_id, value"
 )
 
 func (r *Repository) readImage(ctx context.Context, tx *sql.Tx, id string, lock bool) (model.Image, error) {
-	query := readImageQuery
+	query := fullImageQuery
 	if lock {
 		query = lockImageQuery
 	}
-	i, err := scanImage(r.queryRow(ctx, tx, query, id))
+	i, err := scanImageWithChildren(r.queryRow(ctx, tx, query, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return i, repository.ErrNotFound
 	}
-	if err != nil {
-		return i, err
-	}
-	images := []model.Image{i}
-	if err = r.readChildren(ctx, tx, images); err != nil {
-		return i, err
-	}
-	return images[0], nil
+	return i, err
 }
 
 // All cursors are closed before issuing another statement on the pinned tx.
@@ -122,7 +154,7 @@ const childBatch = 500
 // insertChildren writes properties (sorted by key) and tags (in their order)
 // with one multi-row INSERT per table and batch instead of one per row. A
 // single row produces exactly the former single-row statement.
-func insertChildren(ctx context.Context, tx *sql.Tx, id string, properties map[string]string, tags []string) error {
+func (r *Repository) insertChildren(ctx context.Context, tx *sql.Tx, id string, properties map[string]string, tags []string) error {
 	keys := make([]string, 0, len(properties))
 	for key := range properties {
 		keys = append(keys, key)
@@ -135,7 +167,10 @@ func insertChildren(ctx context.Context, tx *sql.Tx, id string, properties map[s
 			args = append(args, id, key, properties[key])
 		}
 		q := "INSERT INTO image_properties (image_id, name, value) VALUES " + valueRows("(?, ?, ?)", len(batch))
-		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+		if r.official != nil {
+			q = "INSERT INTO image_properties (image_id, name, value, created_at, deleted) VALUES " + valueRows("(?, ?, ?, UTC_TIMESTAMP(), 0)", len(batch))
+		}
+		if _, err := r.exec(ctx, tx, q, args...); err != nil {
 			return fmt.Errorf("insert image property: %w", err)
 		}
 	}
@@ -146,7 +181,10 @@ func insertChildren(ctx context.Context, tx *sql.Tx, id string, properties map[s
 			args = append(args, id, tag)
 		}
 		q := "INSERT INTO image_tags (image_id, value) VALUES " + valueRows("(?, ?)", len(batch))
-		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+		if r.official != nil {
+			q = "INSERT INTO image_tags (image_id, value, created_at, deleted) VALUES " + valueRows("(?, ?, UTC_TIMESTAMP(), 0)", len(batch))
+		}
+		if _, err := r.exec(ctx, tx, q, args...); err != nil {
 			return fmt.Errorf("insert image tag: %w", err)
 		}
 	}
@@ -189,7 +227,7 @@ func (r *Repository) update(ctx context.Context, id string, change func(model.Im
 	if result.ID != id || result.Owner != current.Owner || result.Status != current.Status || !result.CreatedAt.Equal(current.CreatedAt) {
 		return model.Image{}, errors.New("immutable image fields changed")
 	}
-	updated, err := tx.ExecContext(ctx, `UPDATE images SET name=?, visibility=?, disk_format=?, container_format=?, min_disk=?, min_ram=?, protected=?, os_hidden=?, updated_at=? WHERE id=? AND deleted=FALSE`,
+	updated, err := r.exec(ctx, tx, `UPDATE images SET name=?, visibility=?, disk_format=?, container_format=?, min_disk=?, min_ram=?, protected=?, os_hidden=?, updated_at=? WHERE id=? AND deleted=FALSE`,
 		result.Name, result.Visibility, result.DiskFormat, result.ContainerFormat, result.MinDisk, result.MinRAM, result.Protected, result.Hidden, result.UpdatedAt.UTC(), id)
 	if err != nil {
 		return model.Image{}, err
@@ -200,13 +238,13 @@ func (r *Repository) update(ctx context.Context, id string, change func(model.Im
 		return model.Image{}, repository.ErrConflict
 	}
 	// Parent lock serializes writers; child changes and parent update share commit.
-	if _, err = tx.ExecContext(ctx, "DELETE FROM image_properties WHERE image_id=?", id); err != nil {
+	if _, err = r.exec(ctx, tx, "DELETE FROM image_properties WHERE image_id=?", id); err != nil {
 		return model.Image{}, err
 	}
-	if _, err = tx.ExecContext(ctx, "DELETE FROM image_tags WHERE image_id=?", id); err != nil {
+	if _, err = r.exec(ctx, tx, "DELETE FROM image_tags WHERE image_id=?", id); err != nil {
 		return model.Image{}, err
 	}
-	if err = insertChildren(ctx, tx, id, result.Properties, result.Tags); err != nil {
+	if err = r.insertChildren(ctx, tx, id, result.Properties, result.Tags); err != nil {
 		return model.Image{}, err
 	}
 	if err = tx.Commit(); err != nil {
@@ -238,7 +276,7 @@ func (r *Repository) deleteImage(ctx context.Context, id string, now time.Time, 
 	if !now.After(current.UpdatedAt) {
 		now = current.UpdatedAt.Add(time.Microsecond)
 	}
-	res, err := tx.ExecContext(ctx, "UPDATE images SET deleted=TRUE, deleted_at=?, status='deleted', updated_at=? WHERE id=? AND deleted=FALSE", now, now, id)
+	res, err := r.exec(ctx, tx, "UPDATE images SET deleted=TRUE, deleted_at=?, status='deleted', updated_at=? WHERE id=? AND deleted=FALSE", now, now, id)
 	if err != nil {
 		return err
 	}
@@ -249,7 +287,11 @@ func (r *Repository) deleteImage(ctx context.Context, id string, now time.Time, 
 	if n != 1 {
 		return repository.ErrConflict
 	}
-	// Keep properties/tags associated with the tombstone; UUID remains reserved.
+	// Own catalog keeps properties/tags with the tombstone (UUID stays reserved);
+	// the official one soft-deletes them with the locations, as the original.
+	if err = r.destroyChildren(ctx, tx, id, now); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
@@ -358,7 +400,7 @@ func listQuery(o model.ListOptions, marker *model.Image) (string, []any) {
 	for n := range columns {
 		columns[n] = "i." + columns[n]
 	}
-	return "SELECT " + strings.Join(columns, ", ") + " FROM images i WHERE " + strings.Join(where, " AND ") + " ORDER BY " + strings.Join(order, ", ") + " LIMIT ?", args
+	return "SELECT " + strings.Join(columns, ", ") + childColumns + " FROM images i WHERE " + strings.Join(where, " AND ") + " ORDER BY " + strings.Join(order, ", ") + " LIMIT ?", args
 }
 
 func (r *Repository) List(ctx context.Context, o model.ListOptions) ([]model.Image, error) {
@@ -388,13 +430,13 @@ func (r *Repository) List(ctx context.Context, o model.ListOptions) ([]model.Ima
 		marker = &image
 	}
 	query, args := listQuery(o, marker)
-	rows, err := tx.QueryContext(ctx, query, args...)
+	rows, err := r.query(ctx, tx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	images := []model.Image{}
 	for rows.Next() {
-		image, e := scanImage(rows)
+		image, e := scanImageWithChildren(rows)
 		if e != nil {
 			err = e
 			break
@@ -411,9 +453,6 @@ func (r *Repository) List(ctx context.Context, o model.ListOptions) ([]model.Ima
 	}
 	if closeErr != nil {
 		return nil, closeErr
-	}
-	if err = r.readChildren(ctx, tx, images); err != nil {
-		return nil, err
 	}
 	if err = tx.Commit(); err != nil {
 		return nil, err

@@ -1,0 +1,6 @@
+ "image_served_by": "glance-go",
+ "binary_sha256": "54fcb48f30718647237100edadb61e1042dbb8f3d865f24b3ebd59d140ea9008"
+"adopted_uploads":2
+{"show": 1.27, "list": 1.672, "download_1m": 1.446, "show_original_upload": 1.34, "download_original_upload_21m": 12.334}
+{"show": 1.339, "list": 1.654, "download_1m": 1.622, "show_original_upload": 1.378, "download_original_upload_21m": 11.89}
+{"show": 1.29, "list": 1.637, "download_1m": 1.519, "show_original_upload": 1.307, "download_original_upload_21m": 12.209}

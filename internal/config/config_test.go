@@ -155,6 +155,36 @@ func TestGlanceTokenCacheTime(t *testing.T) {
 	}
 }
 
+func TestOfficialCatalogConfiguration(t *testing.T) {
+	base := func(extra map[string]string) func(string) string {
+		dir := t.TempDir()
+		dsn := filepath.Join(dir, "dsn")
+		if err := os.WriteFile(dsn, []byte("u:p@tcp(127.0.0.1:3306)/glance_go_shared"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		values := map[string]string{"GLANCE_GO_DATABASE_DSN_FILE": dsn}
+		for k, v := range extra {
+			values[k] = v
+		}
+		return func(k string) string { return values[k] }
+	}
+	c, err := Load(base(map[string]string{"GLANCE_GO_CATALOG": "official", "GLANCE_GO_OFFICIAL_STORE_DIR": "/opt/stack/data/glance/images"}), "migrate")
+	if err != nil || c.OfficialCatalog != "glance" || c.Binary.OfficialStoreDir != "/opt/stack/data/glance/images" {
+		t.Fatal(c.OfficialCatalog, err)
+	}
+	for _, extra := range []map[string]string{
+		{"GLANCE_GO_CATALOG": "official"},
+		{"GLANCE_GO_CATALOG": "official", "GLANCE_GO_OFFICIAL_STORE_DIR": "images"},
+		{"GLANCE_GO_CATALOG": "official", "GLANCE_GO_OFFICIAL_STORE_DIR": "/d", "GLANCE_GO_OFFICIAL_DATABASE": "nova"},
+		{"GLANCE_GO_CATALOG": "shared"},
+		{"GLANCE_GO_OFFICIAL_STORE_DIR": "/d"},
+	} {
+		if _, err := Load(base(extra), "migrate"); err == nil {
+			t.Fatalf("accepted %v", extra)
+		}
+	}
+}
+
 func placementEnvironment(t *testing.T) map[string]string {
 	return map[string]string{"PLACEMENT_GO_DATABASE_DSN_FILE": secretFile(t, "placement_go_app:example@tcp(127.0.0.1:3306)/placement_go"), "PLACEMENT_GO_KEYSTONE_AUTH_URL": "http://127.0.0.1:5000/v3", "PLACEMENT_GO_KEYSTONE_CREDENTIAL_FILE": secretFile(t, `{"application_credential_id":"fixture-id","application_credential_secret":"fixture-secret"}`)}
 }

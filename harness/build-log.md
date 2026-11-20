@@ -1169,6 +1169,70 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   Verificación: B26 en Glance Go 12/12 y en el modo conjunto 16/16, `make check`
   OK y `glance-test-rbd` 10/10.
   [Evidencia](../evidence/sprint5/glance-notifications-20261119/README.md).
+- 2026-11-19, campaña Glance compact v4 en el PC de Juan (piloto 36/36 y
+  oficial 108/108, aceptada). Es la misma matriz que la v3, con el oficial en
+  `noop` y Go enviando notificaciones (`messagingv2`), así que Go hace más
+  trabajo. Fuente `4290e64`, binario `fa62bdd7…`.
+
+  Go gana en las 18 celdas, incluidas las que perdía en la v3:
+  - consulta: 0,81–0,94 → 5,3–9,8;
+  - descarga de 1 MiB con un cliente: 0,70 → 4,7;
+  - descargas de 16 y 64 MiB: 0,24–0,31 → 1,09–2,47.
+
+  CPU y memoria: PSS de Go 16–41 MiB frente a 234–240 MiB. La CPU de Go en la
+  descarga de 64 MiB es 10–12 ms por solicitud, frente a 188–208 en la v3.
+
+  Límites: otro hardware (VM de 6 GiB). No se comparan los valores absolutos
+  con la v3; solo la dirección Go/Python. La primera corrida del piloto
+  encontró el deadlock corregido en `525608f`.
+  [Evidencia](../evidence/sprint5/benchmarks/glance-compact-v4-pcjuan-20261119/README.md)
+  y [resultados](../docs/benchmarks/glance-results-v4-pc-juan-20261119.md).
+- 2026-11-20, Glance Go sobre el catálogo y el store del Glance original
+  (`GLANCE_GO_CATALOG=official`, `glance_replace.py install`), pedido por Juan.
+  - **Implementación:** Glance Go lee y escribe las tablas `images`,
+    `image_properties`, `image_tags` e `image_locations` de la base `glance`,
+    con la forma de los modelos SQLAlchemy, y publica los archivos como
+    `<id>` en `filesystem_store_datadir`. Su contabilidad de cargas queda en
+    `glance_go_shared`, y las imágenes subidas por el original se adoptan
+    como cargas confirmadas.
+  - **Seguridad:** la cuenta de servicio solo tiene DML sobre `glance`, y la
+    revisión alembic se verifica al arrancar.
+  - **Otros cambios:** `go_settings` de las campañas ahora sale del binario
+    en ejecución, con la línea `effective settings`.
+  - **Verificación:** E2E compartido 10/10 con Nova, B26 en modo propio
+    10/10, la prueba de reinicio y `make check` OK.
+    [Evidencia](../evidence/sprint5/glance-shared-catalog-20261120/README.md).
+  - **Nota:** esto revisa la ADR de bases separadas para el reemplazo
+    permanente. El modo propio sigue por defecto para la suite y las campañas.
+- 2026-11-20, catálogo oficial igual al original, pedido por Juan:
+  - **Configuración y cuenta:** Glance Go lee `/etc/glance/glance-api.conf`
+    (`GLANCE_GO_CONFIG_FILE`) y usa la misma cuenta MySQL y el mismo
+    usuario `glance` de Keystone, con autenticación por contraseña como
+    keystonemiddleware. Placement no cambia.
+  - **Escritura:** directa en `<id>`, como `glance_store`.
+  - **Modo propio:** conserva sus protecciones.
+  - **Verificación:** E2E 10/10 con Nova, B26 5/5 y `make check` OK.
+    [Evidencia](../evidence/sprint5/glance-shared-catalog-20261120/README.md).
+- 2026-11-20, optimizaciones del catálogo, de la auditoría:
+  - imagen, propiedades y tags en una sola consulta, como `joinedload`;
+  - una sola lectura de la imagen por descarga;
+  - adopción de las subidas del original al arrancar.
+
+  Medido directo contra Glance Go (mediana de 3 ejecuciones):
+
+  | Operación | Antes (ms) | Después (ms) | Mejora |
+  |---|---:|---:|---:|
+  | Listar | 2,22 | 1,65 | −25 % |
+  | Descargar 1 MiB | 1,71 | 1,52 | −11 % |
+  | Ver una imagen | 1,39 | 1,29 | −7 % |
+
+  E2E 5/5 con Nova y pruebas con race OK.
+  [Evidencia](../evidence/sprint5/glance-shared-catalog-20261120/README.md).
+- 2026-11-20, límite de descargas simultáneas en el store filesystem: pasa de
+  `max(2, GOMAXPROCS/2)` a `GOMAXPROCS`. Con 16 clientes de 64 MiB a través
+  de Apache, el rendimiento sube de 745 a 990 MiB/s (+33 %); sin límite da
+  968 MiB/s y con 16 MiB no cambia. E2E 5/5.
+  [Evidencia](../evidence/sprint5/glance-download-streams-20261120/README.md).
 
 ### 2026-11-20 — Placement Go: caché de tokens y pool de MySQL configurable
 

@@ -266,8 +266,63 @@ class GlanceCampaignTests(unittest.TestCase):
         with self.assertRaises(ValueError):validate_protocol(p)
         p['notification_policy']='noop';p['maximum_open_fd_growth_per_window']=256;self.assertEqual(validate_protocol(p),108)
 
+    def test_v4_repeats_v3_with_go_notifications_only(self):
+        import json
+        from pathlib import Path
+        from glance_campaign import validate_protocol
+        root = Path(__file__).resolve().parents[2] / 'docs/benchmarks'
+        v3 = json.loads((root / 'glance-protocol-compact-v3.json').read_text())
+        v4 = json.loads((root / 'glance-protocol-compact-v4.json').read_text())
+        self.assertEqual(validate_protocol(v4), 108)
+        same = ('scenarios', 'concurrency', 'repetitions', 'warmup_s', 'measurement_s', 'pilot', 'payload_sizes_bytes',
+                'order_seed', 'catalog_seed_count', 'notification_policy', 'maximum_open_fd_growth_per_window',
+                'transfer_admission_limit_go', 'host_free_minimum_bytes')
+        self.assertEqual({k: v3[k] for k in same}, {k: v4[k] for k in same})
+        self.assertEqual((v4['notification_policy'], v4['go_notification_policy']), ('noop', 'original'))
+        for bad in ({**v4, 'go_notification_policy': 'noop'}, {**v4, 'notification_policy': 'original'},
+                    {**v3, 'go_notification_policy': 'original'}):
+            with self.assertRaises(ValueError):
+                validate_protocol(bad)
+
+    def test_remote_lab_receives_both_notification_policies(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest import mock
+        import placement_campaign
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(placement_campaign.subprocess, 'Popen') as popen:
+            args = SimpleNamespace(known_hosts=Path(tmp) / 'k', ssh_key=Path(tmp) / 'id', host='stack@192.168.122.10',
+                                   remote_code=Path('/home/stack/code'), remote_work=Path('/home/stack/w'),
+                                   remote_output=Path('/home/stack/o'), private_root=Path(tmp), domain='glance',
+                                   notification_policy='noop', go_notification_policy='original')
+            remote = placement_campaign.Remote(args)
+            remote.stderr.close()  # Popen is mocked; close the private log it opened
+            command = popen.call_args[0][0][-1]
+            self.assertIn('--notification-policy noop', command)
+            self.assertIn('--go-notifications original', command)
+            args.go_notification_policy = 'everything'
+            (Path(tmp) / 'remote-stderr.log').unlink()
+            with self.assertRaises(ValueError):
+                placement_campaign.Remote(args)
+
     def test_descriptor_guard_rejects_unobserved_or_leaking_counts(self):
         from analyze_glance import validate_fd_stability
         validate_fd_stability({'open_fds_start':40,'open_fds_end':44,'open_fds_peak':64},256)
         with self.assertRaises(ValueError):validate_fd_stability({},256)
         with self.assertRaises(ValueError):validate_fd_stability({'open_fds_start':40,'open_fds_end':1540,'open_fds_peak':1540},256)
+
+
+class EffectiveGoSettingsTests(unittest.TestCase):
+    def test_reads_last_effective_settings_line_from_the_journal(self):
+        from glance_lab import effective_go_settings
+        journal = "\n".join([
+            'not json',
+            '{"time":"t","level":"INFO","msg":"effective settings","sql_pool_open":4}',
+            '{"time":"t","level":"INFO","msg":"image API listening"}',
+            '{"time":"t","level":"INFO","msg":"effective settings","sql_pool_open":55,"sql_pool_idle":16,"token_cache_s":300}'])
+        self.assertEqual(effective_go_settings(journal), {'sql_pool_open': 55, 'sql_pool_idle': 16, 'token_cache_s': 300})
+
+    def test_missing_settings_line_fails_closed(self):
+        from glance_lab import effective_go_settings
+        with self.assertRaises(Exception):
+            effective_go_settings('{"msg":"image API listening"}')

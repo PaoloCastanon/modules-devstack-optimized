@@ -142,7 +142,7 @@ func TestDownloadStreamsDefaultAndBounds(t *testing.T) {
 	}
 	load := func(e map[string]string) (Config, error) { return Load(func(k string) string { return e[k] }, "serve") }
 	c, err := load(fs())
-	want := min(max(2, runtime.GOMAXPROCS(0)/2), 16)
+	want := min(max(2, runtime.GOMAXPROCS(0)), 16)
 	if err != nil || c.Binary.MaxDownloadStreams != want {
 		t.Fatalf("filesystem default %d, want %d (%v)", c.Binary.MaxDownloadStreams, want, err)
 	}

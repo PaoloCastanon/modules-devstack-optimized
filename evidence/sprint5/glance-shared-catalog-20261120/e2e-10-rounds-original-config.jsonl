@@ -1,0 +1,13 @@
+ "image_served_by": "glance-go",
+ "binary_sha256": "726f4e90007b6f96b6d04b0dd2a3bd70dde6fe0f8c99d38127f6fa1ab2f65b2b"
+{"round": 1, "passed": true, "seconds": 39.4, "go_downloads_original_upload": true, "original_reads_go_image": true, "go_reads_original_image": true, "original_sees_go_deletions": true, "go_sees_original_deletion": true, "nova_boot_from_shared_cirros": true}
+{"round": 2, "passed": true, "seconds": 28.0, "go_downloads_original_upload": true, "original_reads_go_image": true, "go_reads_original_image": true, "original_sees_go_deletions": true, "go_sees_original_deletion": true, "nova_boot_from_shared_cirros": true}
+{"round": 3, "passed": true, "seconds": 26.6, "go_downloads_original_upload": true, "original_reads_go_image": true, "go_reads_original_image": true, "original_sees_go_deletions": true, "go_sees_original_deletion": true, "nova_boot_from_shared_cirros": true}
+{"round": 4, "passed": true, "seconds": 26.1, "go_downloads_original_upload": true, "original_reads_go_image": true, "go_reads_original_image": true, "original_sees_go_deletions": true, "go_sees_original_deletion": true, "nova_boot_from_shared_cirros": true}
+{"round": 5, "passed": true, "seconds": 25.9, "go_downloads_original_upload": true, "original_reads_go_image": true, "go_reads_original_image": true, "original_sees_go_deletions": true, "go_sees_original_deletion": true, "nova_boot_from_shared_cirros": true}
+{"round": 6, "passed": true, "seconds": 26.0, "go_downloads_original_upload": true, "original_reads_go_image": true, "go_reads_original_image": true, "original_sees_go_deletions": true, "go_sees_original_deletion": true, "nova_boot_from_shared_cirros": true}
+{"round": 7, "passed": true, "seconds": 25.9, "go_downloads_original_upload": true, "original_reads_go_image": true, "go_reads_original_image": true, "original_sees_go_deletions": true, "go_sees_original_deletion": true, "nova_boot_from_shared_cirros": true}
+{"round": 8, "passed": true, "seconds": 25.9, "go_downloads_original_upload": true, "original_reads_go_image": true, "go_reads_original_image": true, "original_sees_go_deletions": true, "go_sees_original_deletion": true, "nova_boot_from_shared_cirros": true}
+{"round": 9, "passed": true, "seconds": 26.0, "go_downloads_original_upload": true, "original_reads_go_image": true, "go_reads_original_image": true, "original_sees_go_deletions": true, "go_sees_original_deletion": true, "nova_boot_from_shared_cirros": true}
+{"round": 10, "passed": true, "seconds": 26.0, "go_downloads_original_upload": true, "original_reads_go_image": true, "go_reads_original_image": true, "original_sees_go_deletions": true, "go_sees_original_deletion": true, "nova_boot_from_shared_cirros": true}
+{"rounds": 10, "passed": true}

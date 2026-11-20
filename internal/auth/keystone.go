@@ -176,10 +176,10 @@ func (k *Keystone) serviceToken(ctx context.Context) (validatorToken, error) {
 }
 
 func (k *Keystone) fetchServiceToken(ctx context.Context) (validatorToken, error) {
-	if k.credential.ID == "" || k.credential.Secret == "" {
+	body, ok := serviceAuthBody(k.credential)
+	if !ok {
 		return validatorToken{}, ErrUnavailable
 	}
-	body := map[string]any{"auth": map[string]any{"identity": map[string]any{"methods": []string{"application_credential"}, "application_credential": map[string]string{"id": k.credential.ID, "secret": k.credential.Secret}}}}
 	encoded, err := json.Marshal(body)
 	if err != nil {
 		return validatorToken{}, ErrUnavailable
@@ -199,7 +199,10 @@ func (k *Keystone) fetchServiceToken(ctx context.Context) (validatorToken, error
 		return validatorToken{}, ErrUnavailable
 	}
 	identity, err := readIdentity(response.Body)
-	if err != nil || !identity.HasRole("service") || identity.HasRole("admin") {
+	// A dedicated application credential must not carry admin. The original's
+	// own service user (password, from its glance-api.conf) is accepted with
+	// the roles DevStack gives it, as keystonemiddleware does.
+	if err != nil || !identity.HasRole("service") || identity.HasRole("admin") && k.credential.ID != "" {
 		return validatorToken{}, ErrUnavailable
 	}
 	token := response.Header.Get("X-Subject-Token")
@@ -318,4 +321,21 @@ func (k *Keystone) validate(ctx context.Context, token string, allowExpired bool
 		return identity, serviceToken.projectID, nil
 	}
 	return Identity{}, "", ErrUnavailable
+}
+
+// serviceAuthBody is the Keystone v3 request for the service token: an
+// application credential, or (as keystonemiddleware's auth_type=password) a
+// user name and password scoped to the service project.
+func serviceAuthBody(c config.ServiceCredential) (map[string]any, bool) {
+	if c.ID != "" && c.Secret != "" {
+		return map[string]any{"auth": map[string]any{"identity": map[string]any{"methods": []string{"application_credential"}, "application_credential": map[string]string{"id": c.ID, "secret": c.Secret}}}}, true
+	}
+	if c.Username == "" || c.Password == "" || c.ProjectName == "" {
+		return nil, false
+	}
+	return map[string]any{"auth": map[string]any{
+		"identity": map[string]any{"methods": []string{"password"}, "password": map[string]any{"user": map[string]any{
+			"name": c.Username, "password": c.Password, "domain": map[string]string{"name": c.UserDomainName}}}},
+		"scope": map[string]any{"project": map[string]any{"name": c.ProjectName, "domain": map[string]string{"name": c.ProjectDomainName}}},
+	}}, true
 }

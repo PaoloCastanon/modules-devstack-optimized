@@ -15,9 +15,28 @@ import (
 
 var testDatabase = regexp.MustCompile(`^glance_go_test_[a-z0-9_]+$`)
 
-func AllowedDatabase(name string) bool { return name == "glance_go" || testDatabase.MatchString(name) }
+func AllowedDatabase(name string) bool {
+	return name == "glance_go" || name == SharedDatabase || testDatabase.MatchString(name) || sharedTestDatabase.MatchString(name)
+}
 
-func parseDSN(value string) (*driver.Config, error) {
+// SharedDatabase holds only Glance Go's own transfer bookkeeping when the
+// catalog is the official Glance database (OfficialDatabase).
+const (
+	SharedDatabase   = "glance_go_shared"
+	OfficialDatabase = "glance"
+)
+
+var sharedTestDatabase = regexp.MustCompile(`^glance_go_shared_test_[a-z0-9_]+$`)
+
+// Shared reports whether a Glance Go database pairs with the official catalog.
+func Shared(name string) bool { return name == SharedDatabase || sharedTestDatabase.MatchString(name) }
+
+func parseDSN(value string) (*driver.Config, error) { return parseDSNFor(value, false) }
+
+// parseDSNFor with originalAccount accepts the original Glance's own account
+// (DevStack's root) for the shared database: it is the same account the
+// original uses, read from its glance-api.conf, not a new privileged one.
+func parseDSNFor(value string, originalAccount bool) (*driver.Config, error) {
 	c, err := driver.ParseDSN(value)
 	if err != nil {
 		return nil, errors.New("invalid MySQL DSN")
@@ -28,9 +47,14 @@ func parseDSN(value string) (*driver.Config, error) {
 	if c.User == "" {
 		return nil, errors.New("a dedicated database account is required")
 	}
+	if originalAccount && !Shared(c.DBName) {
+		return nil, errors.New("the original's account is accepted only for the shared database")
+	}
 	switch strings.ToLower(c.User) {
 	case "root", "admin", "stack", "glance", "nova", "placement", "keystone":
-		return nil, errors.New("original service and administrative database accounts are prohibited")
+		if !originalAccount {
+			return nil, errors.New("original service and administrative database accounts are prohibited")
+		}
 	}
 	if c.MultiStatements || c.AllowAllFiles || c.AllowCleartextPasswords || c.AllowOldPasswords || c.AllowFallbackToPlaintext || c.TLSConfig == "skip-verify" || c.TLSConfig == "preferred" {
 		return nil, errors.New("unsafe MySQL DSN options")
@@ -72,13 +96,20 @@ func parseDSN(value string) (*driver.Config, error) {
 		}
 	}
 	c.Params["autocommit"] = "1"
-	c.Params["sql_mode"] = "'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'"
+	// TIME_TRUNCATE_FRACTIONAL: the official catalog stores whole seconds;
+	// truncate like Python's oslo.db instead of rounding up.
+	c.Params["sql_mode"] = "'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,TIME_TRUNCATE_FRACTIONAL'"
 	return c, nil
 }
 
 // Open constructs a pool; it does not connect, create schemas or run migrations.
-func Open(dsn string) (*sql.DB, error) {
-	c, err := parseDSN(dsn)
+func Open(dsn string) (*sql.DB, error) { return open(dsn, false) }
+
+// OpenOriginalAccount opens the shared database with the original's account.
+func OpenOriginalAccount(dsn string) (*sql.DB, error) { return open(dsn, true) }
+
+func open(dsn string, originalAccount bool) (*sql.DB, error) {
+	c, err := parseDSNFor(dsn, originalAccount)
 	if err != nil {
 		return nil, err
 	}
@@ -89,14 +120,20 @@ func Open(dsn string) (*sql.DB, error) {
 	db := sql.OpenDB(connector)
 	// Official Glance uses oslo.db's SQLAlchemy pool: 5 kept + 50 overflow.
 	// Same ceiling; more kept idle so bursts do not reconnect (was 4 / 2).
-	db.SetMaxOpenConns(55)
-	db.SetMaxIdleConns(16)
+	db.SetMaxOpenConns(PoolMaxOpen)
+	db.SetMaxIdleConns(PoolMaxIdle)
 	db.SetConnMaxLifetime(3 * time.Minute)
 	return db, nil
 }
 
 // CheckAccount refuses grants outside the dedicated schema, global privileges,
 // delegated roles and grant options. No grant text is returned or logged.
+// PoolMaxOpen and PoolMaxIdle are the SQL pool limits set by Open.
+const (
+	PoolMaxOpen = 55
+	PoolMaxIdle = 16
+)
+
 func CheckAccount(ctx context.Context, db *sql.DB, mode string) error {
 	conn, err := db.Conn(ctx)
 	if err != nil {
@@ -154,6 +191,13 @@ func checkAccount(ctx context.Context, conn *sql.Conn, mode string) error {
 	return nil
 }
 
+// OfficialCatalogName matches the official database a shared one pairs with.
+func OfficialCatalogName(name string) bool {
+	return name == OfficialDatabase || officialTestDatabase.MatchString(name)
+}
+
+var officialTestDatabase = regexp.MustCompile(`^glance_official_test_[a-z0-9_]+$`)
+
 func allowedGrant(grant, database, mode string, literalWildcards bool) bool {
 	upper := strings.ToUpper(grant)
 	if strings.Contains(upper, "WITH GRANT OPTION") {
@@ -162,13 +206,38 @@ func allowedGrant(grant, database, mode string, literalWildcards bool) bool {
 	if strings.HasPrefix(upper, "GRANT USAGE ON *.* TO ") {
 		return true
 	}
-	// With partial_revokes disabled, underscores in schema-level grants are
-	// wildcards even in backticks. Only the escaped literal scope is accepted.
-	scope := database
-	if !literalWildcards {
-		scope = strings.ReplaceAll(scope, "_", `\_`)
+	// A shared serving account also has DML (never DDL) on the official
+	// catalog, whose schema belongs to the original Glance.
+	if official := grantSchema(grant); Shared(database) && mode == "serve" && OfficialCatalogName(official) {
+		return grantedOnly(grant, " ON `"+escapeScope(official, literalWildcards)+"`.* TO ", "serve")
 	}
-	marker := " ON `" + scope + "`.* TO "
+	return grantedOnly(grant, " ON `"+escapeScope(database, literalWildcards)+"`.* TO ", mode)
+}
+
+// With partial_revokes disabled, underscores in schema-level grants are
+// wildcards even in backticks. Only the escaped literal scope is accepted.
+func escapeScope(name string, literalWildcards bool) string {
+	if !literalWildcards {
+		return strings.ReplaceAll(name, "_", `\_`)
+	}
+	return name
+}
+
+// grantSchema is the unescaped schema a schema-level grant names, or "".
+func grantSchema(grant string) string {
+	start := strings.Index(grant, " ON `")
+	if start < 0 {
+		return ""
+	}
+	rest := grant[start+5:]
+	end := strings.Index(rest, "`.* TO ")
+	if end < 0 {
+		return ""
+	}
+	return strings.ReplaceAll(rest[:end], `\_`, "_")
+}
+
+func grantedOnly(grant, marker, mode string) bool {
 	parts := strings.SplitN(grant, marker, 2)
 	if len(parts) != 2 || !strings.HasPrefix(parts[0], "GRANT ") {
 		return false

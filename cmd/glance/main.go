@@ -37,7 +37,11 @@ func run(args []string, logger *slog.Logger) (result error) {
 	if err != nil {
 		return err
 	}
-	db, err := mysql.Open(c.DatabaseDSN)
+	open := mysql.Open
+	if c.OriginalAccount {
+		open = mysql.OpenOriginalAccount
+	}
+	db, err := open(c.DatabaseDSN)
 	if err != nil {
 		return err
 	}
@@ -53,14 +57,36 @@ func run(args []string, logger *slog.Logger) (result error) {
 	if err = db.PingContext(startup); err != nil {
 		return errors.New("database connection failed")
 	}
+	official := c.OfficialCatalog != ""
+	var database string
+	if db.QueryRowContext(startup, "SELECT DATABASE()").Scan(&database) != nil || mysql.Shared(database) != official {
+		return errors.New("GLANCE_GO_CATALOG=official requires the glance_go_shared database, and only it")
+	}
 	if mode == "migrate" {
-		if err = mysql.Migrate(startup, db); err != nil {
+		migrate := mysql.Migrate
+		if official {
+			migrate = mysql.MigrateShared
+		}
+		if c.OriginalAccount {
+			migrate = mysql.MigrateSharedOriginalAccount
+		}
+		if err = migrate(startup, db); err != nil {
 			return err
 		}
 		logger.Info("metadata migration verified")
 		return nil
 	}
-	checks := startupChecks{ping: db.PingContext, account: func(ctx context.Context) error { return mysql.CheckAccount(ctx, db, "serve") }, schema: func(ctx context.Context) error { return mysql.VerifySchema(ctx, db) }, scope: func(ctx context.Context) (string, error) { return databaseScope(ctx, db) }}
+	checks := startupChecks{ping: db.PingContext, account: func(ctx context.Context) error {
+		if c.OriginalAccount { // the original's own account: its grants are not ours to restrict
+			return nil
+		}
+		return mysql.CheckAccount(ctx, db, "serve")
+	}, schema: func(ctx context.Context) error {
+		if official {
+			return mysql.VerifySharedSchema(ctx, db)
+		}
+		return mysql.VerifySchema(ctx, db)
+	}, scope: func(ctx context.Context) (string, error) { return databaseScope(ctx, db) }}
 	if err = verifyBackend(startup, checks); err != nil {
 		return err
 	}
@@ -86,6 +112,19 @@ func run(args []string, logger *slog.Logger) (result error) {
 		return nil
 	}
 	r := mysql.New(db, c.DependencyTimeout)
+	if official {
+		if err = r.UseOfficialCatalog(c.OfficialCatalog, c.Binary.OfficialStoreDir); err != nil {
+			return err
+		}
+		if err = r.VerifyOfficialCatalog(startup); err != nil {
+			return err
+		}
+		adopted, err := r.AdoptOriginalUploads(startup)
+		if err != nil {
+			return errors.New("cannot adopt the original's uploads")
+		}
+		logger.Info("serving the official catalog", "database", c.OfficialCatalog, "store", c.Binary.OfficialStoreDir, "adopted_uploads", adopted)
+	}
 	if err = r.PrepareStatements(startup); err != nil {
 		// Correctness does not depend on it: every query still runs unprepared.
 		logger.Warn("hot statements not prepared; continuing without reuse")
@@ -138,6 +177,7 @@ func run(args []string, logger *slog.Logger) (result error) {
 		return errors.New("HTTP listener failed")
 	}
 	defer ln.Close()
+	logger.Info("effective settings", effectiveSettings(c)...)
 	logger.Info("image API listening", "address", c.ListenAddress, "binary_enabled", c.Binary.Enabled, "startup_ms", time.Since(started).Milliseconds())
 	var owner *service.UploadCoordinator
 	if binary != nil {

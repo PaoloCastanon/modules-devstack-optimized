@@ -52,6 +52,20 @@ def owned_descriptor(values, image, owner):
     return image.get('id') == str(uuid.uuid5(uuid.UUID(values['namespace']), key))
 
 
+def effective_go_settings(journal):
+    """Last "effective settings" line the running Glance Go logged (non-secret)."""
+    found = None
+    for line in journal.splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(entry, dict) and entry.get('msg') == 'effective settings':
+            found = {k: v for k, v in entry.items() if k not in ('time', 'level', 'msg')}
+    require(found is not None, 'Glance Go effective settings logged')
+    return found
+
+
 class Lab(Session):
     def __init__(self, args):
         super().__init__(args)
@@ -139,10 +153,10 @@ class Lab(Session):
                 'binary_sha256': hashlib.sha256(self.args.binary.read_bytes()).hexdigest(),
                 'python_config_explicit_allowlist': settings,
                 'notification_policy': self.args.notification_policy,
+                'go_notification_policy': getattr(self.args, 'go_notifications', 'noop'),
                 'uwsgi': {k: uwsgi.get('uwsgi', k) for k in ['processes', 'threads', 'master', 'enable-threads', 'lazy-apps', 'max-requests', 'harakiri'] if uwsgi.has_option('uwsgi', k)},
                 'mysql_python': original_mysql, 'mysql_go': own_mysql,
-                'go_settings': {'transfer_limit': 16, 'metadata_timeout_s': 10, 'binary_timeout_s': 120,
-                                'sql_pool_open': 4, 'sql_pool_idle': 2, 'token_cache': False},
+                'go_settings': effective_go_settings(cmd(['sudo', 'journalctl', '-u', self.runtime_state['go_unit'], '-o', 'cat', '--no-pager'])),
                 'systemd': {unit: cmd(['systemctl', 'show', unit, '-p', 'ControlGroup', '-p', 'ExecMainPID',
                                      '-p', 'CPUQuotaPerSecUSec', '-p', 'MemoryMax', '-p', 'TasksMax'])
                             for unit in ['devstack@g-api.service', self.runtime_state['go_unit']]},
@@ -318,6 +332,8 @@ def main():
     parser.add_argument('--url', default='http://192.168.122.10/image')
     parser.add_argument('--allow-mutations', action='store_true')
     parser.add_argument('--notification-policy', choices=['original', 'noop'], default='original')
+    parser.add_argument('--go-notifications', choices=['original', 'noop'], default='noop',
+                        help="'original': Glance Go sends notifications with the original's settings")
     args = parser.parse_args()
     require(args.allow_mutations and args.work_root.is_absolute() and args.work_root == args.work_root.resolve()
             and re.fullmatch(r'tt-placement-[a-z0-9-]+', args.work_root.name), 'owned canonical private root and opt-in')

@@ -28,9 +28,7 @@ func TestHotStatementsMatchTheQueriesTheReadersBuild(t *testing.T) {
 		want[q] = true
 	}
 	for _, q := range []string{
-		"SELECT image_id, name, value FROM image_properties WHERE image_id IN (" + "?" + ") ORDER BY image_id, name",
-		"SELECT image_id, value FROM image_tags WHERE image_id IN (" + "?" + ") ORDER BY image_id, value",
-		readImageQuery, lockImageQuery, readDataImage, lockDataOperation,
+		fullImageQuery, readImageQuery, lockImageQuery, readDataImage, lockDataOperation,
 	} {
 		if !want[q] {
 			t.Fatal("reader query not in the hot set:", q)

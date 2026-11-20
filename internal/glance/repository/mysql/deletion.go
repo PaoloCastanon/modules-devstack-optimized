@@ -76,11 +76,18 @@ func (r *Repository) tombstoneData(ctx context.Context, id string, expectedAttem
 		return out, model.Fail(model.Forbidden, "Protected images cannot be deleted.")
 	}
 	s := model.DataState{ImageID: i.ID, Status: i.Status, Size: i.Size, VirtualSize: i.VirtualSize, Checksum: i.Checksum, HashAlgorithm: i.HashAlgorithm, HashValue: i.HashValue, UpdatedAt: i.UpdatedAt}
-	o, err := scanOperation(tx.QueryRowContext(ctx, lockDataOperation, id))
+	o, err := scanOperation(r.queryRow(ctx, tx, lockDataOperation, id))
 	if err == nil {
 		s.Operation = &o
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return out, err
+	} else if adopted, e := r.adoptable(ctx, tx, s); e != nil {
+		return out, e
+	} else if adopted != nil {
+		if e = r.materialize(ctx, tx, adopted); e != nil {
+			return out, e
+		}
+		o, s.Operation = *adopted, adopted
 	}
 	if i.ID != id || s.Operation != nil && s.Operation.ImageID != id || !deletableData(s) {
 		return out, repository.ErrConflict
@@ -89,16 +96,19 @@ func (r *Repository) tombstoneData(ctx context.Context, id string, expectedAttem
 		return out, repository.ErrConflict
 	}
 	at := dataTime(now, s)
-	if err = acknowledged(ctx, tx, tombstoneDataSQL, at, at, id, i.Status); err != nil {
+	if err = r.ack(ctx, tx, tombstoneDataSQL, at, at, id, i.Status); err != nil {
 		return out, err
 	}
 	if s.Operation != nil {
-		if err = acknowledged(ctx, tx, tombstoneOperationSQL, at, id, o.AttemptID, string(o.Phase)); err != nil {
+		if err = r.ack(ctx, tx, tombstoneOperationSQL, at, id, o.AttemptID, string(o.Phase)); err != nil {
 			return out, err
 		}
 		target, code := "deleted", "deleted"
 		o.Phase, o.CleanupTarget, o.LastErrorCode, o.UpdatedAt = model.DataCleanup, &target, &code, at
 		s.Operation = &o
+	}
+	if err = r.destroyChildren(ctx, tx, id, at); err != nil {
+		return out, err
 	}
 	s.Deleted, s.Status, s.UpdatedAt = true, "deleted", at
 	out = s

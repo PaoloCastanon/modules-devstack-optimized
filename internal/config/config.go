@@ -15,9 +15,13 @@ import (
 	"time"
 )
 
+// ServiceCredential is an application credential (ID/Secret) or, read from
+// the original's [keystone_authtoken], a password-scoped service user.
 type ServiceCredential struct {
 	ID     string `json:"application_credential_id"`
 	Secret string `json:"application_credential_secret"`
+
+	Username, Password, ProjectName, UserDomainName, ProjectDomainName string `json:"-"`
 }
 
 type Config struct {
@@ -33,6 +37,13 @@ type Config struct {
 	DBMaxConnections int
 	// Notifications is Glance only and read only by serve.
 	Notifications Notifications
+	// OfficialCatalog is the original Glance database Glance Go serves from
+	// (GLANCE_GO_CATALOG=official), "" for its own catalog. Its files are then
+	// in Binary.OfficialStoreDir, the original's filesystem_store_datadir.
+	OfficialCatalog string
+	// OriginalAccount: the database account is the original's own (read from
+	// its glance-api.conf); its broad privileges are expected, not refused.
+	OriginalAccount bool
 }
 
 // ReadSecret rejects group/world-readable files and never returns their contents in errors.
@@ -141,22 +152,44 @@ func load(getenv func(string) string, mode, prefix, defaultAddress string) (Conf
 		}
 		c.MaxBodyBytes = n
 	}
-	dsn, err := ReadSecret(getenv(prefix + "DATABASE_DSN_FILE"))
-	if err != nil {
-		return Config{}, fmt.Errorf("database configuration: %w", err)
+	var original osloFile
+	path := ""
+	if prefix == "GLANCE_GO_" { // Placement must never read Glance's namespace
+		path = getenv("GLANCE_GO_CONFIG_FILE")
 	}
-	c.DatabaseDSN = strings.TrimSpace(string(dsn))
-	if c.DatabaseDSN == "" {
-		return Config{}, errors.New("empty database configuration")
+	if path != "" {
+		if original, err = readOriginalConfig(path); err != nil {
+			return Config{}, err
+		}
+	} else {
+		dsn, err := ReadSecret(getenv(prefix + "DATABASE_DSN_FILE"))
+		if err != nil {
+			return Config{}, fmt.Errorf("database configuration: %w", err)
+		}
+		c.DatabaseDSN = strings.TrimSpace(string(dsn))
+		if c.DatabaseDSN == "" {
+			return Config{}, errors.New("empty database configuration")
+		}
+	}
+	// Default token cache before the original's glance-api.conf may override it.
+	if c.TokenCacheTime, err = tokenCacheTime(getenv, prefix); err != nil {
+		return Config{}, err
 	}
 	// Binary storage is Glance policy; Placement must not read that namespace.
 	if prefix == "GLANCE_GO_" {
 		if err := loadBinary(&c, getenv, mode); err != nil {
 			return Config{}, err
 		}
-	}
-	if c.TokenCacheTime, err = tokenCacheTime(getenv, prefix); err != nil {
-		return Config{}, err
+		if original == nil {
+			if err := loadCatalog(&c, getenv); err != nil {
+				return Config{}, err
+			}
+		}
+		if original != nil {
+			if err := applyOriginalConfig(&c, original, getenv, mode); err != nil {
+				return Config{}, err
+			}
+		}
 	}
 	if prefix == "PLACEMENT_GO_" {
 		c.DBMaxConnections = 16
@@ -170,6 +203,9 @@ func load(getenv func(string) string, mode, prefix, defaultAddress string) (Conf
 	}
 	if mode != "serve" {
 		return c, nil
+	}
+	if original != nil {
+		return c, nil // notifications and Keystone came from the original's file
 	}
 	if prefix == "GLANCE_GO_" {
 		if err := loadNotifications(&c, getenv); err != nil {
