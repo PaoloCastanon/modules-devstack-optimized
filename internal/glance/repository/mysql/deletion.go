@@ -52,7 +52,11 @@ func (r *Repository) TombstoneData(ctx context.Context, id string, expectedAttem
 			return out, e
 		}
 	}
-	defer func() { err = conflict(err) }()
+	err = withLockRetry(ctx, func() (e error) { out, e = r.tombstoneData(ctx, id, expectedAttempt, now, check); return e })
+	return out, conflict(err)
+}
+
+func (r *Repository) tombstoneData(ctx context.Context, id string, expectedAttempt *string, now time.Time, check func(model.Image) error) (out model.DataState, err error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)

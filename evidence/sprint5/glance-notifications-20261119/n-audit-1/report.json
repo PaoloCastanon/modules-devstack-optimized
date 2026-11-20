@@ -1,0 +1,398 @@
+{
+  "schema": 1,
+  "suite": "glance-b26",
+  "run_id": "tt-glance-b26-d2cf2d1319d7",
+  "started_utc": "2026-11-19T18:23:52.583993+00:00",
+  "cases": {
+    "preflight_and_isolation": {
+      "passed": true,
+      "seconds": 12.3,
+      "original_images": 1,
+      "nova_ready_wait_s": 0.1
+    },
+    "auth_fail_closed": {
+      "passed": true,
+      "seconds": 0.0,
+      "go_missing_token": 401,
+      "go_invalid_token": 401,
+      "python_missing_token": 401,
+      "go_discovery": 300,
+      "python_discovery": 300
+    },
+    "not_found": {
+      "passed": true,
+      "seconds": 0.1
+    },
+    "audit_original": {
+      "passed": true,
+      "seconds": 55.3,
+      "measured": [
+        "create",
+        "delete",
+        "discovery",
+        "download_16m",
+        "download_16m_c16",
+        "download_16m_c16_direct",
+        "download_16m_ttfb",
+        "download_1m",
+        "download_1m_c16",
+        "download_1m_ttfb",
+        "download_64m",
+        "download_64m_c16",
+        "download_64m_c16_direct",
+        "download_64m_ttfb",
+        "list_tagged",
+        "patch",
+        "resources",
+        "schema",
+        "show",
+        "show_c16",
+        "upload_16m",
+        "upload_1m",
+        "upload_64m"
+      ]
+    },
+    "notifications_original": {
+      "passed": true,
+      "seconds": 6.4,
+      "events": [
+        "image.create",
+        "image.update",
+        "image.update",
+        "image.prepare",
+        "image.upload",
+        "image.activate",
+        "image.update",
+        "image.send",
+        "image.delete"
+      ]
+    },
+    "catalog_and_bytes_direct": {
+      "passed": true,
+      "seconds": 0.1,
+      "sizes_mib": [
+        1
+      ]
+    },
+    "route_go_public": {
+      "passed": true,
+      "seconds": 1.2,
+      "lease_seconds": 900
+    },
+    "catalog_and_bytes_public": {
+      "passed": true,
+      "seconds": 0.1
+    },
+    "audit_go": {
+      "passed": true,
+      "seconds": 14.4,
+      "go_slower_ops": [],
+      "go_more_cpu_blocks": []
+    },
+    "notifications_go": {
+      "passed": true,
+      "seconds": 5.1,
+      "events": [
+        "image.create",
+        "image.update",
+        "image.update",
+        "image.prepare",
+        "image.upload",
+        "image.activate",
+        "image.update",
+        "image.send",
+        "image.delete"
+      ],
+      "differences": 0
+    },
+    "image_for_nova": {
+      "passed": true,
+      "seconds": 0.2,
+      "image_size": 21692416,
+      "source": "cirros-0.6.3-x86_64-disk.img"
+    },
+    "nova_boot_from_go": {
+      "passed": true,
+      "seconds": 10.1,
+      "seconds_to_active": 6.5,
+      "states": [
+        "BUILD",
+        "ACTIVE"
+      ]
+    },
+    "nova_glance_flow": {
+      "passed": true,
+      "seconds": 0.4,
+      "nova_calls": 6,
+      "request_id_correlated": 0,
+      "attributed_by_apache": 6,
+      "callers": [
+        "nova"
+      ],
+      "metadata_reads_200": 3,
+      "downloads_200_full": 1,
+      "composite_auth_seen": null,
+      "non_nova_glance_requests": 0
+    },
+    "server_and_image_removed": {
+      "passed": true,
+      "seconds": 2.5
+    }
+  },
+  "cleanup": {
+    "original_unchanged": true,
+    "private_root_removed": true,
+    "runtime_removed": true,
+    "identity_removed": true,
+    "controls_restored": true,
+    "original_services_active": {
+      "devstack@placement-api.service": true,
+      "devstack@g-api.service": true,
+      "devstack@n-cpu.service": true,
+      "devstack@n-sch.service": true,
+      "devstack@keystone.service": true
+    },
+    "pending_images": 0,
+    "server_removed": true,
+    "service_validator_removed": true
+  },
+  "execution_error": null,
+  "passed": true,
+  "mode": "glance-go",
+  "required_cases": [
+    "preflight_and_isolation",
+    "auth_fail_closed",
+    "not_found",
+    "audit_original",
+    "notifications_original",
+    "catalog_and_bytes_direct",
+    "route_go_public",
+    "catalog_and_bytes_public",
+    "audit_go",
+    "notifications_go",
+    "image_for_nova",
+    "nova_boot_from_go",
+    "nova_glance_flow",
+    "server_and_image_removed"
+  ],
+  "service_validator": {
+    "name": "tt-placement-glance-c03bb39de9d5",
+    "project": "service",
+    "roles": [
+      "service"
+    ]
+  },
+  "boot_states": [
+    {
+      "t_s": 0.1,
+      "status": "BUILD"
+    },
+    {
+      "t_s": 6.5,
+      "status": "ACTIVE"
+    }
+  ],
+  "request_cases": [
+    {
+      "method": "GET",
+      "path": "/v2/images?limit=1000",
+      "status": 200,
+      "expected": 200,
+      "bytes": 1056,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/48e782e8-8395-447b-b0af-b95e42162d64",
+      "status": 404,
+      "expected": 404,
+      "bytes": 155,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/36ad12cd-300b-4818-8079-52df690b152c",
+      "status": 404,
+      "expected": 404,
+      "bytes": 155,
+      "error_kind": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2/images",
+      "status": 201,
+      "expected": 201,
+      "bytes": 652,
+      "error_kind": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v2/images/36ad12cd-300b-4818-8079-52df690b152c/file",
+      "status": 204,
+      "expected": 204,
+      "bytes": 0,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/36ad12cd-300b-4818-8079-52df690b152c",
+      "status": 200,
+      "expected": 200,
+      "bytes": 818,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/36ad12cd-300b-4818-8079-52df690b152c/file",
+      "status": 200,
+      "expected": 200,
+      "bytes": 1048576,
+      "error_kind": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/v2/images/36ad12cd-300b-4818-8079-52df690b152c",
+      "status": 200,
+      "expected": 200,
+      "bytes": 826,
+      "error_kind": null
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2/images/36ad12cd-300b-4818-8079-52df690b152c",
+      "status": 204,
+      "expected": 204,
+      "bytes": 0,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/36ad12cd-300b-4818-8079-52df690b152c",
+      "status": 404,
+      "expected": 404,
+      "bytes": 155,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/ac20d97a-2023-4b0c-a44c-bfb26d477e6c",
+      "status": 404,
+      "expected": 404,
+      "bytes": 155,
+      "error_kind": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2/images",
+      "status": 201,
+      "expected": 201,
+      "bytes": 652,
+      "error_kind": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v2/images/ac20d97a-2023-4b0c-a44c-bfb26d477e6c/file",
+      "status": 204,
+      "expected": 204,
+      "bytes": 0,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/ac20d97a-2023-4b0c-a44c-bfb26d477e6c",
+      "status": 200,
+      "expected": 200,
+      "bytes": 818,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/ac20d97a-2023-4b0c-a44c-bfb26d477e6c/file",
+      "status": 200,
+      "expected": 200,
+      "bytes": 1048576,
+      "error_kind": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/v2/images/ac20d97a-2023-4b0c-a44c-bfb26d477e6c",
+      "status": 200,
+      "expected": 200,
+      "bytes": 826,
+      "error_kind": null
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2/images/ac20d97a-2023-4b0c-a44c-bfb26d477e6c",
+      "status": 204,
+      "expected": 204,
+      "bytes": 0,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/ac20d97a-2023-4b0c-a44c-bfb26d477e6c",
+      "status": 404,
+      "expected": 404,
+      "bytes": 155,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/557a1b6a-20cf-43bd-8cc6-9fa00469fc98",
+      "status": 404,
+      "expected": 404,
+      "bytes": 155,
+      "error_kind": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2/images",
+      "status": 201,
+      "expected": 201,
+      "bytes": 648,
+      "error_kind": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v2/images/557a1b6a-20cf-43bd-8cc6-9fa00469fc98/file",
+      "status": 204,
+      "expected": 204,
+      "bytes": 0,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/557a1b6a-20cf-43bd-8cc6-9fa00469fc98",
+      "status": 200,
+      "expected": 200,
+      "bytes": 812,
+      "error_kind": null
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2/images/557a1b6a-20cf-43bd-8cc6-9fa00469fc98",
+      "status": 204,
+      "expected": 204,
+      "bytes": 0,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images/557a1b6a-20cf-43bd-8cc6-9fa00469fc98",
+      "status": 404,
+      "expected": 404,
+      "bytes": 155,
+      "error_kind": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2/images?limit=1000",
+      "status": 200,
+      "expected": 200,
+      "bytes": 1056,
+      "error_kind": null
+    }
+  ],
+  "finished_utc": "2026-11-19T18:25:46.679687+00:00"
+}

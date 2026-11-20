@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -441,5 +442,41 @@ func TestBinaryCancelledDownloadBeforeHeaders(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != 503 || body.closes != 1 || w.Header().Get("Content-Type") != "application/json" {
 		t.Fatal(w.Code, w.Header(), body.closes)
+	}
+}
+
+// image.send as the official generator: reported after the whole body was
+// produced (ERROR when short), never when the client or the store failed.
+func TestDownloadReportsSentBytesOnlyAfterTheBodyWasWritten(t *testing.T) {
+	for _, tc := range []string{"complete", "short", "writer", "read", "cancel"} {
+		t.Run(tc, func(t *testing.T) {
+			h, transfer, _, _, body := binaryHarness(t)
+			var calls [][2]int64
+			transfer.download.Sent = func(n, requested int64) { calls = append(calls, [2]int64{n, requested}) }
+			r := binaryRequest("GET", nil)
+			ctx, cancel := context.WithCancel(r.Context())
+			defer cancel()
+			r = r.WithContext(ctx)
+			w := httptest.NewRecorder()
+			var writer http.ResponseWriter = w
+			switch tc {
+			case "short":
+				body.Reader = bytes.NewReader([]byte("ab"))
+			case "writer":
+				writer = failingBinaryWriter{w}
+			case "read":
+				body.readErr = errors.New("secret read")
+			case "cancel":
+				body.onRead = cancel
+			}
+			func() {
+				defer func() { _ = recover() }()
+				h.ServeHTTP(writer, r)
+			}()
+			want := map[string][][2]int64{"complete": {{6, 6}}, "short": {{2, 6}}}[tc]
+			if !reflect.DeepEqual(calls, want) {
+				t.Fatal(tc, calls)
+			}
+		})
 	}
 }

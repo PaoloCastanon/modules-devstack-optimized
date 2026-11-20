@@ -166,7 +166,11 @@ func conflict(err error) error {
 }
 
 func (r *Repository) Update(ctx context.Context, id string, change func(model.Image) (model.Image, error)) (result model.Image, err error) {
-	defer func() { err = conflict(err) }()
+	err = withLockRetry(ctx, func() (e error) { result, e = r.update(ctx, id, change); return e })
+	return result, conflict(err)
+}
+
+func (r *Repository) update(ctx context.Context, id string, change func(model.Image) (model.Image, error)) (result model.Image, err error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -211,8 +215,11 @@ func (r *Repository) Update(ctx context.Context, id string, change func(model.Im
 	return result, nil
 }
 
-func (r *Repository) Delete(ctx context.Context, id string, now time.Time, check func(model.Image) error) (err error) {
-	defer func() { err = conflict(err) }()
+func (r *Repository) Delete(ctx context.Context, id string, now time.Time, check func(model.Image) error) error {
+	return conflict(withLockRetry(ctx, func() error { return r.deleteImage(ctx, id, now, check) }))
+}
+
+func (r *Repository) deleteImage(ctx context.Context, id string, now time.Time, check func(model.Image) error) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)

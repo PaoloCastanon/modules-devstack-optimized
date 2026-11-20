@@ -7,6 +7,7 @@ import (
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/notify"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository"
 )
 
@@ -79,6 +80,9 @@ func (s *Service) Patch(ctx context.Context, who auth.Identity, id string, ops [
 		}
 		return changed, nil
 	})
+	if err == nil {
+		s.notify("image.update", notify.ImagePayload(image))
+	}
 	return image, mutationError(err, id)
 }
 
@@ -93,7 +97,9 @@ func (s *Service) Delete(ctx context.Context, who auth.Identity, id string) erro
 	if err != nil {
 		return err
 	}
+	var removed model.Image
 	err = s.repo.Delete(ctx, id, s.now(), func(current model.Image) error {
+		removed = current
 		if err := writePolicy(who, current); err != nil {
 			return err
 		}
@@ -105,5 +111,8 @@ func (s *Service) Delete(ctx context.Context, who auth.Identity, id string) erro
 		}
 		return nil
 	})
+	if err == nil {
+		s.notify("image.delete", notify.DeletePayload(removed, s.now()))
+	}
 	return mutationError(err, id)
 }

@@ -29,6 +29,8 @@ type Config struct {
 	// TokenCacheTime mirrors keystonemiddleware's token_cache_time (Glance only;
 	// 0 = validate every request). Default 300s, as in official Glance.
 	TokenCacheTime time.Duration
+	// Notifications is Glance only and read only by serve.
+	Notifications Notifications
 }
 
 // ReadSecret rejects group/world-readable files and never returns their contents in errors.
@@ -161,6 +163,11 @@ func load(getenv func(string) string, mode, prefix, defaultAddress string) (Conf
 	}
 	if mode != "serve" {
 		return c, nil
+	}
+	if prefix == "GLANCE_GO_" {
+		if err := loadNotifications(&c, getenv); err != nil {
+			return Config{}, err
+		}
 	}
 	c.KeystoneURL = strings.TrimRight(getenv(prefix+"KEYSTONE_AUTH_URL"), "/")
 	if err := ValidateURL(c.KeystoneURL); err != nil {

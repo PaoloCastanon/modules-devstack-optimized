@@ -172,6 +172,22 @@ def run(args):
                              'GLANCE_GO_UPLOAD_TIMEOUT': '120s', 'GLANCE_GO_DOWNLOAD_TIMEOUT': '120s'})
             with (root / 'store-init.log').open('w') as log:
                 subprocess.run([str(root / domain), 'store-init'], env={**env, **settings}, check=True, stdout=log, stderr=subprocess.STDOUT)
+            state['notifications'] = 'noop'
+            if getattr(args, 'notifications', 'noop') == 'original':
+                # Same [oslo_messaging_notifications] as the replaced Glance; the
+                # broker URL (credentials) only goes to a private file.
+                raw = subprocess.run(['sudo', '-n', 'cat', '/etc/glance/glance-api.conf'], check=True,
+                                     capture_output=True, text=True).stdout
+                found = glance_notification_settings(raw)
+                if found['driver'] == 'messagingv2':
+                    secret = root / 'transport.url'
+                    secret.touch(mode=0o600)
+                    secret.write_text(found['transport_url'] + '\n')
+                    settings.update({'GLANCE_GO_NOTIFICATION_DRIVER': 'messagingv2', 'GLANCE_GO_TRANSPORT_URL_FILE': str(secret),
+                                     'GLANCE_GO_NOTIFICATION_TOPICS': ','.join(found['topics']),
+                                     'GLANCE_GO_DEFAULT_PUBLISHER_ID': found['publisher_id'],
+                                     'GLANCE_GO_DISABLED_NOTIFICATIONS': ','.join(found['disabled'])})
+                    state['notifications'] = 'messagingv2'
         save('serve.env', ''.join(key + '=' + value + '\n' for key, value in settings.items()))
         state['go_unit'] = 'tt-placement-b13-go-' + state['id']
         start_unit(state['go_unit'], [str(root / domain), 'serve'], ['--property=EnvironmentFile=' + str(root / 'serve.env')])
@@ -196,7 +212,7 @@ def run(args):
                   'schema': state['schema'], 'mysql_port': args.mysql_port, 'listen_port': args.listen_port,
                   'binary_sha256': hashlib.sha256((root / domain).read_bytes()).hexdigest(),
                   'separate_mysql_datadir': str(datadir), 'runtime_has_ddl': False, 'domain': domain,
-                  'separate_store': domain == 'glance'}
+                  'separate_store': domain == 'glance', 'notifications': state.get('notifications', 'noop')}
         save('public-report.json', report)
         print(json.dumps(report))
         return 0
@@ -230,6 +246,26 @@ def run(args):
     return 0
 
 
+def glance_notification_settings(conf_text):
+    """[oslo_messaging_notifications] (driver, topics, transport_url) with the
+    [DEFAULT] transport_url fallback, plus default_publisher_id and
+    disabled_notifications, from a glance-api.conf, as oslo.config reads them."""
+    import configparser
+    parser = configparser.ConfigParser(interpolation=None, strict=False)
+    parser.read_string(conf_text)
+    get = lambda section, key, default='': parser.get(section, key, fallback=default).strip() if parser.has_section(section) or section == 'DEFAULT' else default
+    drivers = [d.strip() for d in get('oslo_messaging_notifications', 'driver').split(',') if d.strip()]
+    driver = 'messagingv2' if 'messagingv2' in drivers else 'noop'
+    url = get('oslo_messaging_notifications', 'transport_url') or parser.defaults().get('transport_url', '').strip()
+    if driver == 'messagingv2' and not url:
+        raise ValueError('messagingv2 without a transport_url')
+    split = lambda value: [v.strip() for v in value.split(',') if v.strip()]
+    return {'driver': driver, 'transport_url': url,
+            'topics': split(get('oslo_messaging_notifications', 'topics')) or ['notifications'],
+            'publisher_id': parser.defaults().get('default_publisher_id', 'image.localhost').strip() or 'image.localhost',
+            'disabled': split(parser.defaults().get('disabled_notifications', ''))}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['prepare', 'restart-go', 'replace-go', 'cleanup'])
@@ -241,6 +277,8 @@ def main():
     parser.add_argument('--listen-port', type=int, default=18779)
     parser.add_argument('--public-url', default='http://192.168.122.10/placement')
     parser.add_argument('--keystone-url', default='http://192.168.122.10/identity/v3')
+    parser.add_argument('--notifications', choices=['noop', 'original'], default='noop',
+                        help="Glance only: 'original' copies the replaced Glance's notification settings")
     parser.add_argument('--allow-mutations', action='store_true')
     args = parser.parse_args()
     try:

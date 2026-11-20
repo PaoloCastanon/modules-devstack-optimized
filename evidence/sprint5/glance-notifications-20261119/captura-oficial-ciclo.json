@@ -1,0 +1,449 @@
+{
+ "steps": [
+  201,
+  200,
+  204,
+  200,
+  1048576,
+  204
+ ],
+ "image_id": "11111111-2222-4333-8444-555555555555",
+ "messages": [
+  {
+   "routing_key": "notifications.info",
+   "properties": {
+    "content_type": "application/json",
+    "content_encoding": "utf-8",
+    "delivery_mode": 2,
+    "priority": 0
+   },
+   "headers": {},
+   "envelope_keys": [
+    "oslo.message",
+    "oslo.version"
+   ],
+   "oslo.version": "2.0",
+   "message": {
+    "message_id": "00000000-0000-4000-8000-000000000001",
+    "publisher_id": "image.localhost",
+    "event_type": "image.create",
+    "priority": "INFO",
+    "payload": {
+     "id": "11111111-2222-4333-8444-555555555555",
+     "name": "tt-notif-capture",
+     "status": "queued",
+     "created_at": "2026-11-19T18:07:47Z",
+     "updated_at": "2026-11-19T18:07:47Z",
+     "min_disk": 0,
+     "min_ram": 0,
+     "protected": false,
+     "checksum": null,
+     "owner": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "disk_format": "raw",
+     "container_format": "bare",
+     "size": null,
+     "virtual_size": null,
+     "is_public": false,
+     "visibility": "private",
+     "properties": {
+      "k1": "v1"
+     },
+     "tags": [
+      "tt-notif"
+     ],
+     "deleted": false,
+     "deleted_at": null
+    },
+    "timestamp": "2026-11-19 18:07:47.047579",
+    "_unique_id": "00000000000000000000000000000002"
+   },
+   "context_keys": []
+  },
+  {
+   "routing_key": "notifications.info",
+   "properties": {
+    "content_type": "application/json",
+    "content_encoding": "utf-8",
+    "delivery_mode": 2,
+    "priority": 0
+   },
+   "headers": {},
+   "envelope_keys": [
+    "oslo.message",
+    "oslo.version"
+   ],
+   "oslo.version": "2.0",
+   "message": {
+    "message_id": "00000000-0000-4000-8000-000000000003",
+    "publisher_id": "image.localhost",
+    "event_type": "image.update",
+    "priority": "INFO",
+    "payload": {
+     "id": "11111111-2222-4333-8444-555555555555",
+     "name": "tt-notif-capture-2",
+     "status": "queued",
+     "created_at": "2026-11-19T18:07:47Z",
+     "updated_at": "2026-11-19T18:07:47Z",
+     "min_disk": 0,
+     "min_ram": 0,
+     "protected": false,
+     "checksum": null,
+     "owner": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "disk_format": "raw",
+     "container_format": "bare",
+     "size": null,
+     "virtual_size": null,
+     "is_public": false,
+     "visibility": "private",
+     "properties": {
+      "k1": "v1"
+     },
+     "tags": [
+      "tt-notif"
+     ],
+     "deleted": false,
+     "deleted_at": null
+    },
+    "timestamp": "2026-11-19 18:07:47.138470",
+    "_unique_id": "00000000000000000000000000000004"
+   },
+   "context_keys": []
+  },
+  {
+   "routing_key": "notifications.info",
+   "properties": {
+    "content_type": "application/json",
+    "content_encoding": "utf-8",
+    "delivery_mode": 2,
+    "priority": 0
+   },
+   "headers": {},
+   "envelope_keys": [
+    "oslo.message",
+    "oslo.version"
+   ],
+   "oslo.version": "2.0",
+   "message": {
+    "message_id": "00000000-0000-4000-8000-000000000005",
+    "publisher_id": "image.localhost",
+    "event_type": "image.update",
+    "priority": "INFO",
+    "payload": {
+     "id": "11111111-2222-4333-8444-555555555555",
+     "name": "tt-notif-capture-2",
+     "status": "saving",
+     "created_at": "2026-11-19T18:07:47Z",
+     "updated_at": "2026-11-19T18:07:47Z",
+     "min_disk": 0,
+     "min_ram": 0,
+     "protected": false,
+     "checksum": null,
+     "owner": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "disk_format": "raw",
+     "container_format": "bare",
+     "size": null,
+     "virtual_size": null,
+     "is_public": false,
+     "visibility": "private",
+     "properties": {
+      "k1": "v1"
+     },
+     "tags": [
+      "tt-notif"
+     ],
+     "deleted": false,
+     "deleted_at": null
+    },
+    "timestamp": "2026-11-19 18:07:47.459927",
+    "_unique_id": "00000000000000000000000000000006"
+   },
+   "context_keys": []
+  },
+  {
+   "routing_key": "notifications.info",
+   "properties": {
+    "content_type": "application/json",
+    "content_encoding": "utf-8",
+    "delivery_mode": 2,
+    "priority": 0
+   },
+   "headers": {},
+   "envelope_keys": [
+    "oslo.message",
+    "oslo.version"
+   ],
+   "oslo.version": "2.0",
+   "message": {
+    "message_id": "00000000-0000-4000-8000-000000000007",
+    "publisher_id": "image.localhost",
+    "event_type": "image.prepare",
+    "priority": "INFO",
+    "payload": {
+     "id": "11111111-2222-4333-8444-555555555555",
+     "name": "tt-notif-capture-2",
+     "status": "saving",
+     "created_at": "2026-11-19T18:07:47Z",
+     "updated_at": "2026-11-19T18:07:47Z",
+     "min_disk": 0,
+     "min_ram": 0,
+     "protected": false,
+     "checksum": null,
+     "owner": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "disk_format": "raw",
+     "container_format": "bare",
+     "size": null,
+     "virtual_size": null,
+     "is_public": false,
+     "visibility": "private",
+     "properties": {
+      "k1": "v1"
+     },
+     "tags": [
+      "tt-notif"
+     ],
+     "deleted": false,
+     "deleted_at": null,
+     "os_glance_importing_to_stores": [],
+     "os_glance_failed_import": []
+    },
+    "timestamp": "2026-11-19 18:07:47.716608",
+    "_unique_id": "00000000000000000000000000000008"
+   },
+   "context_keys": []
+  },
+  {
+   "routing_key": "notifications.info",
+   "properties": {
+    "content_type": "application/json",
+    "content_encoding": "utf-8",
+    "delivery_mode": 2,
+    "priority": 0
+   },
+   "headers": {},
+   "envelope_keys": [
+    "oslo.message",
+    "oslo.version"
+   ],
+   "oslo.version": "2.0",
+   "message": {
+    "message_id": "00000000-0000-4000-8000-000000000009",
+    "publisher_id": "image.localhost",
+    "event_type": "image.upload",
+    "priority": "INFO",
+    "payload": {
+     "id": "11111111-2222-4333-8444-555555555555",
+     "name": "tt-notif-capture-2",
+     "status": "active",
+     "created_at": "2026-11-19T18:07:47Z",
+     "updated_at": "2026-11-19T18:07:47Z",
+     "min_disk": 0,
+     "min_ram": 0,
+     "protected": false,
+     "checksum": "0000000000000000000000000000000a",
+     "owner": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "disk_format": "raw",
+     "container_format": "bare",
+     "size": 1048576,
+     "virtual_size": 1048576,
+     "is_public": false,
+     "visibility": "private",
+     "properties": {
+      "k1": "v1"
+     },
+     "tags": [
+      "tt-notif"
+     ],
+     "deleted": false,
+     "deleted_at": null,
+     "os_glance_importing_to_stores": [],
+     "os_glance_failed_import": []
+    },
+    "timestamp": "2026-11-19 18:07:47.725291",
+    "_unique_id": "0000000000000000000000000000000b"
+   },
+   "context_keys": []
+  },
+  {
+   "routing_key": "notifications.info",
+   "properties": {
+    "content_type": "application/json",
+    "content_encoding": "utf-8",
+    "delivery_mode": 2,
+    "priority": 0
+   },
+   "headers": {},
+   "envelope_keys": [
+    "oslo.message",
+    "oslo.version"
+   ],
+   "oslo.version": "2.0",
+   "message": {
+    "message_id": "00000000-0000-4000-8000-00000000000c",
+    "publisher_id": "image.localhost",
+    "event_type": "image.activate",
+    "priority": "INFO",
+    "payload": {
+     "id": "11111111-2222-4333-8444-555555555555",
+     "name": "tt-notif-capture-2",
+     "status": "active",
+     "created_at": "2026-11-19T18:07:47Z",
+     "updated_at": "2026-11-19T18:07:47Z",
+     "min_disk": 0,
+     "min_ram": 0,
+     "protected": false,
+     "checksum": "0000000000000000000000000000000a",
+     "owner": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "disk_format": "raw",
+     "container_format": "bare",
+     "size": 1048576,
+     "virtual_size": 1048576,
+     "is_public": false,
+     "visibility": "private",
+     "properties": {
+      "k1": "v1"
+     },
+     "tags": [
+      "tt-notif"
+     ],
+     "deleted": false,
+     "deleted_at": null
+    },
+    "timestamp": "2026-11-19 18:07:47.726406",
+    "_unique_id": "0000000000000000000000000000000d"
+   },
+   "context_keys": []
+  },
+  {
+   "routing_key": "notifications.info",
+   "properties": {
+    "content_type": "application/json",
+    "content_encoding": "utf-8",
+    "delivery_mode": 2,
+    "priority": 0
+   },
+   "headers": {},
+   "envelope_keys": [
+    "oslo.message",
+    "oslo.version"
+   ],
+   "oslo.version": "2.0",
+   "message": {
+    "message_id": "00000000-0000-4000-8000-00000000000e",
+    "publisher_id": "image.localhost",
+    "event_type": "image.update",
+    "priority": "INFO",
+    "payload": {
+     "id": "11111111-2222-4333-8444-555555555555",
+     "name": "tt-notif-capture-2",
+     "status": "active",
+     "created_at": "2026-11-19T18:07:47Z",
+     "updated_at": "2026-11-19T18:07:48Z",
+     "min_disk": 0,
+     "min_ram": 0,
+     "protected": false,
+     "checksum": "0000000000000000000000000000000a",
+     "owner": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "disk_format": "raw",
+     "container_format": "bare",
+     "size": 1048576,
+     "virtual_size": 1048576,
+     "is_public": false,
+     "visibility": "private",
+     "properties": {
+      "k1": "v1"
+     },
+     "tags": [
+      "tt-notif"
+     ],
+     "deleted": false,
+     "deleted_at": null
+    },
+    "timestamp": "2026-11-19 18:07:47.758683",
+    "_unique_id": "0000000000000000000000000000000f"
+   },
+   "context_keys": []
+  },
+  {
+   "routing_key": "notifications.info",
+   "properties": {
+    "content_type": "application/json",
+    "content_encoding": "utf-8",
+    "delivery_mode": 2,
+    "priority": 0
+   },
+   "headers": {},
+   "envelope_keys": [
+    "oslo.message",
+    "oslo.version"
+   ],
+   "oslo.version": "2.0",
+   "message": {
+    "message_id": "00000000-0000-4000-8000-000000000010",
+    "publisher_id": "image.localhost",
+    "event_type": "image.send",
+    "priority": "INFO",
+    "payload": {
+     "bytes_sent": 1048576,
+     "image_id": "11111111-2222-4333-8444-555555555555",
+     "owner_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "receiver_tenant_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "receiver_user_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "timestamp": "2026-11-19 18:07:47.779924",
+    "_unique_id": "00000000000000000000000000000011"
+   },
+   "context_keys": []
+  },
+  {
+   "routing_key": "notifications.info",
+   "properties": {
+    "content_type": "application/json",
+    "content_encoding": "utf-8",
+    "delivery_mode": 2,
+    "priority": 0
+   },
+   "headers": {},
+   "envelope_keys": [
+    "oslo.message",
+    "oslo.version"
+   ],
+   "oslo.version": "2.0",
+   "message": {
+    "message_id": "00000000-0000-4000-8000-000000000012",
+    "publisher_id": "image.localhost",
+    "event_type": "image.delete",
+    "priority": "INFO",
+    "payload": {
+     "id": "11111111-2222-4333-8444-555555555555",
+     "name": "tt-notif-capture-2",
+     "status": "deleted",
+     "created_at": "2026-11-19T18:07:47Z",
+     "updated_at": "2026-11-19T18:07:47Z",
+     "min_disk": 0,
+     "min_ram": 0,
+     "protected": false,
+     "checksum": "0000000000000000000000000000000a",
+     "owner": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "disk_format": "raw",
+     "container_format": "bare",
+     "size": 1048576,
+     "virtual_size": 1048576,
+     "is_public": false,
+     "visibility": "private",
+     "properties": {
+      "k1": "v1"
+     },
+     "tags": [
+      "tt-notif"
+     ],
+     "deleted": true,
+     "deleted_at": "2026-11-19T18:07:47Z"
+    },
+    "timestamp": "2026-11-19 18:07:47.857073",
+    "_unique_id": "00000000000000000000000000000013"
+   },
+   "context_keys": []
+  }
+ ],
+ "source": "Glance oficial a3e5f490 (DevStack, messagingv2), capturado 2026-11-19 desde RabbitMQ; IDs reemplazados"
+}

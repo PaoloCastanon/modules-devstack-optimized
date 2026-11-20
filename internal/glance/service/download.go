@@ -8,6 +8,7 @@ import (
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/notify"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/store"
 )
@@ -25,6 +26,10 @@ type Download struct {
 	Body     store.ReadSeekCloser
 	Size     int64
 	Checksum string
+	// Sent reports the bytes written once the body was sent without a write
+	// error (official image.send: INFO when it equals the requested count,
+	// ERROR otherwise; nothing when the client went away). nil = no-op.
+	Sent func(sent, requested int64)
 }
 
 // MaxUploadBytes is immutable server policy, never derived from a request.
@@ -80,15 +85,15 @@ func (b *downloadBody) Close() error {
 	return b.err
 }
 
-func (u *UploadCoordinator) downloadImage(ctx context.Context, who auth.Identity, id string) error {
+func (u *UploadCoordinator) downloadImage(ctx context.Context, who auth.Identity, id string) (model.Image, error) {
 	i, err := u.images.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
-		return notFound(id)
+		return i, notFound(id)
 	}
 	if err != nil {
-		return downloadError(ctx, err)
+		return i, downloadError(ctx, err)
 	}
-	return downloadVisible(who, id, i)
+	return i, downloadVisible(who, id, i)
 }
 
 // downloadViewer reads the image row and its data state in ONE read-only
@@ -199,6 +204,7 @@ func (u *UploadCoordinator) OpenDownload(ctx context.Context, who auth.Identity,
 		return nil, err
 	}
 	var s model.DataState
+	var owner string
 	viewer, combined := u.transfers.(downloadViewer)
 	if combined {
 		i, state, err := viewer.DownloadView(ctx, id)
@@ -211,9 +217,13 @@ func (u *UploadCoordinator) OpenDownload(ctx context.Context, who auth.Identity,
 		if err = downloadVisible(who, id, i); err != nil {
 			return nil, err
 		}
-		s = state
-	} else if err = u.downloadImage(ctx, who, id); err != nil {
-		return nil, err
+		s, owner = state, i.Owner
+	} else {
+		i, err := u.downloadImage(ctx, who, id)
+		if err != nil {
+			return nil, err
+		}
+		owner = i.Owner
 	}
 	slot, err := u.waitStream(ctx)
 	if err != nil {
@@ -275,7 +285,14 @@ func (u *UploadCoordinator) OpenDownload(ctx context.Context, who auth.Identity,
 		return nil, err
 	}
 	owned = true
-	return &Download{Body: &downloadBody{ReadSeekCloser: f, release: leave}, Size: content.Size, Checksum: content.Checksum}, nil
+	sent := func(n, requested int64) {
+		priority := notify.Info
+		if n != requested {
+			priority = notify.Error
+		}
+		u.notify("image.send", priority, notify.SendPayload(id, owner, who.ProjectID, who.UserID, n))
+	}
+	return &Download{Body: &downloadBody{ReadSeekCloser: f, release: leave}, Size: content.Size, Checksum: content.Checksum, Sent: sent}, nil
 }
 
 // File exposes the underlying *os.File (filesystem store) so net/http can use

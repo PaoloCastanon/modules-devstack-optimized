@@ -90,6 +90,17 @@ func run(args []string, logger *slog.Logger) (result error) {
 		// Correctness does not depend on it: every query still runs unprepared.
 		logger.Warn("hot statements not prepared; continuing without reuse")
 	}
+	notifier, closeNotifier, err := notifierFor(c.Notifications, logger)
+	if err != nil {
+		return err
+	}
+	defer func() { // after HTTP and transfers stopped: deliver what is queued
+		drain, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if closeNotifier(drain) != nil {
+			logger.Warn("notifications not fully delivered before exit")
+		}
+	}()
 	var binary *binaryRuntime
 	var options []api.Option
 	if c.Binary.Enabled {
@@ -104,6 +115,7 @@ func run(args []string, logger *slog.Logger) (result error) {
 				result = errors.Join(result, errors.New("store close failed"))
 			}
 		}()
+		binary.owner.SetNotifier(notifier)
 		options = append(options, api.WithBinaryTransfers(binary.owner))
 	}
 	// Reuse Keystone connections under concurrency (net/http keeps only 2 idle
@@ -112,7 +124,9 @@ func run(args []string, logger *slog.Logger) (result error) {
 	transport.MaxIdleConnsPerHost = 32
 	client := &http.Client{Timeout: c.DependencyTimeout, Transport: transport}
 	authenticator := auth.NewKeystone(c.KeystoneURL, client, c.Credential, auth.WithTokenCache(c.TokenCacheTime, 10000))
-	handler, err := api.New(service.New(r, time.Now), authenticator, c.PublicURL, c.KeystoneURL, c.MaxBodyBytes, logger, options...)
+	catalog := service.New(r, time.Now)
+	catalog.SetNotifier(notifier)
+	handler, err := api.New(catalog, authenticator, c.PublicURL, c.KeystoneURL, c.MaxBodyBytes, logger, options...)
 	if err != nil {
 		return err
 	}

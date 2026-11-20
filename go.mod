@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/uuid v1.6.0
+	github.com/rabbitmq/amqp091-go v1.16.0
 )
 
 require golang.org/x/sys v0.40.0 // indirect

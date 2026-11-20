@@ -29,6 +29,10 @@ func (r *Repository) Create(ctx context.Context, image model.Image) error {
 	if image.Status != "queued" {
 		return errors.New("only queued metadata can be created")
 	}
+	return withLockRetry(ctx, func() error { return r.create(ctx, image) })
+}
+
+func (r *Repository) create(ctx context.Context, image model.Image) error {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)

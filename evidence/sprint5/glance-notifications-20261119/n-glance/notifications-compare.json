@@ -1,0 +1,14 @@
+{
+  "differences": [],
+  "events": [
+    "image.create",
+    "image.update",
+    "image.update",
+    "image.prepare",
+    "image.upload",
+    "image.activate",
+    "image.update",
+    "image.send",
+    "image.delete"
+  ]
+}

@@ -67,7 +67,8 @@ sql_tests=(transfers:TestMySQLTransferOperations:GLANCE_GO_MYSQL_TEST
            catalog:TestMySQLCatalogOperations:GLANCE_GO_MYSQL_TEST
            deletion:TestMySQLCoordinatedDeletion:GLANCE_GO_MYSQL_TEST
            fences:TestB25MySQLConcurrentFences:GLANCE_GO_B25_MYSQL_TEST
-           upgrade:TestB25MySQLVersionedUpgrade:GLANCE_GO_B25_MYSQL_TEST)
+           upgrade:TestB25MySQLVersionedUpgrade:GLANCE_GO_B25_MYSQL_TEST
+           contention:TestB25MySQLConcurrentDistinctImages:GLANCE_GO_B25_MYSQL_TEST)
 schemas=(fs rbd)
 for entry in "${sql_tests[@]}"; do schemas+=("${entry%%:*}"); done
 for name in "${schemas[@]}"; do

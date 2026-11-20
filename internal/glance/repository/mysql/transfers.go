@@ -62,20 +62,24 @@ func (r *Repository) queryDataState(ctx context.Context, tx *sql.Tx, id, imageQu
 
 // Always lock parent first, as PATCH/DELETE do. No caller callback or filesystem
 // work runs under these locks. Commit failure is explicitly an unknown outcome.
-func (r *Repository) dataTransaction(ctx context.Context, id string, change func(context.Context, *sql.Tx, model.DataState) error) (err error) {
+func (r *Repository) dataTransaction(ctx context.Context, id string, change func(context.Context, *sql.Tx, model.DataState) error) error {
+	return conflict(withLockRetry(ctx, func() error { return r.dataTransactionOnce(ctx, id, change) }))
+}
+
+func (r *Repository) dataTransactionOnce(ctx context.Context, id string, change func(context.Context, *sql.Tx, model.DataState) error) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return conflict(err)
+		return err
 	}
 	defer tx.Rollback()
 	s, err := r.lockedDataState(ctx, tx, id)
 	if err != nil {
-		return conflict(err)
+		return err
 	}
 	if err = change(ctx, tx, s); err != nil {
-		return conflict(err)
+		return err
 	}
 	if tx.Commit() != nil {
 		return repository.ErrCommitUncertain

@@ -75,13 +75,15 @@ func TestSQLPatchCommitsAndRollsBackFailures(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	t.Run("deadlock", func(t *testing.T) {
+	// As official Glance (oslo.db retry_on_deadlock): the deadlock victim is
+	// rolled back and the WHOLE transaction re-runs, re-reading under lock.
+	t.Run("deadlock is retried", func(t *testing.T) {
 		steps := patchSteps()
 		steps[4].err = &mysqldriver.MySQLError{Number: 1213}
-		steps = append(steps[:5], execute("ROLLBACK"))
+		steps = append(append(steps[:5], execute("ROLLBACK")), patchSteps()...)
 		db := scriptDB(t, steps)
-		if _, err := New(db, time.Second).Update(context.Background(), catalogID, changed); !errors.Is(err, repository.ErrConflict) {
-			t.Fatal(err)
+		if got, err := New(db, time.Second).Update(context.Background(), catalogID, changed); err != nil || got.Properties["x"] != "changed" {
+			t.Fatal("deadlock victim not re-run", err)
 		}
 	})
 }

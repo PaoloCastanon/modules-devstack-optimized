@@ -9,6 +9,7 @@ import (
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/notify"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/store"
 	"github.com/google/uuid"
@@ -56,6 +57,7 @@ type UploadCoordinator struct {
 	deleting                  map[string]bool
 	readers                   int
 	release                   func()
+	notifier                  notify.Notifier
 	streams                   chan struct{} // nil: downloads are not queued
 	halt                      chan struct{} // closed once admission stops
 	haltOnce                  sync.Once
@@ -153,6 +155,24 @@ func uploadCleanupCode(err error) string {
 	default:
 		return "interrupted"
 	}
+}
+
+// uploadFailureMessage mirrors the texts of ImageProxy.set_data's ERROR
+// image.upload. The detail is a fixed class, never a path, SQL or broker text.
+func uploadFailureMessage(id string, err error) string {
+	switch {
+	case errors.Is(err, store.ErrStoreFull), errors.Is(err, store.ErrTooLarge):
+		return "Image storage media is full: image size or storage limit exceeded"
+	case errors.Is(err, store.ErrSizeMismatch), errors.Is(err, store.ErrInvalidSize), errors.Is(err, store.ErrIntegrity), errors.Is(err, ErrUploadInterrupted):
+		return "Cannot save data for image " + id + ": invalid or interrupted image payload"
+	case errors.Is(err, ErrUploadGone), errors.Is(err, repository.ErrNotFound):
+		return "Image " + id + " could not be found after upload. The image may have been deleted during the upload: image deleted"
+	}
+	var domain *model.Error
+	if errors.As(err, &domain) && domain.Kind == model.Conflict {
+		return "Unable to upload duplicate image data for image " + id + ": image state conflict"
+	}
+	return "Failed to upload image data for image " + id + " due to internal error: transfer failed"
 }
 
 func uploadDBError(err error, id string) error {
@@ -290,7 +310,42 @@ func formats(i model.Image) error {
 // Upload accepts no client attempt/root/cleanup target. src must support caller-
 // managed cancellation/deadlines: an arbitrary blocked Reader cannot be stopped
 // safely by abandoning a goroutine. All streaming buffers belong to store.Store.
+// SetNotifier makes transfers emit image.prepare/upload/activate/update,
+// image.send and image.delete as official Glance does. nil means noop.
+func (u *UploadCoordinator) SetNotifier(n notify.Notifier) { u.notifier = notify.OrNoop(n) }
+
+func (u *UploadCoordinator) notify(eventType, priority string, payload any) {
+	if u.notifier != nil {
+		u.notifier.Notify(eventType, priority, payload)
+	}
+}
+
+// Upload emits, like ImageProxy.set_data and the repo saves around it:
+// image.update (saving) and image.prepare before the bytes; then image.upload,
+// image.activate and image.update (active), or an ERROR image.upload whose
+// payload is a message, as official Glance.
 func (u *UploadCoordinator) Upload(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64) (model.DataContent, error) {
+	var prepared *model.Image
+	content, err := u.upload(ctx, who, value, src, declared, &prepared)
+	if prepared == nil {
+		return content, err
+	}
+	if err != nil {
+		u.notify("image.upload", notify.Error, uploadFailureMessage(prepared.ID, err))
+		return content, err
+	}
+	active := *prepared
+	active.Status, active.UpdatedAt = "active", u.now()
+	size, md5, sha := content.Size, content.Checksum, content.SHA512
+	algorithm := "sha512"
+	active.Size, active.VirtualSize, active.Checksum, active.HashAlgorithm, active.HashValue = &size, content.VirtualSize, &md5, &algorithm, &sha
+	u.notify("image.upload", notify.Info, notify.UploadPayload(active))
+	u.notify("image.activate", notify.Info, notify.ImagePayload(active))
+	u.notify("image.update", notify.Info, notify.ImagePayload(active))
+	return content, nil
+}
+
+func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64, prepared **model.Image) (model.DataContent, error) {
 	var zero model.DataContent
 	if err := ctx.Err(); err != nil {
 		return zero, err
@@ -378,6 +433,9 @@ func (u *UploadCoordinator) Upload(ctx context.Context, who auth.Identity, value
 	if err = formats(current); err != nil {
 		return fail(err)
 	}
+	*prepared = &current
+	u.notify("image.update", notify.Info, notify.ImagePayload(current))
+	u.notify("image.prepare", notify.Info, notify.UploadPayload(current))
 	info, err := u.bytes.Stage(ctx, key, uploadSource{src}, u.limits.MaxBytes, expected)
 	if err != nil {
 		if errors.Is(err, store.ErrExists) {
