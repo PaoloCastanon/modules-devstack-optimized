@@ -295,7 +295,8 @@ class GlanceCampaignTests(unittest.TestCase):
                                    remote_code=Path('/home/stack/code'), remote_work=Path('/home/stack/w'),
                                    remote_output=Path('/home/stack/o'), private_root=Path(tmp), domain='glance',
                                    notification_policy='noop', go_notification_policy='original')
-            placement_campaign.Remote(args)
+            remote = placement_campaign.Remote(args)
+            remote.stderr.close()  # Popen is mocked; close the private log it opened
             command = popen.call_args[0][0][-1]
             self.assertIn('--notification-policy noop', command)
             self.assertIn('--go-notifications original', command)
