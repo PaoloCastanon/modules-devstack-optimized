@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "protocol": "placement-compact-v2-reads",
+  "date_local": "2026-11-20",
+  "timezone": "America/Santiago",
+  "concurrency": [
+    1,
+    16
+  ],
+  "warmup_s": 10,
+  "measurement_s": 30,
+  "request_timeout_s": 10,
+  "repetitions": 3,
+  "sampling_interval_s": 1,
+  "order_seed": 20261029,
+  "bootstrap_resamples": 10000,
+  "confidence": 0.95,
+  "seed_provider_count": 16,
+  "normal_initial_usage": 0,
+  "load_model": "closed-loop",
+  "scenarios": [
+    "provider",
+    "inventories",
+    "allocations-read"
+  ],
+  "entry_gates": [
+    "B13",
+    "B14",
+    "B15"
+  ],
+  "scope": "Placement Python versus Go; original Glance remains control",
+  "status": "re-measurement of the compact-v2 read cells after enabling the Placement Go token cache and configurable SQL pool",
+  "purpose": "Measure Placement Go token cache (300 s) and SQL pool (16) on the read cells where compact-v2 showed a Go disadvantage",
+  "host_free_minimum_bytes": 21474836480,
+  "log_policy": "Bound VM operational logs; rotate only outside measured windows, retain recent incident diagnostics and all benchmark samples",
+  "statistics": "Three independent paired repetitions; publish individual results, median and range, declare limited uncertainty; no claim of precise tail or statistical significance",
+  "required_official_windows": 36,
+  "supersedes_for_next_run": "none; complements placement-compact-v2 without mixing its samples",
+  "go_configuration": {
+    "PLACEMENT_GO_TOKEN_CACHE_TIME": "default 300",
+    "PLACEMENT_GO_DB_MAX_CONNECTIONS": "default 16"
+  }
+}
