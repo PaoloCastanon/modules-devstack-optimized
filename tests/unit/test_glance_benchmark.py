@@ -352,3 +352,14 @@ class CompactV5Tests(unittest.TestCase):
                                    domain='glance', notification_policy='noop', go_notification_policy='original', go_route='public')
             placement_campaign.Remote(args).stderr.close()
             self.assertIn('--go-route public', popen.call_args[0][0][-1])
+
+
+class MemoryExtrasTests(unittest.TestCase):
+    def test_rss_and_vm_ram_come_from_the_window_samples(self):
+        from analyze_glance import memory_extras
+        row = lambda t, rss, avail: {'read_finished_utc_ns': t, 'vm_mem_available_kib': avail,
+                                     'groups': {'go': {'processes': [{'rss_bytes': rss}]}}}
+        records = [row(1, 10, 1000), row(2, 10, 1000), row(5, 30, 900), row(6, 50, 800), row(9, 99, 100)]
+        out = memory_extras(records, 'go', 4, 7, 3)
+        self.assertEqual((out['rss_mean_bytes'], out['rss_peak_observed_bytes']), (40, 50))
+        self.assertEqual(out['vm_ram_used_extra_peak_bytes'], (1000 - 800) * 1024)

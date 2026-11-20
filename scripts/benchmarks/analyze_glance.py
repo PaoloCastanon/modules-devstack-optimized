@@ -13,6 +13,25 @@ from placement_http import percentile
 from placement_resources import interval_summary
 
 
+
+def memory_extras(records, implementation, start, end, warmup_start):
+    """RAM beyond PSS, from the same 1 Hz samples: the service's RSS (mean and
+    observed peak) inside the window, and the VM's RAM used beyond its idle
+    level before warm-up (idle MemAvailable minus the window's minimum)."""
+    def window(row):
+        return start <= row['read_finished_utc_ns'] <= end
+    rss = [sum(proc['rss_bytes'] for proc in row['groups'][implementation]['processes']) for row in records
+           if window(row) and row['groups'][implementation]['processes']
+           and all(proc.get('rss_bytes') is not None for proc in row['groups'][implementation]['processes'])]
+    idle = [row['vm_mem_available_kib'] * 1024 for row in records if row['read_finished_utc_ns'] < warmup_start and row.get('vm_mem_available_kib')]
+    busy = [row['vm_mem_available_kib'] * 1024 for row in records if window(row) and row.get('vm_mem_available_kib')]
+    out = {}
+    if rss:
+        out.update(rss_mean_bytes=statistics.mean(rss), rss_peak_observed_bytes=max(rss))
+    if idle and busy:
+        out.update(vm_mem_available_min_bytes=min(busy), vm_ram_used_extra_peak_bytes=max(0, statistics.mean(idle) - min(busy)))
+    return out
+
 def distribution(values):
     if not values:
         return None
@@ -100,6 +119,7 @@ def analyze(root):
             if len(idle) < 3:
                 raise ValueError('insufficient idle PSS baseline')
             resources.update(idle_pss_mean_bytes=statistics.mean(idle), idle_samples=len(idle))
+            resources.update(memory_extras(records, report['implementation'], start, end, warmup_start))
             controls = {}
             for label in records[0]['groups']:
                 if label == report['implementation']:
@@ -122,14 +142,15 @@ def analyze(root):
     groups = []
     metrics = ['correct_ops_s', 'complete_cycles_s', 'validated_payload_mib_s', 'p50_ms', 'p95_ms', 'p99_ms']
     resource_metrics = ['cpu_seconds', 'cpu_fraction_of_four_cores', 'cpu_s_per_correct_request', 'pss_mean_bytes',
-                        'pss_peak_observed_bytes', 'idle_pss_mean_bytes', 'collector_core_fraction']
+                        'pss_peak_observed_bytes', 'idle_pss_mean_bytes', 'collector_core_fraction',
+                        'rss_mean_bytes', 'rss_peak_observed_bytes', 'vm_ram_used_extra_peak_bytes', 'vm_mem_available_min_bytes']
     for scenario in p['scenarios']:
         for c in p['concurrency']:
             group = {'scenario': scenario['id'], 'concurrency': c, 'implementations': {}, 'paired_go_over_python': {}}
             for impl in ('python', 'go'):
                 rows = [r for r in runs.values() if r['scenario'] == scenario['id'] and r['concurrency'] == c and r['implementation'] == impl]
                 values = {k: [r[k] for r in rows] for k in metrics}
-                values.update({k: [r['resources'][k] for r in rows if r['resources'][k] is not None] for k in resource_metrics})
+                values.update({k: [r['resources'][k] for r in rows if r['resources'].get(k) is not None] for k in resource_metrics})
                 group['implementations'][impl] = {'runs': len(rows), **{k: bootstrap(v) for k, v in values.items() if v}}
             ratios = {}
             for pair in expected:
@@ -139,7 +160,7 @@ def analyze(root):
                 if not py or not go:
                     continue
                 for k in metrics + resource_metrics:
-                    a, b = (py[k], go[k]) if k in metrics else (py['resources'][k], go['resources'][k])
+                    a, b = (py[k], go[k]) if k in metrics else (py['resources'].get(k), go['resources'].get(k))
                     if a is not None and b is not None and a > 0:
                         ratios.setdefault(k, []).append(b / a)
             group['paired_go_over_python'] = {k: bootstrap(v) for k, v in ratios.items()}
