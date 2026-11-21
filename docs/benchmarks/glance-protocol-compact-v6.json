@@ -101,5 +101,6 @@
   "go_notification_policy": "noop",
   "route": "public-both",
   "go_catalog": "official",
-  "timeout_reason": "Pilot attempts 1 and 3 stopped at upload-64m C=16: a small metadata GET of the original waited 10.05 s behind 64 MiB uploads (2 uWSGI workers saturated, ~78 MiB/s for 16 clients) and hit the client 10 s timeout. 120 s, as for binary requests, records that wait as latency; requests over 10 s are counted per window (requests_over_10s). Any HTTP error, wrong bytes or failed cleanup still invalidates the window."
+  "timeout_reason": "Pilot attempts 1 and 3 stopped at upload-64m C=16: a small metadata GET of the original waited 10.05 s behind 64 MiB uploads (2 uWSGI workers saturated, ~78 MiB/s for 16 clients) and hit the client 10 s timeout. 120 s, as for binary requests, records that wait as latency; requests over 10 s are counted per window (requests_over_10s). Any HTTP error, wrong bytes or failed cleanup still invalidates the window.",
+  "initial_state": "Catalog purged before the campaign with the original tool: glance-manage db purge and purge_images_table, --age_in_days 0 (24157 soft-deleted images from earlier campaigns removed). Only the 2 active images remain (CirrOS, mi-cirros); Glance Go bookkeeping rows of purged images (74, phase cleaned) removed so its startup recovery has nothing orphaned."
 }

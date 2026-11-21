@@ -1322,3 +1322,15 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   - **Notificaciones:** apagadas (`noop`) en los dos.
   - **Prueba en la VM:** el runtime sirve el catálogo oficial y se cierra
     limpio. 130 pruebas y `make check` OK.
+- 2026-11-21, estado inicial de la v6: catálogo oficial purgado con la
+  herramienta del original (`glance-manage db purge` y
+  `purge_images_table`, `--age_in_days 0`).
+  - **Limpieza:** se eliminaron 24 157 imágenes borradas de campañas
+    anteriores. Quedan 2 activas (CirrOS y mi-cirros), con 2 archivos en el
+    store.
+  - **Hallazgo:** después de purgar, Glance Go no arrancaba ("startup
+    recovery failed"). Tenía 74 registros de carga (`cleaned`/`deleted`) de
+    imágenes que ya no existían. Se borraron y la recuperación volvió a
+    funcionar (2 revisados, 2 conservados).
+  - **Pendiente:** que la recuperación tolere imágenes que el original ya
+    purgó.
