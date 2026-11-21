@@ -158,6 +158,9 @@ def analyze(root):
                            **{k + '_ms': latencies[k] for k in ('p50', 'p95', 'p99')},
                            'latency_ms': latencies, 'per_operation_latency_ms': {k: distribution(v) for k, v in per_operation.items()},
                            'download_ttfb_ms': distribution(ttfb), 'requests': len(samples), 'cycles': len(cycles),
+                           # A client with the former 10 s timeout would have failed these.
+                           'requests_over_10s': sum(s['elapsed_ns'] > 10_000_000_000 for s in samples),
+                           'max_request_s': max(s['elapsed_ns'] for s in samples) / 1e9,
                            'actual_elapsed_s': m['elapsed_s'], 'resources': resources, 'controls': controls}
         except (OSError, ValueError, KeyError, TypeError, ZeroDivisionError) as error:
             errors.append({'run_id': ident, 'error': str(error) if isinstance(error, ValueError) else type(error).__name__})

@@ -336,7 +336,7 @@ class CompactV5Tests(unittest.TestCase):
         p = json.loads((Path(__file__).resolve().parents[2] / 'docs/benchmarks/glance-protocol-compact-v5.json').read_text())
         self.assertEqual((validate_protocol(p), windows(p, True)), (360, 72))
         self.assertEqual({r['concurrency'] for r in schedule(p, '00000000-0000-4000-8000-000000000005')}, {1, 4, 8, 16})
-        for change in ({'route': 'direct'}, {'repetitions': 3}, {'concurrency': [1, 16]}):
+        for change in ({'route': 'direct'}, {'repetitions': 3}, {'concurrency': [1, 16]}, {'metadata_request_timeout_s': 10}):
             with self.assertRaises(ValueError):
                 validate_protocol({**p, **change})
 

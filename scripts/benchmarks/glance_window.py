@@ -24,7 +24,7 @@ def run(config, token, output, *, duration=30, warmup=10, abort_check=None):
                  'upload-1m', 'upload-16m', 'upload-64m', 'download-1m', 'download-16m', 'download-64m'}
     if config['scenario'] not in scenarios:
         raise ValueError('unsupported scenario before any request')
-    Client(config['url'], token).close()  # Validate the endpoint before worker barriers.
+    Client(config['url'], token, timeout=config.get('metadata_timeout_s', 10), binary_timeout=config.get('binary_timeout_s', 120)).close()  # Validate the endpoint before worker barriers.
     if config['scenario'] in ('catalog-list', 'catalog-show') or config['scenario'].startswith('download-'):
         ids = [i['id'] for i in config['images']]
         if not ids or len(set(ids)) != len(ids):
@@ -66,7 +66,7 @@ def run(config, token, output, *, duration=30, warmup=10, abort_check=None):
         barrier = threading.Barrier(concurrency + 1, action=release)
         with gzip.open(output / (label + '-samples.jsonl.gz'), 'xt') as raw, gzip.open(output / (label + '-intents.jsonl.gz'), 'xt') as intents:
             def worker(index):
-                client = Client(config['url'], token)
+                client = Client(config['url'], token, timeout=config.get('metadata_timeout_s', 10), binary_timeout=config.get('binary_timeout_s', 120))
                 samples, cycles, validated_bytes = [], 0, 0
                 def call(op, method, path, status, *, body=None, kind='application/json', download=False, file=None, validate=None, ident=None):
                     result, value = client.request(method, path, body=body, content_type=kind,
@@ -181,7 +181,7 @@ def run(config, token, output, *, duration=30, warmup=10, abort_check=None):
                 'p99_tail_supported': len(latencies) >= 1000, 'failed': failed.is_set()}
 
     def cleanup():
-        client = Client(config['url'], token)
+        client = Client(config['url'], token, timeout=config.get('metadata_timeout_s', 10), binary_timeout=config.get('binary_timeout_s', 120))
         try:
             for ident, name in list(pending.items()):
                 result, image = client.request('GET', '/v2/images/' + ident)

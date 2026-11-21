@@ -1282,3 +1282,13 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     `smem` (≤0,3 MiB) y el `anon` del cgroup con la suma de `Pss_Anon`. La
     suma de RSS sobreestima al original en ~68 MiB.
   - [Evidencia](../evidence/sprint5/glance-memory-method-20261120/README.md).
+- 2026-11-21, protocolo v5: el timeout de los pedidos de metadatos sube de
+  10 a 120 s, igual al de los binarios. Antes estaba fijo en
+  `glance_http.py`; ahora se toma del protocolo.
+  - **Motivo:** los intentos 1 y 3 del piloto se cortaron al subir 64 MiB
+    con 16 clientes. Un `GET` chico del original esperó 10,05 s detrás de
+    las subidas, con los 2 workers de uWSGI saturados (~78 MiB/s para 16
+    clientes, frente a 311 de Glance Go).
+  - **Efecto:** esa espera queda registrada como latencia, y cada ventana
+    cuenta `requests_over_10s` y `max_request_s`. Cualquier error HTTP,
+    bytes incorrectos o una limpieza fallida siguen invalidando la ventana.

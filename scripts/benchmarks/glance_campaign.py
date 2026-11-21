@@ -43,7 +43,8 @@ def validate_protocol(p):
                 or p['pilot'] != {'concurrency': [1, 4, 8, 16], 'repetitions': 1, 'warmup_s': 1, 'measurement_s': 4, 'required_windows': windows(p, True)}
                 or p['payload_sizes_bytes'] != [1048576, 16777216, 67108864] or p.get('route') != 'public-both'
                 or p.get('notification_policy') != 'noop' or p.get('go_notification_policy') != 'original'
-                or p.get('maximum_open_fd_growth_per_window') != 256):
+                or p.get('maximum_open_fd_growth_per_window') != 256
+                or p['metadata_request_timeout_s'] != 120 or p['binary_request_timeout_s'] != 120):
             raise ValueError('unsupported or incomplete frozen compact Glance v5 matrix')
         return windows(p)
     if (p['protocol'] not in ('glance-compact-v2', 'glance-compact-v3', 'glance-compact-v4') or [s['id'] for s in p['scenarios']] != SCENARIOS
@@ -160,6 +161,9 @@ def run(args):
                     if config['payload'] != hashes[size]:
                         raise ValueError('host/VM payload hashes differ')
                     config['payload_file'] = str(payloads[size])
+                # Client timeouts come from the frozen protocol (v4 and earlier: 10 s / 120 s).
+                config['metadata_timeout_s'] = p['metadata_request_timeout_s']
+                config['binary_timeout_s'] = p['binary_request_timeout_s']
                 save(args.output / (run_id + '-seed.json'), config)
                 clocks = {'before': remote.clock()}
                 remote.call('start-collector', run_id=run_id)
