@@ -1334,3 +1334,11 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     funcionar (2 revisados, 2 conservados).
   - **Pendiente:** que la recuperación tolere imágenes que el original ya
     purgó.
+- 2026-11-21, piloto v6, intento 1: se detuvo en la segunda ventana (409 al
+  sembrar en Glance Go).
+  - **Causa:** los dos servicios de un par usaban los mismos ID de imagen.
+    Con el catálogo compartido, el ID que el original borró de forma lógica
+    queda reservado.
+  - **Corrección:** con `go_catalog=official`, cada implementación recibe su
+    propio espacio de ID dentro del par. La equivalencia de la siembra
+    compara todo salvo el ID.

@@ -161,8 +161,17 @@ def run(args):
             for implementation in pair['order']:
                 run_id = pair['pair_id'] + '-' + implementation
                 print(json.dumps({'event': 'preparing', 'pair': i + 1, 'pairs': len(plan), 'run_id': run_id}), flush=True)
-                config = remote.call('seed', values={**pair, 'implementation': implementation, 'run_id': run_id})
-                equivalent = {'images': config['seed_snapshot'], 'payload': config.get('payload')}
+                values = {**pair, 'implementation': implementation, 'run_id': run_id}
+                shared = getattr(args, 'go_catalog', 'own') == 'official'
+                if shared:
+                    # One catalog for both: the original soft-deletes, so an ID it used
+                    # stays reserved. Each implementation gets its own IDs in the pair.
+                    values['namespace'] = str(uuid.uuid5(uuid.UUID(pair['namespace']), implementation))
+                config = remote.call('seed', values=values)
+                images = config['seed_snapshot']
+                if shared:  # IDs differ by design; every other field must still match
+                    images = sorted(({k: v for k, v in i.items() if k != 'id'} for i in images), key=lambda i: i['name'])
+                equivalent = {'images': images, 'payload': config.get('payload')}
                 if baseline is not None and equivalent != baseline:
                     save(args.output / (run_id + '-inequivalent.json'), equivalent)
                     raise ValueError('paired metadata/hash seeds differ')
