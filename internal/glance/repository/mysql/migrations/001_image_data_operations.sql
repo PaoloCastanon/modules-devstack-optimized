@@ -11,7 +11,6 @@ CREATE TABLE image_data_operations (
     last_error_code VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
-    CONSTRAINT data_operation_image_fk FOREIGN KEY (image_id) REFERENCES images(id),
     UNIQUE KEY data_operation_attempt (attempt_id),
     INDEX data_operation_reconcile (phase, updated_at, image_id),
     CONSTRAINT data_operation_phase CHECK (phase IN ('reserved','staged','published','committed','cleanup','cleaned')),

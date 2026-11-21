@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
@@ -26,14 +25,18 @@ import (
 // of an actual full disk, process crash, MySQL or power-loss durability.
 func fixture(t *testing.T) (*Filesystem, string, string) {
 	t.Helper()
-	root, scope := t.TempDir(), uuid.NewString()
-	if err := os.Chmod(root, 0700); err != nil {
+	base, scope := t.TempDir(), uuid.NewString()
+	root, objects := filepath.Join(base, "root"), filepath.Join(base, "images")
+	if err := os.Mkdir(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(objects, 0755); err != nil {
 		t.Fatal(err)
 	}
 	if err := Initialize(root, scope); err != nil {
 		t.Fatal("initialize", err)
 	}
-	s, err := NewFilesystem(root, scope)
+	s, err := NewSharedFilesystem(root, scope, objects)
 	if err != nil {
 		t.Fatal("open store", err)
 	}
@@ -50,7 +53,13 @@ func digest(b []byte) Info {
 	m, h := md5.Sum(b), sha512.Sum512(b)
 	return Info{Size: int64(len(b)), Checksum: hex.EncodeToString(m[:]), SHA512: hex.EncodeToString(h[:])}
 }
+
+// pathFor: published objects are <image-id> in the original's directory,
+// next to the private root; staging names stay in the root.
 func pathFor(root, dir string, k Key, suffix string) string {
+	if dir == "objects" {
+		return filepath.Join(filepath.Dir(root), "images", k.ImageID)
+	}
 	n, err := k.name()
 	if err != nil {
 		panic(err)
@@ -91,9 +100,8 @@ func TestFilesystemStreamingRoundTripAndReopen(t *testing.T) {
 	if err != nil || i != digest(b) || reader.maxRead > BufferSize || len(b) <= BufferSize {
 		t.Fatal("streaming/hash", i, err, reader.maxRead)
 	}
-	if _, _, err = s.Open(context.Background(), k); !errors.Is(err, ErrNotFound) {
-		t.Fatal("staged bytes visible as published", err)
-	}
+	// Written straight to <image-id>, as glance_store does; the service only
+	// serves it after its SQL commit.
 	// A completed stage remains publishable across store instances.
 	if err = s.Close(); err != nil {
 		t.Fatal(err)
@@ -163,7 +171,7 @@ func TestFilesystemSizeBoundaries(t *testing.T) {
 					t.Fatal(i)
 				}
 			} else {
-				if _, e := os.Stat(pathFor(root, "staging", k, ".ready")); !os.IsNotExist(e) {
+				if _, e := os.Stat(pathFor(root, "objects", k, "")); !os.IsNotExist(e) {
 					t.Fatal("failure marked complete", e)
 				}
 			}
@@ -232,7 +240,7 @@ func TestFilesystemReceiptsAndNoOverwrite(t *testing.T) {
 	if _, err = s.Stage(context.Background(), k, strings.NewReader("overwrite"), 20, nil); !errors.Is(err, ErrExists) {
 		t.Fatal(err)
 	}
-	if err = os.WriteFile(pathFor(root, "staging", k, ".ready"), []byte("altered"), 0600); err != nil {
+	if err = os.WriteFile(pathFor(root, "objects", k, ""), []byte("altered"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Publish(context.Background(), k, i); !errors.Is(err, ErrIntegrity) {
@@ -242,7 +250,7 @@ func TestFilesystemReceiptsAndNoOverwrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	i = publish(t, s, k, []byte("first"))
-	if err = s.Publish(context.Background(), k, i); !errors.Is(err, ErrExists) {
+	if err = s.Publish(context.Background(), k, i); err != nil { // re-verifies the same file
 		t.Fatal(err)
 	}
 	if _, err = s.Stage(context.Background(), k, strings.NewReader("second"), 10, nil); !errors.Is(err, ErrExists) {
@@ -262,7 +270,7 @@ func TestFilesystemInitializationPermissionsAndLock(t *testing.T) {
 	}
 	k := key()
 	publish(t, s, k, []byte("content"))
-	for name, mode := range map[string]os.FileMode{".": 0700, "staging": 0700, "objects": 0700, ".lock": 0600, markerName: 0600, filepath.Join("objects", mustName(k)+".blob"): 0600} {
+	for name, mode := range map[string]os.FileMode{".": 0700, ".lock": 0600, markerName: 0600} {
 		info, err := os.Stat(filepath.Join(root, name))
 		if err != nil || info.Mode().Perm() != mode {
 			t.Fatal(name, info, err)
@@ -286,7 +294,7 @@ func TestFilesystemInitializationPermissionsAndLock(t *testing.T) {
 	if err := os.Chmod(root, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(pathFor(root, "objects", k, ".blob"), 0644); err != nil {
+	if err := os.Chmod(pathFor(root, "objects", k, ".blob"), 0666); err != nil { // writable by others
 		t.Fatal(err)
 	}
 	s2, err := NewFilesystem(root, scope)
@@ -302,7 +310,7 @@ func TestFilesystemInitializationPermissionsAndLock(t *testing.T) {
 func mustName(k Key) string { n, _ := k.name(); return n }
 
 func TestFilesystemRootAndEntrySymlinks(t *testing.T) {
-	for _, tc := range []string{"root", "parent", "staging", "part", "ready", "blob"} {
+	for _, tc := range []string{"root", "parent", "staging", "blob"} {
 		t.Run(tc, func(t *testing.T) {
 			s, root, scope := fixture(t)
 			outside := t.TempDir()
@@ -337,16 +345,6 @@ func TestFilesystemRootAndEntrySymlinks(t *testing.T) {
 					t.Fatal(err)
 				}
 				_, err = NewFilesystem(root, scope)
-			case "part", "ready":
-				if err = os.Symlink(target, pathFor(root, "staging", k, "."+tc)); err != nil {
-					t.Fatal(err)
-				}
-				_, err = s.Stage(context.Background(), k, strings.NewReader("evil"), 10, nil)
-				if tc == "ready" {
-					if e := s.Publish(context.Background(), k, digest([]byte("private"))); e == nil {
-						t.Fatal("followed ready symlink")
-					}
-				}
 			case "blob":
 				if err = os.Symlink(target, pathFor(root, "objects", k, ".blob")); err != nil {
 					t.Fatal(err)
@@ -436,35 +434,6 @@ func TestFilesystemRejectsUninitializedAndForeignRoots(t *testing.T) {
 	}
 	// Rejected lexically, before any access to the original location.
 	if _, err := openRoot("/opt/stack/data/glance/images"); !errors.Is(err, ErrUnsafe) {
-		t.Fatal(err)
-	}
-}
-
-func TestFilesystemReopensPartialAttemptForExplicitCleanup(t *testing.T) {
-	s, root, scope := fixture(t)
-	k := key()
-	r := readerFunc(func(b []byte) (int, error) { return copy(b, "partial"), io.ErrUnexpectedEOF })
-	if _, err := s.Stage(context.Background(), k, r, 20, nil); !errors.Is(err, io.ErrUnexpectedEOF) {
-		t.Fatal(err)
-	}
-	if err := s.Close(); err != nil {
-		t.Fatal(err)
-	}
-	s2, err := NewFilesystem(root, scope)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s2.Close()
-	if err = s2.Publish(context.Background(), k, digest([]byte("partial"))); !errors.Is(err, ErrIncomplete) {
-		t.Fatal("incomplete attempt published after reopen", err)
-	}
-	if _, err = s2.Stage(context.Background(), k, strings.NewReader("overwrite"), 20, nil); !errors.Is(err, ErrExists) {
-		t.Fatal("partial attempt overwritten", err)
-	}
-	if err = s2.Delete(context.Background(), k); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = s2.Stage(context.Background(), k, strings.NewReader("explicit retry"), 20, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -577,41 +546,9 @@ func TestFilesystemConcurrentKeysAndCancelableWait(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if success != 1 || exists != 1 {
+	// Publishing a directly written file only re-verifies it: repeatable.
+	if success != 2 || exists != 0 {
 		t.Fatal(success, exists)
-	}
-}
-
-func TestLinuxPublicationIsAtomicAndUsesPinnedInode(t *testing.T) {
-	s, root, _ := fixture(t)
-	// Exercise the real primitive directly: EEXIST must preserve the winner.
-	f, err := openEntry(s.staging, "source", syscall.O_RDWR|syscall.O_CREAT|syscall.O_EXCL, 0600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	if _, err = f.WriteString("original inode"); err != nil {
-		t.Fatal(err)
-	}
-	if err = os.Rename(filepath.Join(root, "staging", "source"), filepath.Join(root, "staging", "moved")); err != nil {
-		t.Fatal(err)
-	}
-	outside := filepath.Join(t.TempDir(), "outside")
-	if err = os.WriteFile(outside, []byte("outside secret"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err = os.Symlink(outside, filepath.Join(root, "staging", "source")); err != nil {
-		t.Fatal(err)
-	}
-	if err = linkDescriptor(f, s.objects, "destination"); err != nil {
-		t.Fatal(err)
-	}
-	if err = linkDescriptor(f, s.objects, "destination"); !errors.Is(err, syscall.EEXIST) {
-		t.Fatal(err)
-	}
-	b, err := os.ReadFile(filepath.Join(root, "objects", "destination"))
-	if err != nil || string(b) != "original inode" {
-		t.Fatal("source pathname re-resolved", err)
 	}
 }
 
@@ -642,7 +579,8 @@ func TestFilesystemOpenStreamServesWithoutHashing(t *testing.T) {
 		t.Fatal("streamed content differs", err)
 	}
 	name, _ := k.name()
-	blob, err := os.OpenFile(root+"/objects/"+name+".blob", os.O_WRONLY, 0)
+	_ = name
+	blob, err := os.OpenFile(pathFor(root, "objects", k, ""), os.O_WRONLY, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -679,7 +617,7 @@ func TestFilesystemPublishSkipsRereadOnlyForUnchangedStage(t *testing.T) {
 		t.Fatal(err)
 	}
 	name, _ := k.name()
-	ready, err := os.Open(pathFor(root, "staging", k, ".ready"))
+	ready, err := os.Open(pathFor(root, "objects", k, ""))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -698,7 +636,7 @@ func TestFilesystemPublishSkipsRereadOnlyForUnchangedStage(t *testing.T) {
 	name2, _ := k2.name()
 	other := i2
 	other.Checksum = strings.Repeat("0", 32)
-	f2, err := os.Open(pathFor(root, "staging", k2, ".ready"))
+	f2, err := os.Open(pathFor(root, "objects", k2, ""))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -711,7 +649,7 @@ func TestFilesystemPublishSkipsRereadOnlyForUnchangedStage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w, err := os.OpenFile(pathFor(root, "staging", k3, ".ready"), os.O_WRONLY, 0)
+	w, err := os.OpenFile(pathFor(root, "objects", k3, ""), os.O_WRONLY, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -726,4 +664,15 @@ func TestFilesystemPublishSkipsRereadOnlyForUnchangedStage(t *testing.T) {
 	if err = s.Publish(context.Background(), k2, i2); err != nil {
 		t.Fatal("untouched stage must publish", err)
 	}
+}
+
+// NewFilesystem (tests only) reopens a fixture root: with the sibling
+// "images" directory the fixtures create, as the shared store; otherwise only
+// the private root, for the root/permission checks.
+func NewFilesystem(root, scope string) (*Filesystem, error) {
+	objects := filepath.Join(filepath.Dir(root), "images")
+	if info, err := os.Stat(objects); err == nil && info.IsDir() {
+		return NewSharedFilesystem(root, scope, objects)
+	}
+	return openPrivateRoot(root, scope)
 }

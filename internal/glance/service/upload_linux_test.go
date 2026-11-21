@@ -24,7 +24,7 @@ func TestProductionCoordinatorClaimsExclusiveFilesystem(t *testing.T) {
 	if err := store.Initialize(temp, scope); err != nil {
 		t.Fatal(err)
 	}
-	fs, err := store.NewFilesystem(temp, scope)
+	fs, err := testStore(temp, scope)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestProductionCoordinatorClaimsExclusiveFilesystem(t *testing.T) {
 	if _, err = NewUploadCoordinator(uploadCatalogDouble{sql: d}, d, fs, u.limits); !errors.Is(err, store.ErrBusy) {
 		t.Fatal("duplicate owner accepted", err)
 	}
-	if _, err = store.NewFilesystem(temp, scope); !errors.Is(err, store.ErrBusy) {
+	if _, err = testStore(temp, scope); !errors.Is(err, store.ErrBusy) {
 		t.Fatal("second root writer accepted", err)
 	}
 	if _, err = u.RecoverUploads(context.Background()); err != nil {

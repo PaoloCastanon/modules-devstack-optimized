@@ -25,8 +25,6 @@ type Repository struct {
 
 var _ repository.Repository = (*Repository)(nil)
 
-func New(db *sql.DB, timeout time.Duration) *Repository { return &Repository{db: db, timeout: timeout} }
-
 func (r *Repository) Create(ctx context.Context, image model.Image) error {
 	if image.Status != "queued" {
 		return errors.New("only queued metadata can be created")

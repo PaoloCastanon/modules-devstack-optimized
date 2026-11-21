@@ -29,28 +29,16 @@ class GlanceReplaceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             replace.go_site('ProxyPass "/compute" "http://127.0.0.1:1"\n', 19292)
 
-    def test_serve_env_and_unit(self):
+    def test_shared_e2e_uses_only_what_exists(self):
+        # glance_shared_e2e.py imports these from glance_replace.
+        for name in ('admin_token', 'use_go', 'use_original', 'PUBLIC_URL'):
+            self.assertTrue(hasattr(replace, name), name)
+
+    def test_unit(self):
         root = Path('/opt/stack/data/glance-go')
-        env = replace.serve_env(root, 'scope-uuid', {'driver': 'messagingv2', 'topics': ['notifications'], 'publisher_id': 'image.localhost', 'disabled': []})
-        self.assertIn('GLANCE_GO_LISTEN_ADDR=127.0.0.1:19292\n', env)
-        self.assertIn('GLANCE_GO_STORE_SCOPE=scope-uuid\n', env)
-        self.assertIn('GLANCE_GO_NOTIFICATION_DRIVER=messagingv2\n', env)
-        self.assertNotIn('rabbit://', env)  # the broker URL only lives in transport.url
-        self.assertNotIn('NOTIFICATION', replace.serve_env(root, 's', {'driver': 'noop'}))
         unit = replace.unit_text(root, 'stack')
         self.assertIn('ExecStart=/opt/stack/data/glance-go/bin/glance serve', unit)
         self.assertIn('WantedBy=multi-user.target', unit)
-
-    def test_copied_image_keeps_id_metadata_and_drops_reserved_fields(self):
-        meta = {'id': 'i', 'name': 'cirros', 'disk_format': 'qcow2', 'container_format': 'bare', 'visibility': 'public',
-                'min_disk': 0, 'min_ram': 0, 'protected': False, 'tags': ['t'], 'checksum': 'x', 'size': 1, 'owner': 'o',
-                'os_hash_value': 'h', 'os_glance_import_task': 'z', 'hw_rng_model': 'virtio', 'owner_specified.openstack.md5': '',
-                'stores': 'file', 'self': '/v2/images/i', 'odd': 3}
-        body, skipped = replace.copied_image(meta)
-        self.assertEqual(body, {'id': 'i', 'name': 'cirros', 'disk_format': 'qcow2', 'container_format': 'bare', 'visibility': 'public',
-                                'min_disk': 0, 'min_ram': 0, 'protected': False, 'tags': ['t'], 'hw_rng_model': 'virtio',
-                                'owner_specified.openstack.md5': ''})
-        self.assertEqual(skipped, ['odd'])
 
     def test_official_catalog_settings(self):
         conf = '[glance_store]\nfilesystem_store_datadir = /opt/stack/data/glance/images/\n'
@@ -59,12 +47,6 @@ class GlanceReplaceTests(unittest.TestCase):
             replace.official_store_dir('[glance_store]\n')
         with self.assertRaises(ValueError):
             replace.official_store_dir('filesystem_store_datadir = images/\n')
-        root = Path('/opt/stack/data/glance-go')
-        env = replace.serve_env(root, 's', {'driver': 'noop'}, '/opt/stack/data/glance/images')
-        for line in ('GLANCE_GO_CATALOG=official', 'GLANCE_GO_OFFICIAL_STORE_DIR=/opt/stack/data/glance/images',
-                     'GLANCE_GO_DATABASE_DSN_FILE=/opt/stack/data/glance-go/shared-app.dsn',
-                     'GLANCE_GO_STORE_ROOT=/opt/stack/data/glance-go/shared-store'):
-            self.assertIn(line + '\n', env)
 
     def test_original_config_env_has_only_what_glance_api_conf_does_not_say(self):
         env = replace.serve_env_original(Path('/opt/stack/data/glance-go'), 'scope-uuid')
@@ -73,10 +55,6 @@ class GlanceReplaceTests(unittest.TestCase):
         for absent in ('DSN', 'KEYSTONE', 'NOTIFICATION', 'TRANSPORT', 'OFFICIAL'):
             self.assertNotIn(absent, env)
 
-    def test_copy_to_the_original_keeps_the_owner_only_when_asked(self):
-        meta = {'id': 'i', 'name': 'n', 'owner': 'p', 'disk_format': 'raw', 'container_format': 'bare'}
-        self.assertNotIn('owner', replace.copied_image(meta)[0])
-        self.assertEqual(replace.copied_image(meta, keep_owner=True)[0]['owner'], 'p')
 
 
 if __name__ == '__main__':

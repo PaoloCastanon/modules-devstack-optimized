@@ -59,26 +59,16 @@ type Filesystem struct {
 	keys    map[string]*keyLock
 	staged  map[string]stagedIdentity // guarded by keysMu
 	ops     fileOps
-	// flat: objects is the official Glance filesystem_store_datadir and each
-	// published image is <image-id>, the name glance_store uses (one attempt
-	// per image there). Staging stays private in root.
-	flat bool
 }
 
 // final is the published name for a staged key name (<image>-<attempt>).
-func (s *Filesystem) final(name string) string {
-	if s.flat {
-		return name[:36]
-	}
-	return name + ".blob"
-}
+// final is the published name for a key name (<image>-<attempt>): the image
+// ID, as glance_store names files in filesystem_store_datadir.
+func (s *Filesystem) final(name string) string { return name[:36] }
 
 // checkObject verifies a published file. The official store creates 0644
 // files, so flat mode also accepts group/other read bits (never write/exec).
 func (s *Filesystem) checkObject(f *os.File) error {
-	if !s.flat {
-		return checkEntry(f, false, s.root)
-	}
 	var stat, anchor syscall.Stat_t
 	if syscall.Fstat(int(f.Fd()), &stat) != nil || syscall.Fstat(int(s.root.Fd()), &anchor) != nil {
 		return ErrUnsafe
@@ -201,9 +191,9 @@ func Initialize(rootPath, scope string) error {
 	return opError("initialize sync", err)
 }
 
-// NewFilesystem opens only an explicitly initialized root with the expected
+// openPrivateRoot opens only an explicitly initialized root with the expected
 // scope marker and takes a non-blocking process lock. No SQL or service starts.
-func NewFilesystem(rootPath, scope string) (*Filesystem, error) {
+func openPrivateRoot(rootPath, scope string) (*Filesystem, error) {
 	id, err := canonicalID(scope)
 	if err != nil {
 		return nil, ErrUnsafe
@@ -264,7 +254,7 @@ func NewFilesystem(rootPath, scope string) (*Filesystem, error) {
 // directory must be owned by this user, not group/other writable, and on the
 // root's filesystem so publication stays an atomic hard link.
 func NewSharedFilesystem(rootPath, scope, objectsPath string) (*Filesystem, error) {
-	s, err := NewFilesystem(rootPath, scope)
+	s, err := openPrivateRoot(rootPath, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +272,7 @@ func NewSharedFilesystem(rootPath, scope, objectsPath string) (*Filesystem, erro
 		return nil, err
 	}
 	_ = s.objects.Close()
-	s.objects, s.flat = dir, true
+	s.objects = dir
 	return s, nil
 }
 
@@ -453,18 +443,6 @@ func (s *Filesystem) Close() error {
 	return result
 }
 
-func (s *Filesystem) noFinal(name string) error {
-	f, err := openEntry(s.objects, s.final(name), syscall.O_RDONLY, 0)
-	if err == nil {
-		_ = f.Close()
-		return ErrExists
-	}
-	if errors.Is(err, syscall.ENOENT) {
-		return nil
-	}
-	return opError("check final", err)
-}
-
 func (s *Filesystem) Stage(ctx context.Context, key Key, src io.Reader, limit int64, expected *int64) (info Info, result error) {
 	if src == nil || limit < 0 || (expected != nil && *expected < 0) {
 		return Info{}, ErrInvalidSize
@@ -485,60 +463,7 @@ func (s *Filesystem) Stage(ctx context.Context, key Key, src io.Reader, limit in
 	if err = ctx.Err(); err != nil {
 		return Info{}, err
 	}
-	if s.flat {
-		return s.stageDirect(ctx, name, src, limit, declared)
-	}
-	if err = s.noFinal(name); err != nil {
-		return Info{}, err
-	}
-	ready, err := openEntry(s.staging, name+".ready", syscall.O_RDONLY, 0)
-	if err == nil {
-		_ = ready.Close()
-		return Info{}, ErrExists
-	}
-	if !errors.Is(err, syscall.ENOENT) {
-		return Info{}, opError("check staged", err)
-	}
-	f, err := openEntry(s.staging, name+".part", syscall.O_WRONLY|syscall.O_CREAT|syscall.O_EXCL, 0600)
-	if err != nil {
-		return Info{}, opError("create stage", err)
-	}
-	defer func() {
-		if e := f.Close(); e != nil {
-			result = errors.Join(result, opError("close stage", e))
-			info = Info{}
-		}
-	}()
-	if err = checkEntry(f, false, s.root); err != nil {
-		return Info{}, err
-	}
-	info, err = measure(ctx, src, func(b []byte) (int, error) { return s.ops.write(f, b) }, limit, declared)
-	if err != nil {
-		return Info{}, opError("stage stream", err)
-	}
-	if err = s.ops.sync(f); err != nil {
-		return Info{}, opError("sync stage", err)
-	}
-	if err = ctx.Err(); err != nil {
-		return Info{}, err
-	}
-	if err = s.ops.link(f, s.staging, name+".ready"); err != nil {
-		return Info{}, opError("complete stage", err)
-	}
-	if err = s.ops.sync(s.staging); err != nil {
-		return Info{}, opError("sync complete stage", err)
-	}
-	if err = s.ops.unlink(s.staging, name+".part"); err != nil {
-		return Info{}, opError("unlink part", err)
-	}
-	if err = s.ops.sync(s.staging); err != nil {
-		return Info{}, opError("sync stage cleanup", err)
-	}
-	// After the last link/unlink: those change ctime too.
-	if id, ok := fileIdentity(f, info); ok {
-		s.rememberStaged(name, id)
-	}
-	return info, nil
+	return s.stageDirect(ctx, name, src, limit, declared)
 }
 
 // md5Worker hashes MD5 on its own goroutine while the caller computes SHA-512
@@ -656,52 +581,7 @@ func (s *Filesystem) Publish(ctx context.Context, key Key, expected Info) error 
 	if err = ctx.Err(); err != nil {
 		return err
 	}
-	if s.flat {
-		return s.publishDirect(ctx, name, expected)
-	}
-	if err = s.noFinal(name); err != nil {
-		return err
-	}
-	f, err := openEntry(s.staging, name+".ready", syscall.O_RDONLY, 0)
-	if errors.Is(err, syscall.ENOENT) {
-		return ErrIncomplete
-	}
-	if err != nil {
-		return opError("open ready", err)
-	}
-	defer f.Close()
-	if err = checkEntry(f, false, s.root); err != nil {
-		return err
-	}
-	if !s.unchangedSinceStage(name, f, expected) {
-		actual, err := measure(ctx, f, nil, expected.Size, &expected.Size)
-		if err != nil {
-			return errors.Join(ErrIntegrity, opError("verify ready", err))
-		}
-		if actual != expected {
-			return ErrIntegrity
-		}
-	}
-	if err = s.ops.sync(f); err != nil {
-		return opError("sync publish file", err)
-	}
-	if err = ctx.Err(); err != nil {
-		return err
-	}
-	if err = s.ops.link(f, s.objects, s.final(name)); err != nil {
-		return opError("publish", err)
-	}
-	// Destination is durable BEFORE removing either staging name. Any error
-	// preserves enough evidence for caller-driven outcome resolution/recovery.
-	if err = s.ops.sync(s.objects); err != nil {
-		return opError("sync published directory", err)
-	}
-	for _, suffix := range []string{".ready", ".part"} {
-		if err = s.ops.unlink(s.staging, name+suffix); err != nil && !errors.Is(err, syscall.ENOENT) {
-			return opError("remove published stage", err)
-		}
-	}
-	return opError("sync published cleanup", s.ops.sync(s.staging))
+	return s.publishDirect(ctx, name, expected)
 }
 
 func (s *Filesystem) Open(ctx context.Context, key Key) (ReadSeekCloser, Info, error) {

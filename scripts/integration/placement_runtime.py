@@ -39,13 +39,13 @@ def run(args):
         raise ValueError('supported isolated service domain required')
     if not root.is_absolute() or root != root.resolve() or not re.fullmatch(r'tt-placement-[a-z0-9-]+', root.name):
         raise ValueError('absolute canonical tt-placement runtime path required')
-    official = domain == 'glance' and getattr(args, 'catalog', 'own') == 'official'
+    official = domain == 'glance'  # Glance Go only serves the original's catalog
     if args.action == 'prepare':
         for port in [args.mysql_port, args.listen_port]:
             probe_available_port(port)
         if args.mysql_port == args.listen_port or args.mysql_port == 3306:
             raise ValueError('distinct non-original loopback ports required')
-        if not args.binary.is_file() or not (args.auth_root / 'validator.json').is_file():
+        if not args.binary.is_file() or (not official and not (args.auth_root / 'validator.json').is_file()):
             raise ValueError('binary and validator required')
         root.mkdir(mode=0o700, parents=False, exist_ok=False)
         state = {'id': secrets.token_hex(5), 'owner_uid': os.getuid(), 'units': [], 'domain': domain,
@@ -162,35 +162,6 @@ def run(args):
                     prefix + 'DATABASE_DSN_FILE': str(root / 'app.dsn'),
                     prefix + 'KEYSTONE_AUTH_URL': args.keystone_url,
                     prefix + 'KEYSTONE_CREDENTIAL_FILE': str(args.auth_root / 'validator.json')}
-        if domain == 'glance':
-            import uuid
-            own_env = {**env, **settings}
-            result = subprocess.run([str(root / domain), 'store-scope'], env=own_env, check=True, capture_output=True, text=True)
-            scope = result.stdout.strip()
-            if str(uuid.UUID(scope)) != scope or uuid.UUID(scope).version != 5:
-                raise ValueError('verified store scope required')
-            (root / 'store').mkdir(mode=0o700)
-            settings.update({'GLANCE_GO_BINARY_ENABLED': 'true', 'GLANCE_GO_STORE_ROOT': str(root / 'store'),
-                             'GLANCE_GO_STORE_SCOPE': scope, 'GLANCE_GO_MAX_CONCURRENT_TRANSFERS': '16',
-                             'GLANCE_GO_UPLOAD_TIMEOUT': '120s', 'GLANCE_GO_DOWNLOAD_TIMEOUT': '120s'})
-            with (root / 'store-init.log').open('w') as log:
-                subprocess.run([str(root / domain), 'store-init'], env={**env, **settings}, check=True, stdout=log, stderr=subprocess.STDOUT)
-            state['notifications'] = 'noop'
-            if getattr(args, 'notifications', 'noop') == 'original':
-                # Same [oslo_messaging_notifications] as the replaced Glance; the
-                # broker URL (credentials) only goes to a private file.
-                raw = subprocess.run(['sudo', '-n', 'cat', '/etc/glance/glance-api.conf'], check=True,
-                                     capture_output=True, text=True).stdout
-                found = glance_notification_settings(raw)
-                if found['driver'] == 'messagingv2':
-                    secret = root / 'transport.url'
-                    secret.touch(mode=0o600)
-                    secret.write_text(found['transport_url'] + '\n')
-                    settings.update({'GLANCE_GO_NOTIFICATION_DRIVER': 'messagingv2', 'GLANCE_GO_TRANSPORT_URL_FILE': str(secret),
-                                     'GLANCE_GO_NOTIFICATION_TOPICS': ','.join(found['topics']),
-                                     'GLANCE_GO_DEFAULT_PUBLISHER_ID': found['publisher_id'],
-                                     'GLANCE_GO_DISABLED_NOTIFICATIONS': ','.join(found['disabled'])})
-                    state['notifications'] = 'messagingv2'
         save('serve.env', ''.join(key + '=' + value + '\n' for key, value in settings.items()))
         state['go_unit'] = 'tt-placement-b13-go-' + state['id']
         start_unit(state['go_unit'], [str(root / domain), 'serve'], ['--property=EnvironmentFile=' + str(root / 'serve.env')])
@@ -342,8 +313,6 @@ def main():
     parser.add_argument('--keystone-url', default='http://192.168.122.10/identity/v3')
     parser.add_argument('--notifications', choices=['noop', 'original'], default='noop',
                         help="Glance only: 'original' copies the replaced Glance's notification settings")
-    parser.add_argument('--catalog', choices=['own', 'official'], default='own',
-                        help="Glance only: 'official' serves the original's catalog and store, as the permanent replacement")
     parser.add_argument('--allow-mutations', action='store_true')
     args = parser.parse_args()
     try:

@@ -15,19 +15,10 @@ const transferChecksQuery = "SELECT CONSTRAINT_NAME, ENFORCED FROM information_s
 
 // Verify essential table/column/key/enforcement metadata, not a SQL expression
 // equivalence proof. Migration checksums bind the approved CHECK definitions.
+// verifyTransferStructure checks image_data_operations exactly. It has no
+// foreign key: the images it refers to live in the original's glance database.
 func verifyTransferStructure(ctx context.Context, q querier) error {
-	return verifyTransfers(ctx, q, false)
-}
-
-func verifySharedTransferStructure(ctx context.Context, q querier) error {
-	return verifyTransfers(ctx, q, true)
-}
-
-func verifyTransfers(ctx context.Context, q querier, shared bool) error {
-	foreign := [][]string{{"image_id", "images", "id", "NO ACTION", "NO ACTION"}}
-	if shared {
-		foreign = nil
-	}
+	var foreign [][]string
 	specs := []struct {
 		query    string
 		expected [][]string

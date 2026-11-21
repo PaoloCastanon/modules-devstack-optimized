@@ -17,8 +17,17 @@ func secretFile(t *testing.T, value string) string {
 	return p
 }
 
+// glanceConf is a DevStack-like glance-api.conf; extra lines go in [DEFAULT].
+func glanceConf(extra string) string {
+	return "[DEFAULT]\ntransport_url = rabbit://stackrabbit:s3cret@127.0.0.1:5672/\n" + extra +
+		"[database]\nconnection = mysql+pymysql://root:example@127.0.0.1/glance?charset=utf8\n" +
+		"[keystone_authtoken]\nauth_url = http://127.0.0.1:5000\nauth_type = password\nusername = glance\npassword = fixture\n" +
+		"project_name = service\nuser_domain_name = Default\nproject_domain_name = Default\n" +
+		"[oslo_messaging_notifications]\ndriver = noop\n[glance_store]\nfilesystem_store_datadir = /opt/stack/data/glance/images/\n"
+}
+
 func environment(t *testing.T) map[string]string {
-	return map[string]string{"GLANCE_GO_DATABASE_DSN_FILE": secretFile(t, "glance_go_app:example@tcp(127.0.0.1:3306)/glance_go"), "GLANCE_GO_KEYSTONE_AUTH_URL": "http://127.0.0.1:5000/v3", "GLANCE_GO_KEYSTONE_CREDENTIAL_FILE": secretFile(t, `{"application_credential_id":"fixture-id","application_credential_secret":"fixture-secret"}`)}
+	return map[string]string{"GLANCE_GO_CONFIG_FILE": secretFile(t, glanceConf(""))}
 }
 
 func TestConfigDefaultsAndModes(t *testing.T) {
@@ -27,16 +36,15 @@ func TestConfigDefaultsAndModes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.ListenAddress != "127.0.0.1:9293" || c.PublicURL != "http://127.0.0.1:9293" || c.MaxBodyBytes != 1048576 || c.DependencyTimeout != 5*time.Second || c.Credential.ID != "fixture-id" {
-		t.Fatal("unexpected defaults")
+	if c.ListenAddress != "127.0.0.1:9293" || c.PublicURL != "http://127.0.0.1:9293" || c.MaxBodyBytes != 1048576 || c.DependencyTimeout != 5*time.Second ||
+		c.Credential.Username != "glance" || c.KeystoneURL != "http://127.0.0.1:5000/v3" || c.OfficialCatalog != "glance" {
+		t.Fatal("unexpected defaults", c.Credential.Username, c.KeystoneURL)
 	}
-	delete(env, "GLANCE_GO_KEYSTONE_AUTH_URL")
-	delete(env, "GLANCE_GO_KEYSTONE_CREDENTIAL_FILE")
 	if _, err = Load(func(k string) string { return env[k] }, "migrate"); err != nil {
-		t.Fatal("migration must not require Keystone:", err)
+		t.Fatal(err)
 	}
-	if _, err = Load(func(k string) string { return env[k] }, "serve"); err == nil {
-		t.Fatal("serve accepted missing auth")
+	if _, err = Load(func(string) string { return "" }, "serve"); err == nil {
+		t.Fatal("Glance Go started without the original's glance-api.conf")
 	}
 }
 
@@ -141,47 +149,26 @@ func TestGlanceTokenCacheTime(t *testing.T) {
 	if err != nil || c.TokenCacheTime != 300*time.Second {
 		t.Fatal("default token cache time", c.TokenCacheTime, err)
 	}
+	conf := func(value string) map[string]string {
+		text := strings.Replace(glanceConf(""), "auth_type = password\n", "auth_type = password\ntoken_cache_time = "+value+"\n", 1)
+		return map[string]string{"GLANCE_GO_CONFIG_FILE": secretFile(t, text)}
+	}
 	for value, want := range map[string]time.Duration{"-1": 0, "1": time.Second, "600": 10 * time.Minute} {
-		e["GLANCE_GO_TOKEN_CACHE_TIME"] = value
+		e = conf(value)
 		if c, err = Load(func(k string) string { return e[k] }, "serve"); err != nil || c.TokenCacheTime != want {
 			t.Fatal(value, c.TokenCacheTime, err)
 		}
 	}
-	for _, bad := range []string{"0", "-2", "86401", "5m", "x"} {
-		e["GLANCE_GO_TOKEN_CACHE_TIME"] = bad
+	for _, bad := range []string{"-2", "86401", "5m", "x"} {
+		e = conf(bad)
 		if _, err = Load(func(k string) string { return e[k] }, "serve"); err == nil {
 			t.Fatal("accepted", bad)
 		}
 	}
-}
-
-func TestOfficialCatalogConfiguration(t *testing.T) {
-	base := func(extra map[string]string) func(string) string {
-		dir := t.TempDir()
-		dsn := filepath.Join(dir, "dsn")
-		if err := os.WriteFile(dsn, []byte("u:p@tcp(127.0.0.1:3306)/glance_go_shared"), 0600); err != nil {
-			t.Fatal(err)
-		}
-		values := map[string]string{"GLANCE_GO_DATABASE_DSN_FILE": dsn}
-		for k, v := range extra {
-			values[k] = v
-		}
-		return func(k string) string { return values[k] }
-	}
-	c, err := Load(base(map[string]string{"GLANCE_GO_CATALOG": "official", "GLANCE_GO_OFFICIAL_STORE_DIR": "/opt/stack/data/glance/images"}), "migrate")
-	if err != nil || c.OfficialCatalog != "glance" || c.Binary.OfficialStoreDir != "/opt/stack/data/glance/images" {
-		t.Fatal(c.OfficialCatalog, err)
-	}
-	for _, extra := range []map[string]string{
-		{"GLANCE_GO_CATALOG": "official"},
-		{"GLANCE_GO_CATALOG": "official", "GLANCE_GO_OFFICIAL_STORE_DIR": "images"},
-		{"GLANCE_GO_CATALOG": "official", "GLANCE_GO_OFFICIAL_STORE_DIR": "/d", "GLANCE_GO_OFFICIAL_DATABASE": "nova"},
-		{"GLANCE_GO_CATALOG": "shared"},
-		{"GLANCE_GO_OFFICIAL_STORE_DIR": "/d"},
-	} {
-		if _, err := Load(base(extra), "migrate"); err == nil {
-			t.Fatalf("accepted %v", extra)
-		}
+	e = environment(t)
+	e["GLANCE_GO_TOKEN_CACHE_TIME"] = "10"
+	if _, err = Load(func(k string) string { return e[k] }, "serve"); err == nil {
+		t.Fatal("an environment override competed with glance-api.conf")
 	}
 }
 

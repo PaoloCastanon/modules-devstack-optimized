@@ -99,7 +99,7 @@ func TestOperationalPipelineWithKeystoneHTTPFixtureAndFilesystem(t *testing.T) {
 	var u *service.UploadCoordinator
 	open := func() {
 		var err error
-		fs, err = store.NewFilesystem(root, scope)
+		fs, err = testStore(root, scope)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -200,8 +200,8 @@ func TestOperationalPipelineWithKeystoneHTTPFixtureAndFilesystem(t *testing.T) {
 	if d.op.Phase != model.DataCleaned || d.image.Status != "deleted" {
 		t.Fatal("cleanup incomplete")
 	}
-	for _, dir := range []string{"staging", "objects"} {
-		entries, err := os.ReadDir(root + "/" + dir)
+	for _, dir := range []string{root + "/staging", root + "-images"} {
+		entries, err := os.ReadDir(dir)
 		if err != nil || len(entries) != 0 {
 			t.Fatal("files retained", dir, err)
 		}

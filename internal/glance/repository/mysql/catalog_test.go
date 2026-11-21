@@ -35,7 +35,7 @@ const deleteImageSQL = "UPDATE images SET deleted=TRUE, deleted_at=?, status='de
 func patchSteps() []sqlStep {
 	steps := []sqlStep{execute("BEGIN")}
 	steps = append(steps, imageReadSteps(true)...)
-	return append(steps, execute(updateImageSQL), execute("DELETE FROM image_properties WHERE image_id=?"), execute("DELETE FROM image_tags WHERE image_id=?"), execute("INSERT INTO image_properties (image_id, name, value) VALUES (?, ?, ?)"), execute("INSERT INTO image_tags (image_id, value) VALUES (?, ?)"), execute("COMMIT"))
+	return append(steps, execute(updateImageSQL), execute("DELETE FROM image_properties WHERE image_id=?"), execute("DELETE FROM image_tags WHERE image_id=?"), execute("INSERT INTO image_properties (image_id, name, value, created_at, deleted) VALUES (?, ?, ?, UTC_TIMESTAMP(), 0)"), execute("INSERT INTO image_tags (image_id, value, created_at, deleted) VALUES (?, ?, UTC_TIMESTAMP(), 0)"), execute("COMMIT"))
 }
 func changed(i model.Image) (model.Image, error) {
 	return model.ApplyPatch(i, []model.PatchOperation{{Op: "replace", Key: "x", Value: json.RawMessage(`"changed"`)}}, time.Unix(200, 0))
@@ -49,7 +49,7 @@ func TestSQLPatchCommitsAndRollsBackFailures(t *testing.T) {
 		}
 	}
 	db := scriptDB(t, steps)
-	got, err := New(db, time.Second).Update(context.Background(), catalogID, changed)
+	got, err := testRepo(db, time.Second).Update(context.Background(), catalogID, changed)
 	if err != nil || got.Properties["x"] != "changed" {
 		t.Fatal(got, err)
 	}
@@ -62,7 +62,7 @@ func TestSQLPatchCommitsAndRollsBackFailures(t *testing.T) {
 				steps = append(steps, execute("ROLLBACK"))
 			}
 			db := scriptDB(t, steps)
-			if _, err := New(db, time.Second).Update(context.Background(), catalogID, changed); err == nil {
+			if _, err := testRepo(db, time.Second).Update(context.Background(), catalogID, changed); err == nil {
 				t.Fatal("SQL failure reported success")
 			}
 		})
@@ -72,7 +72,7 @@ func TestSQLPatchCommitsAndRollsBackFailures(t *testing.T) {
 		steps[2].affected = 0
 		steps = append(steps[:3], execute("ROLLBACK"))
 		db := scriptDB(t, steps)
-		if _, err := New(db, time.Second).Update(context.Background(), catalogID, changed); !errors.Is(err, repository.ErrConflict) {
+		if _, err := testRepo(db, time.Second).Update(context.Background(), catalogID, changed); !errors.Is(err, repository.ErrConflict) {
 			t.Fatal(err)
 		}
 	})
@@ -83,7 +83,7 @@ func TestSQLPatchCommitsAndRollsBackFailures(t *testing.T) {
 		steps[4].err = &mysqldriver.MySQLError{Number: 1213}
 		steps = append(append(steps[:5], execute("ROLLBACK")), patchSteps()...)
 		db := scriptDB(t, steps)
-		if got, err := New(db, time.Second).Update(context.Background(), catalogID, changed); err != nil || got.Properties["x"] != "changed" {
+		if got, err := testRepo(db, time.Second).Update(context.Background(), catalogID, changed); err != nil || got.Properties["x"] != "changed" {
 			t.Fatal("deadlock victim not re-run", err)
 		}
 	})
@@ -93,7 +93,7 @@ func TestSQLPatchInvalidSecondOperationDoesNotWrite(t *testing.T) {
 	steps := append([]sqlStep{execute("BEGIN")}, imageReadSteps(true)...)
 	steps = append(steps, execute("ROLLBACK"))
 	db := scriptDB(t, steps)
-	_, err := New(db, time.Second).Update(context.Background(), catalogID, func(i model.Image) (model.Image, error) {
+	_, err := testRepo(db, time.Second).Update(context.Background(), catalogID, func(i model.Image) (model.Image, error) {
 		return model.ApplyPatch(i, []model.PatchOperation{{Op: "replace", Key: "name", Value: json.RawMessage(`"must-rollback"`)}, {Op: "replace", Key: "min_ram", Value: json.RawMessage(`-1`)}}, time.Now())
 	})
 	var d *model.Error
@@ -122,13 +122,13 @@ func TestSQLDeleteRetainsChildrenAndRequiresAcknowledgement(t *testing.T) {
 				}
 				steps = append(steps, step)
 				if tc == "commit" {
-					steps = append(steps, execute("COMMIT"))
+					steps = append(append(steps, destroySteps()...), execute("COMMIT"))
 				} else {
 					steps = append(steps, execute("ROLLBACK"))
 				}
 			}
 			db := scriptDB(t, steps)
-			err := New(db, time.Second).Delete(context.Background(), catalogID, time.Now(), func(i model.Image) error {
+			err := testRepo(db, time.Second).Delete(context.Background(), catalogID, time.Now(), func(i model.Image) error {
 				if tc == "policy" {
 					return model.Fail(model.Forbidden, "protected")
 				}
@@ -211,7 +211,7 @@ func TestSQLListScopesFiltersMarkersAndReadback(t *testing.T) {
 				}
 			}
 			db := scriptDB(t, steps)
-			images, err := New(db, time.Second).List(context.Background(), o)
+			images, err := testRepo(db, time.Second).List(context.Background(), o)
 			if tc == "empty" {
 				if err != nil || images == nil || len(images) != 0 {
 					t.Fatal(images, err)
@@ -230,7 +230,7 @@ func TestSQLListScopesFiltersMarkersAndReadback(t *testing.T) {
 		o.Limit = 0
 		q, _ := listQuery(o, nil)
 		db := scriptDB(t, []sqlStep{execute("BEGIN"), {query: q}, execute("COMMIT")})
-		images, err := New(db, time.Second).List(context.Background(), o)
+		images, err := testRepo(db, time.Second).List(context.Background(), o)
 		if err != nil || len(images) != 0 {
 			t.Fatal(images, err)
 		}
@@ -248,7 +248,7 @@ func TestUpdateWritesChildrenWithMultiRowInserts(t *testing.T) {
 	}
 	steps := []sqlStep{execute("BEGIN")}
 	steps = append(steps, imageReadSteps(true)...)
-	props := execute("INSERT INTO image_properties (image_id, name, value) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)")
+	props := execute("INSERT INTO image_properties (image_id, name, value, created_at, deleted) VALUES (?, ?, ?, UTC_TIMESTAMP(), 0), (?, ?, ?, UTC_TIMESTAMP(), 0), (?, ?, ?, UTC_TIMESTAMP(), 0)")
 	props.checkArgs = func(args []driver.NamedValue) {
 		want := []string{catalogID, "b", "2", catalogID, "x", "original", catalogID, "z", "3"}
 		if len(args) != len(want) {
@@ -260,8 +260,8 @@ func TestUpdateWritesChildrenWithMultiRowInserts(t *testing.T) {
 			}
 		}
 	}
-	steps = append(steps, execute(updateImageSQL), execute("DELETE FROM image_properties WHERE image_id=?"), execute("DELETE FROM image_tags WHERE image_id=?"), props, execute("INSERT INTO image_tags (image_id, value) VALUES (?, ?)"), execute("COMMIT"))
-	got, err := New(scriptDB(t, steps), time.Second).Update(context.Background(), catalogID, addThree)
+	steps = append(steps, execute(updateImageSQL), execute("DELETE FROM image_properties WHERE image_id=?"), execute("DELETE FROM image_tags WHERE image_id=?"), props, execute("INSERT INTO image_tags (image_id, value, created_at, deleted) VALUES (?, ?, UTC_TIMESTAMP(), 0)"), execute("COMMIT"))
+	got, err := testRepo(scriptDB(t, steps), time.Second).Update(context.Background(), catalogID, addThree)
 	if err != nil || got.Properties["b"] != "2" || got.Properties["z"] != "3" || got.Properties["x"] != "original" {
 		t.Fatal(got.Properties, err)
 	}

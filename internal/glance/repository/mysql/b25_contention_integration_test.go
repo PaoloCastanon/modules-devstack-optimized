@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/PaoloCastanon/modules-devstack-optimized/internal/config"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
 	"github.com/google/uuid"
 )
@@ -25,29 +24,11 @@ func TestB25MySQLConcurrentDistinctImages(t *testing.T) {
 	if os.Getenv("GLANCE_GO_B25_MYSQL_TEST") != "1" {
 		t.Fatal("explicit disposable B25 MySQL opt-in required")
 	}
-	b, err := config.ReadSecret(os.Getenv("GLANCE_GO_TEST_DSN_FILE"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	dsn := strings.TrimSpace(string(b))
-	if err = ValidateTestDSN(dsn); err != nil {
-		t.Fatal(err)
-	}
-	db, err := Open(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	var count int
-	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()").Scan(&count) != nil || count != 0 {
-		t.Fatal("NEW EMPTY independent schema required")
-	}
-	if err = Migrate(ctx, db); err != nil {
-		t.Fatal(err)
-	}
-	r := New(db, 5*time.Second)
+	db, _, official := IntegrationFixture(t, ctx)
+	var err error
+	r := IntegrationRepo(t, db, 5*time.Second, official)
 	if err = r.PrepareStatements(ctx); err != nil {
 		t.Fatal(err)
 	}

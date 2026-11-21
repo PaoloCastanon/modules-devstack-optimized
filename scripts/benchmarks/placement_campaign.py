@@ -90,11 +90,8 @@ class Remote:
                 raise ValueError('supported Go route required')
             if go_route == 'public':
                 command += ' --go-route public'
-            go_catalog = getattr(args, 'go_catalog', 'own')
-            if go_catalog not in ('own', 'official'):
-                raise ValueError('supported Go catalog required')
-            if go_catalog == 'official':
-                command += ' --go-catalog official'
+            if getattr(args, 'go_catalog', 'official') != 'official':
+                raise ValueError('Glance Go only serves the original catalog')
         self.stderr = (args.private_root / 'remote-stderr.log').open('x')
         self.process = subprocess.Popen([*self.ssh, 'bash', '-lc', shlex.quote(command)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=self.stderr, text=True, bufsize=1)

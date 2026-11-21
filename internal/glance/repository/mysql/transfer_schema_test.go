@@ -32,7 +32,7 @@ func transferStructureSteps() []sqlStep {
 			{"data_operation_reconcile", "image_id", int64(3), int64(1), nil},
 			{"PRIMARY", "image_id", int64(1), int64(0), nil},
 		}},
-		query(transferForeignQuery, "image_id", "images", "id", "NO ACTION", "NO ACTION"),
+		{query: transferForeignQuery},
 		{query: transferChecksQuery, rows: [][]driver.Value{
 			{"data_operation_cleanup", "YES"}, {"data_operation_error", "YES"}, {"data_operation_md5", "YES"},
 			{"data_operation_phase", "YES"}, {"data_operation_receipt", "YES"}, {"data_operation_sha512", "YES"}, {"data_operation_sizes", "YES"},
@@ -53,7 +53,7 @@ func TestTransferStructureFailsClosed(t *testing.T) {
 		{"wrong uuid collation", 1, func(s *sqlStep) { s.rows[0][3] = "ascii_general_ci" }},
 		{"missing column", 1, func(s *sqlStep) { s.rows = s.rows[:11] }},
 		{"nonunique attempt", 2, func(s *sqlStep) { s.rows[0][3] = int64(1) }},
-		{"cascade", 3, func(s *sqlStep) { s.rows[0][3] = "CASCADE" }},
+		{"foreign key", 3, func(s *sqlStep) { s.rows = [][]driver.Value{{"image_id", "images", "id", "CASCADE", "NO ACTION"}} }},
 		{"unenforced check", 4, func(s *sqlStep) { s.rows[0][1] = "NO" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

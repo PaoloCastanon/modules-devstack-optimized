@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/PaoloCastanon/modules-devstack-optimized/internal/config"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql"
@@ -25,38 +24,12 @@ func TestMySQLTransferOperations(t *testing.T) {
 	if os.Getenv("GLANCE_GO_MYSQL_TEST") != "1" {
 		t.Fatal("explicit disposable MySQL opt-in required")
 	}
-	secret, err := config.ReadSecret(os.Getenv("GLANCE_GO_TEST_DSN_FILE"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	dsn := strings.TrimSpace(string(secret))
-	if err = mysql.ValidateTestDSN(dsn); err != nil {
-		t.Fatal(err)
-	}
-	db, err := mysql.Open(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = db.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	if err = mysql.CheckAccount(ctx, db, "migrate"); err != nil {
-		t.Fatal(err)
-	}
-	var tables int
-	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()").Scan(&tables) != nil || tables != 0 {
-		t.Fatal("transfer suite requires a NEW EMPTY independent schema")
-	}
-	if err = mysql.Migrate(ctx, db); err != nil {
-		t.Fatal(err)
-	}
-	if err = mysql.Migrate(ctx, db); err != nil {
-		t.Fatal("idempotence", err)
-	}
-	if err = mysql.VerifySchema(ctx, db); err != nil {
-		t.Fatal(err)
-	}
-	r := mysql.New(db, 5*time.Second)
+	db, dsn, official := mysql.IntegrationFixture(t, ctx)
+	defer func() { _ = db.Close() }()
+	var err error
+	r := mysql.IntegrationRepo(t, db, 5*time.Second, official)
 	if err := r.PrepareStatements(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +68,7 @@ func TestMySQLTransferOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r = mysql.New(db, 5*time.Second)
+	r = mysql.IntegrationRepo(t, db, 5*time.Second, official)
 	state, err := r.DataState(ctx, image.ID)
 	if err != nil || state.Status != "active" || state.Operation == nil || state.Operation.Phase != model.DataCommitted || state.HashAlgorithm == nil || *state.HashAlgorithm != "sha512" {
 		t.Fatal(state, err)
@@ -116,7 +89,7 @@ func TestMySQLTransferOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 	var held string
-	if err = writer.QueryRowContext(ctx, "SELECT id FROM images WHERE id=? FOR UPDATE", image.ID).Scan(&held); err != nil {
+	if err = writer.QueryRowContext(ctx, "SELECT id FROM `"+official+"`.images WHERE id=? FOR UPDATE", image.ID).Scan(&held); err != nil {
 		t.Fatal(err)
 	}
 	readCtx, cancelRead := context.WithTimeout(ctx, 2*time.Second)
@@ -189,6 +162,32 @@ func TestMySQLTransferOperations(t *testing.T) {
 	}
 	if err = r.StageData(ctx, image2.ID, current, content, time.Now()); !errors.Is(err, repository.ErrConflict) {
 		t.Fatal("old callback accepted", err)
+	}
+	// The original's purge (glance-manage db purge) removes catalog rows of
+	// deleted images; only then is the orphaned bookkeeping forgotten.
+	if err = r.ForgetPurgedData(ctx, image2.ID, next); !errors.Is(err, repository.ErrConflict) {
+		t.Fatal("bookkeeping of a live image forgotten", err)
+	}
+	for _, q := range []string{"DELETE FROM `" + official + "`.image_properties WHERE image_id=?", "DELETE FROM `" + official + "`.image_tags WHERE image_id=?",
+		"DELETE FROM `" + official + "`.image_locations WHERE image_id=?", "DELETE FROM `" + official + "`.images WHERE id=?"} {
+		if _, err = db.ExecContext(ctx, q, image2.ID); err != nil {
+			t.Fatal("purge fixture", err)
+		}
+	}
+	if _, err = r.DataState(ctx, image2.ID); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatal("purged image still visible", err)
+	}
+	if err = r.ForgetPurgedData(ctx, image2.ID, next); err != nil {
+		t.Fatal(err)
+	}
+	if ops, err := r.ListDataOperations(ctx, "", 100); err != nil {
+		t.Fatal(err)
+	} else {
+		for _, o := range ops {
+			if o.ImageID == image2.ID {
+				t.Fatal("orphaned bookkeeping kept")
+			}
+		}
 	}
 	// Intentionally retained fixture rows. No automatic cleanup or schema deletion.
 }

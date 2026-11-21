@@ -56,41 +56,45 @@ Las identidades de prueba solo existen en archivos `_test.go`.
 
 ## Configuración
 
-Consultar `configs/glance.env.example`; no contiene credenciales operativas.
-Cargar las variables explícitamente o exportarlas desde una copia privada
-revisada. No copiar secretos a Git ni imprimir la configuración completa.
+Glance Go tiene un solo modo: sirve el catálogo, la base y el store del Glance
+original, como su reemplazo. Lee el mismo archivo que el original,
+`/etc/glance/glance-api.conf` (`GLANCE_GO_CONFIG_FILE`, obligatoria), con las
+reglas de oslo.config:
+
+| Sección del original | Qué toma Glance Go |
+| --- | --- |
+| `[database] connection` | Servidor, cuenta y base `glance` (catálogo) |
+| `[glance_store] filesystem_store_datadir` | Directorio de los archivos `<id>` |
+| `[keystone_authtoken]` | URL de Keystone, usuario de servicio y `token_cache_time` |
+| `[oslo_messaging_notifications]`, `[DEFAULT]` | Notificaciones y `transport_url` |
+
+Las variables que repiten algo de ese archivo (`GLANCE_GO_DATABASE_DSN_FILE`,
+`GLANCE_GO_KEYSTONE_*`, `GLANCE_GO_NOTIFICATION_*`, `GLANCE_GO_TOKEN_CACHE_TIME`,
+`GLANCE_GO_OFFICIAL_STORE_DIR`, etc.) se rechazan: el archivo del original es la
+única fuente. Las variables propias de Glance Go son solo lo que el original no
+define (ver `configs/glance.env.example`):
 
 | Variable | Valor predeterminado / función |
 | --- | --- |
+| `GLANCE_GO_CONFIG_FILE` | Obligatoria: el `glance-api.conf` del original |
 | `GLANCE_GO_LISTEN_ADDR` | `127.0.0.1:9293`; requiere host explícito |
 | `GLANCE_GO_PUBLIC_BASE_URL` | `http://127.0.0.1:9293`; base de Location |
-| `GLANCE_GO_DATABASE_DSN_FILE` | Obligatoria; archivo privado con DSN |
-| `GLANCE_GO_KEYSTONE_AUTH_URL` | Obligatoria en serve; URL v3 completa |
-| `GLANCE_GO_KEYSTONE_CREDENTIAL_FILE` | Obligatoria en serve; JSON privado |
+| `GLANCE_GO_BINARY_ENABLED`, `GLANCE_GO_STORE_ROOT`, `GLANCE_GO_STORE_SCOPE` | Raíz privada (lock y marca de alcance) |
 | `GLANCE_GO_REQUEST_TIMEOUT` | `15s`; >0 y <=1m |
 | `GLANCE_GO_DEPENDENCY_TIMEOUT` | `5s`; menor que el plazo de petición |
 | `GLANCE_GO_MAX_BODY_BYTES` | `1048576`; límite operativo de metadatos |
 
-Los archivos de secretos deben ser regulares, de hasta 64 KiB, con permisos 0600
-o más restrictivos. No hay contraseñas ni tokens constantes en producción.
-Ejemplo de estructura del archivo de credencial (rellenar privadamente):
-
-```json
-{"application_credential_id":"REPLACE_PRIVATELY","application_credential_secret":"REPLACE_PRIVATELY"}
-```
-
-El DSN usa una cuenta exclusiva y el esquema `glance_go`, por ejemplo la forma
-`glance_go_app:<secreto>@tcp(<host>:3306)/glance_go?tls=true`. El valor real se guarda
-en el archivo privado, nunca en una línea de comandos compartida. TLS conserva la
-validación normal de certificados (`tls=true`). TCP sin TLS solo se admite con IP
-loopback literal (127.0.0.1 o ::1); también se permite un socket Unix local.
-`localhost` sin TLS se rechaza para evitar depender de su resolución. Cualquier
-otro destino requiere TLS verificado; las configuraciones TLS registradas por nombre
-no se admiten en este ejecutable. HTTP de Keystone sigue permitido para un entorno
-aislado; no ofrece protección de transporte para producción.
-Se rechazan `allowFallbackToPlaintext`, `allowOldPasswords`,
-`allowCleartextPasswords`, `allowAllFiles`, `tls=skip-verify`, `tls=preferred`,
-multiStatements, root, admin, stack y cuentas de los servicios originales.
+Glance Go usa la misma cuenta MySQL que el original y guarda su única tabla
+propia, `image_data_operations` (contabilidad de transferencias), en la base
+`glance_go_shared` del mismo servidor. Esa tabla no tiene FK hacia `images`,
+porque `images` vive en `glance`. La conexión conserva las reglas de transporte:
+TCP sin TLS solo con IP loopback literal o socket Unix, TLS verificado en otro caso,
+y se rechazan `allowFallbackToPlaintext`, `allowOldPasswords`,
+`allowCleartextPasswords`, `allowAllFiles`, `tls=skip-verify`, `tls=preferred` y
+multiStatements. Como los dialectos MySQL de SQLAlchemy, cuenta las filas
+encontradas (`CLIENT_FOUND_ROWS`), no las cambiadas: los `DATETIME` del original
+tienen segundos, y un PATCH solo de propiedades dentro del mismo segundo deja la
+fila `images` igual.
 
 `Location` se construye desde la base configurada; no confía en Host ni en
 X-Forwarded-*. Solo se admiten HTTP/HTTPS, un host DNS ASCII o IP válido y un
@@ -98,222 +102,63 @@ puerto válido cuando se indica. Se rechazan credenciales, query/fragmento (tamb
 los separadores `?`/`#` vacíos), escapes `%`, segmentos `.`/`..`, barras interiores
 duplicadas y barras invertidas. Se permiten bases como `https://host/image/` y
 barras finales repetidas; se normalizan al unir componentes con `URL.JoinPath`.
-Así, `/image/` produce `/image/v2/images/{uuid}`. La base debe apuntar al proceso
-de pruebas, no al Glance original; el proxy debe quitar ese prefijo al reenviar.
-Los enlaces self/file/schema siguen el formato `/v2/...` de la captura original.
-El enlace file describe un recurso binario cuyo endpoint sigue fuera de alcance;
-los enlaces schema se sirven en la Entrega B.
-
-## Preparación de MySQL independiente — operación posterior del operador
-
-Requiere una instalación MySQL 8.0.46 separada o un entorno de pruebas previamente
-autorizado. No ejecutar esta preparación en la VM de tesis como parte de esta
-entrega. El programa nunca crea bases ni usuarios y no toca `glance`.
-
-El operador debe crear una base vacía `glance_go` y dos cuentas exclusivas:
-
-| Cuenta | Grants explícitos sobre `glance_go`.* |
-| --- | --- |
-| Aplicación | SELECT, INSERT, UPDATE, DELETE |
-| Migración | SELECT, INSERT, UPDATE, CREATE, ALTER, INDEX, REFERENCES |
-
-No otorgar privilegios globales, roles delegados, ALL PRIVILEGES ni GRANT OPTION.
-El programa inspecciona `@@GLOBAL.mandatory_roles`, `CURRENT_ROLE()` y
-`SHOW GRANTS` **sin FOR**, en una misma conexión. La variante `FOR CURRENT_USER`
-omite roles obligatorios; cambiar la consulta tampoco expandiría privilegios de
-roles. Esta entrega permite únicamente grants directos: se rechaza cualquier rol
-obligatorio, activo/default o asignado aunque esté inactivo, incluso un rol limitado.
-No hay roles permitidos ni expansión parcial del grafo de roles en A. Si no puede
-leer estas variables/grants o interpretar el formato, falla cerrado. Esto puede
-rechazar configuraciones seguras basadas en roles; usar grants directos sobre una
-instancia independiente sin roles obligatorios. No conceder acceso a `mysql.*`
-ni privilegios administrativos para sortear la comprobación. También se rechazan
-grants por tabla, globales (salvo USAGE), PROXY, GRANT OPTION y sentencias REVOKE;
-no se intenta demostrar aislamiento mediante restas de privilegios globales.
-La cuenta HTTP rechaza permisos DDL, incluso si corresponden al esquema de Go.
-La comprobación es de arranque; no sustituye el control administrativo de cambios
-de permisos en el servidor.
-Ver [SHOW GRANTS](https://dev.mysql.com/doc/refman/8.0/en/show-grants.html) y
-[roles MySQL](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/roles.html).
-No reutilizar credenciales administrativas. Ninguna cuenta nueva fue creada por
-esta entrega. Usar secretos nuevos y permisos de archivo privados.
-
-En grants de base, los guiones bajos pueden ser comodines incluso entre backticks.
-El verificador consulta `@@GLOBAL.partial_revokes` sin modificarlo: si está OFF,
-el operador debe escapar cada `_` al otorgar permisos (ámbito `glance\_go` y,
-para tests, por ejemplo `glance\_go\_test\_a`). Si está ON, debe usar el nombre
-literal sin esos escapes. Nunca cambiar opciones globales para sortear la guardia.
-Consultar la [semántica oficial de grants](https://dev.mysql.com/doc/refman/8.0/en/grant.html).
-La forma exacta de SHOW GRANTS del servidor real aún requiere la suite MySQL.
-
-Para aplicar las migraciones, seleccionar el archivo DSN de la cuenta migradora:
-
-```sh
-GLANCE_GO_DATABASE_DSN_FILE=/absolute/private/glance-go-migrate.dsn ./bin/glance migrate
-```
-
-Para ejecutar HTTP, seleccionar la cuenta de aplicación y configurar Keystone:
-
-```sh
-GLANCE_GO_DATABASE_DSN_FILE=/absolute/private/glance-go-app.dsn ./bin/glance serve
-```
-
-`serve` verifica versión/checksum/dirty y rechaza un esquema sin migrar. Nunca
-ejecuta DDL. El listener tiene plazos y apagado ordenado por SIGINT/SIGTERM.
 
 ## Esquema y migraciones
 
-`images` conserva metadatos tipados y campos calculados anulables. Propiedades y
-etiquetas tienen PK compuesta y FK a images. Índices por propietario/visibilidad,
-borrado y fecha soportan el listado añadido en B. Hay checks de visibilidad, mínimos,
-tamaños y consistencia de borrado. No se almacenan bytes ni ubicaciones.
+Glance Go no migra el catálogo del original: al arrancar exige que
+`glance.alembic_version` sea una revisión revisada (`2024_1_contract01`) y, con
+otra, no sirve. `glance migrate` crea o verifica solo `glance_go_shared`:
+`000_history.sql` inicializa `schema_migrations` y la versión 1
+(`001_image_data_operations.sql`) crea la tabla de transferencias.
 
-`000_history.sql` inicializa explícitamente `schema_migrations`; `001_metadata.sql`
-crea las otras tres tablas. La versión 1 guarda su checksum. Un bloqueo MySQL de
-sesión impide migradores concurrentes. Inspección, bloqueo, DDL e historial usan
-una única conexión reservada. El DSN exige autocommit y lo fija en 1; antes de
-cualquier DDL/DML se comprueba también `@@SESSION.autocommit=1` en esa conexión.
-No basta con confiar en el DSN. Con autocommit, la confirmación correcta de cada
-sentencia confirma su DML; la marca dirty se persiste antes del DDL y solo se limpia
-al finalizar. La actualización final exige una fila con el checksum esperado y
-se relee el historial antes de devolver éxito. Si falla la liberación del advisory
-lock se descarta la conexión y no se anuncia éxito. Un fallo de transporte durante
-el DML final puede dejar resultado incierto: revisar el historial, sin asumir rollback.
-Ver [autocommit MySQL](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/innodb-autocommit-commit-rollback.html). MySQL hace commits implícitos en DDL: ante un fallo,
-detener y revisar manualmente; no editar dirty para fingir éxito. No hay down ni
-recuperación destructiva automática. Una versión/checksum desconocida impide servir.
+Un bloqueo MySQL de sesión impide migradores concurrentes. Inspección, bloqueo,
+DDL e historial usan una única conexión reservada con `@@SESSION.autocommit=1`
+comprobado. La marca dirty se persiste antes del DDL y solo se limpia al
+finalizar; la actualización final exige una fila con el checksum esperado y se
+relee el historial antes de devolver éxito. MySQL hace commits implícitos en DDL:
+ante un fallo, detener y revisar a mano; no hay down ni recuperación destructiva
+automática. `serve` verifica versión, checksum, dirty y la estructura exacta de
+`image_data_operations`, y nunca ejecuta DDL.
 
-Antes de aceptar el historial, el migrador y `VerifySchema` inspeccionan
-`information_schema.TABLES`, `COLUMNS` y `STATISTICS`. Se exige una tabla base
-InnoDB, exactamente cuatro columnas y PK únicamente sobre `version`:
-`version BIGINT` firmado NOT NULL, `checksum CHAR(64)` ASCII/ascii_bin NOT NULL,
-`dirty TINYINT` firmado NOT NULL y `applied_at DATETIME(6)` NULL. No se admiten
-columnas extra, valores por defecto no nulos, generación ni atributos automáticos.
-Los anchos de presentación de enteros de MySQL no cambian su dominio y se aceptan.
+Al arrancar, Glance Go adopta las imágenes que subió el original (registra su
+operación confirmada a partir de los hashes verificados y su única ubicación
+local) y concilia su contabilidad con lo que hizo el original:
+- si el original borró una imagen que subió Glance Go, completa la limpieza como
+  en un borrado propio (borra el archivo si quedó y marca la operación limpia);
+- si `glance-manage db purge` eliminó la fila de la imagen, borra el archivo
+  sobrante, si lo hay, y la fila huérfana de `image_data_operations`.
 
-Una tabla preexistente con otro motor o estructura incompatible se rechaza antes
-de DDL/DML de historial; no se convierte, borra ni reconstruye. Si no existe,
-únicamente `migrate` la crea y comprueba después la estructura creada. Un error de
-inspección también impide continuar. La comprobación estructural se repite antes
-de la confirmación final del historial. Una migración repetida con historial válido
-no recrea la tabla. El SQL original y el checksum de la versión 1 no cambian.
-Estas consultas no requieren grants administrativos adicionales: cada cuenta debe
-poder inspeccionar los metadatos de su propio esquema.
+## Integración MySQL (`make glance-test-integration`)
 
-Las regresiones con dobles SQL comprueban el rechazo y orden de operaciones; no
-demuestran durabilidad física. La validación no sustituye las garantías del servidor,
-filesystem y hardware, ni protege contra un administrador que altere objetos durante
-la inspección. No se inspeccionan políticas arbitrarias de triggers ni todas las
-estructuras de las tablas de imágenes como parte de esta comprobación del historial.
-
-Crear imagen/propiedades/etiquetas es una sola transacción; un error de hijo revierte
-todo. Consultar usa una transacción de lectura con snapshot consistente. El UUID
-duplicado se traduce a 409. Las consultas excluyen borrados; DELETE de B usa esas mismas columnas con tombstones; ver su contrato. Los valores UTC se conservan con microsegundos y se exponen con segundos,
-como el fixture. El pool abre hasta cuatro conexiones y aplica plazos por operación.
-
-## Integración MySQL explícita — NO comprobada por tests aislados
-
-No se presupone una DB autorizada ni se arranca un contenedor. En otra instancia
-independiente autorizada, el operador debe crear un esquema **vacío y descartable**
-`glance_go_test_<sufijo>` y una cuenta exclusiva con SELECT, INSERT, UPDATE, DELETE,
-CREATE, ALTER, INDEX y REFERENCES únicamente sobre ese esquema. Guardar su DSN en
-un archivo 0600. No reutilizar `glance_go`, `glance` ni credenciales de servicios.
-No apuntar a 192.168.122.10/10.0.2.15 ni usar túneles/alias hacia esa VM. La guardia
-de nombres/IP reduce errores, pero el operador debe verificar el destino real.
+Las suites de integración corren contra el MySQL de la VM del laboratorio, el
+mismo que usa el original, por un túnel SSH (el DSN queda en loopback, como exige
+Glance Go). `scripts/glance_integration_tests.sh`:
+- lee en la VM la cuenta del original desde `/etc/glance/glance-api.conf` (la
+  contraseña solo queda en un archivo temporal privado);
+- copia el DDL real de `glance` (sin filas) y su revisión alembic a un esquema
+  `glance_official_test_<suite>` por suite, junto a un `glance_go_shared_test_<suite>`
+  vacío;
+- corre las suites (persistencia y transacciones, historial, DDL parcial,
+  transferencias, catálogo, borrado coordinado, fences y contención B25, y la B25
+  de punta a punta HTTP + MySQL + store);
+- borra todos los esquemas de prueba al salir, también si algo falla, y revisa
+  que los logs no contengan la contraseña.
 
 ```sh
-GLANCE_GO_MYSQL_TEST=1 \
-GLANCE_GO_TEST_DSN_FILE=/absolute/private/glance-go-test.dsn \
-make glance-test-mysql
+make glance-test-integration                       # VM encendida
+GLANCE_INTEGRATION_RACE=1 make glance-test-integration   # con -race
 ```
 
-El build tag `integration` separa esta suite del gate normal. La ausencia del opt-in
-o la configuración es un fallo explícito, no un skip aprobado. Primero verifica
-grants y que la DB esté vacía. Prueba migración, idempotencia, nulabilidad, tags,
-propiedades, UUID duplicado, rollback por fallo SQL de hijo, cancelación, persistencia
-entre conexiones, exclusión de borrado, UUID reservado, dirty y checksum alterado.
-También desactiva autocommit en la sesión aislada para comprobar el rechazo antes
-de DDL y comprueba el historial con un pool nuevo inmediatamente tras migrar.
-Restaura el historial alterado y deja los datos de prueba para revisión, sin borrar
-bases, usuarios o tablas. Utilizar una base vacía nueva para repetirla; el operador
-administra su eliminación fuera de esta suite.
-
-## Escenarios MySQL adicionales opt-in — NO EJECUTADOS
-
-Los dobles SQL prueban orden/confirmaciones y fallo cerrado; no simulan un motor
-MySQL ni demuestran commits, permisos efectivos, DDL o recuperación reales.
-Los siguientes tests requieren recursos independientes preparados y autorizados
-por el operador; nunca preparan roles, usuarios ni variables globales:
-
-- `TestMySQLAccountBoundaryFixtures`: manifest JSON privado (0600) indicado por
-  `GLANCE_GO_TEST_ACCOUNTS_FILE`; array de objetos con `dsn_file`, `reject`,
-  `partial_revokes`, `mandatory_roles` y `active_roles`. Cada DSN debe usar
-  `glance_go_test_<sufijo>` y una cuenta exclusiva. Las precondiciones se leen y
-  comparan antes de la guardia. Preparar fixtures para grants directos seguros,
-  globales, esquema ajeno, roles obligatorios excesivos/limitados, roles default
-  activos e inactivos, y comodines con partial_revokes ON/OFF. Roles limitados
-  también deben tener `reject: true`. Las variantes de mandatory_roles requieren
-  servidores separados: no modificar el laboratorio. Los errores de inspección
-  se prueban localmente; no requieren conceder administración al test.
-- `TestMySQLPartialDDLRemainsDirtyAcrossConnections`: DSN separado en
-  `GLANCE_GO_TEST_PARTIAL_DSN_FILE`, esquema vacío. Crea una tabla de colisión,
-  provoca DDL parcial y comprueba dirty persistente al reabrir el pool; no borra
-  tablas ni limpia dirty. No equivale a probar un corte de energía o caída del
-  proceso: esas recuperaciones siguen pendientes de una prueba controlada.
-
-Con `GLANCE_GO_MYSQL_TEST=1` y los archivos privados correspondientes, seleccionar
-**un** escenario explícitamente desde la raíz (operación posterior autorizada):
-
-```sh
-GOMAXPROCS=2 GOTOOLCHAIN=go1.27.3 go test -p 1 -count=1 -tags=integration \
-  ./internal/glance/repository/mysql -run '^TestMySQLAccountBoundaryFixtures$' -v
-# En otro esquema vacío, con su DSN privado independiente:
-GOMAXPROCS=2 GOTOOLCHAIN=go1.27.3 go test -p 1 -count=1 -tags=integration \
-  ./internal/glance/repository/mysql -run '^TestMySQLPartialDDLRemainsDirtyAcrossConnections$' -v
-```
-
-La compilación con `-tags=integration -run '^$'` no ejecuta estos tests ni valida
-MySQL. No ejecutar toda la suite integration contra una sola DB reutilizada.
-
-### Caso preparado de historial tras reiniciar MySQL — NO EJECUTADO
-
-Usar otra instancia desechable autorizada, un esquema vacío
-`glance_go_test_history_<sufijo>` y dos cuentas con grants directos solo sobre él:
-migración con SELECT/INSERT/UPDATE/CREATE/REFERENCES y lectura con SELECT.
-No usar los esquemas API, persistencia o dirty de otras pruebas.
-
-1. Registrar UUID del servidor, datadir, PID y configuración de durabilidad. Aplicar
-   `glance migrate` explícitamente con la cuenta migradora, y guardar la fila de
-   historial completa, el checksum y `ENGINE=InnoDB` como baseline saneado.
-2. Ejecutar el checkpoint de lectura siguiente con la cuenta SELECT y guardar el
-   resultado. El archivo DSN debe ser privado (0600) y apuntar al esquema dedicado.
-3. El operador, en otra fase autorizada, detiene y arranca **solo esa instancia
-   desechable**. Conservar evidencia del cambio de PID/inicio y del mismo UUID/datadir.
-   El test no ejecuta comandos de control de servicios.
-4. Repetir el checkpoint en un proceso nuevo y comparar la fila completa con el
-   baseline. Debe conservar versión, checksum, dirty=false y applied_at. Un PASS
-   sin evidencia externa del reinicio no demuestra persistencia después de reiniciar.
-
-```sh
-GLANCE_GO_MYSQL_TEST=1 \
-GLANCE_GO_TEST_HISTORY_DSN_FILE=/absolute/private/history-reader.dsn \
-GLANCE_GO_TEST_HISTORY_SERVER_UUID="<UUID_VERIFICADO_DE_LA_INSTANCIA_DESECHABLE>" \
-GOMAXPROCS=2 GOTOOLCHAIN=local go test -p 1 -count=1 -tags=integration \
-  ./internal/glance/repository/mysql -run '^TestMySQLHistoryReadOnlyVerification$' -v
-```
-
-No ejecutar este procedimiento sobre el MySQL del laboratorio. No cambiar dirty
-para superar un fallo ni limpiar datos automáticamente. La recuperación frente a
-caída abrupta o pérdida de energía requiere pruebas adicionales; un reinicio
-ordenado no equivale a esas condiciones.
+El build tag `integration` las separa del gate normal; sin el opt-in que pone el
+script, fallan en vez de saltarse. `glance` del original solo se lee (DDL y
+revisión).
 
 ## Keystone real
 
-El adaptador obtiene un token de servicio con application credentials y valida el
-token cliente con GET `/v3/auth/tokens?nocatalog`: X-Auth-Token identifica al servicio;
-X-Subject-Token al usuario. Requiere una credencial de servicio con permiso de
-validación de tokens, rol service y sin admin. No crea esa credencial ni modifica
-políticas. La disponibilidad y permisos de tal identidad real quedan por verificar.
+El adaptador obtiene un token de servicio con el usuario de servicio del original
+(`[keystone_authtoken]`, autenticación por contraseña, como keystonemiddleware) y
+valida el token cliente con GET `/v3/auth/tokens?nocatalog`: X-Auth-Token identifica
+al servicio; X-Subject-Token al usuario.
 
 El token propio se guarda en memoria hasta su renovación. Desde 2026-11-18 los
 tokens entrantes validados con éxito también se reutilizan durante

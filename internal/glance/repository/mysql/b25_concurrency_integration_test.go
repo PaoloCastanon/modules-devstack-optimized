@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/PaoloCastanon/modules-devstack-optimized/internal/config"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository"
 	"github.com/google/uuid"
@@ -23,32 +22,11 @@ func TestB25MySQLConcurrentFences(t *testing.T) {
 	if os.Getenv("GLANCE_GO_B25_MYSQL_TEST") != "1" {
 		t.Fatal("explicit disposable B25 MySQL opt-in required")
 	}
-	b, err := config.ReadSecret(os.Getenv("GLANCE_GO_TEST_DSN_FILE"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	dsn := strings.TrimSpace(string(b))
-	if err = ValidateTestDSN(dsn); err != nil {
-		t.Fatal(err)
-	}
-	db, err := Open(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	if err = CheckAccount(ctx, db, "migrate"); err != nil {
-		t.Fatal(err)
-	}
-	var count int
-	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()").Scan(&count) != nil || count != 0 {
-		t.Fatal("NEW EMPTY independent schema required")
-	}
-	if err = Migrate(ctx, db); err != nil {
-		t.Fatal(err)
-	}
-	r := New(db, 5*time.Second)
+	db, dsn, official := IntegrationFixture(t, ctx)
+	var err error
+	r := IntegrationRepo(t, db, 5*time.Second, official)
 	if err := r.PrepareStatements(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +108,7 @@ func TestB25MySQLConcurrentFences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = tx.ExecContext(ctx, "UPDATE images SET name='must-rollback' WHERE id=?", id); err != nil {
+	if _, err = tx.ExecContext(ctx, "UPDATE `"+official+"`.images SET name='must-rollback' WHERE id=?", id); err != nil {
 		_ = tx.Rollback()
 		t.Fatal(err)
 	}
@@ -142,7 +120,7 @@ func TestB25MySQLConcurrentFences(t *testing.T) {
 		t.Fatal(err)
 	}
 	var name *string
-	if db.QueryRowContext(ctx, "SELECT name FROM images WHERE id=?", id).Scan(&name) != nil || name != nil {
+	if db.QueryRowContext(ctx, "SELECT name FROM `"+official+"`.images WHERE id=?", id).Scan(&name) != nil || name != nil {
 		t.Fatal("partial mutation persisted")
 	}
 	if err = db.Close(); err != nil {
@@ -153,7 +131,7 @@ func TestB25MySQLConcurrentFences(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	r = New(db, 5*time.Second)
+	r = IntegrationRepo(t, db, 5*time.Second, official)
 	s, err = r.DataState(ctx, id)
 	if err != nil || s.Status != "saving" || s.Operation.AttemptID != a || s.Operation.Phase != model.DataReserved {
 		t.Fatal("reopened state differs", err)

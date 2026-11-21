@@ -5,21 +5,11 @@ import (
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/store"
 )
 
-// openStore and initStore select the operator-configured byte backend. The
-// filesystem store is always available; RBD only in binaries built with -tags rbd.
+// openStore opens Glance Go's private root (lock, scope marker) with the
+// images in the original's filesystem_store_datadir, as glance_store writes
+// them. initStore prepares that private root once.
 func openStore(b config.Binary, scope string) (store.Backend, error) {
-	if b.Backend == "rbd" {
-		return openRBD(b, scope)
-	}
-	if b.OfficialStoreDir != "" {
-		return store.NewSharedFilesystem(b.Root, scope, b.OfficialStoreDir)
-	}
-	return store.NewFilesystem(b.Root, scope)
+	return store.NewSharedFilesystem(b.Root, scope, b.OfficialStoreDir)
 }
 
-func initStore(b config.Binary, scope string) error {
-	if b.Backend == "rbd" {
-		return initRBD(b, scope)
-	}
-	return store.Initialize(b.Root, scope)
-}
+func initStore(b config.Binary, scope string) error { return store.Initialize(b.Root, scope) }

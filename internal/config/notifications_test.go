@@ -1,50 +1,44 @@
 package config
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
+// Notifications come from the original's [oslo_messaging_notifications] and
+// [DEFAULT] (transport_url fallback, default_publisher_id,
+// disabled_notifications), as oslo.config reads them.
 func TestNotificationsConfiguration(t *testing.T) {
-	load := func(extra map[string]string) (Config, error) {
-		e := environment(t)
-		for k, v := range extra {
-			e[k] = v
-		}
+	load := func(text string) (Config, error) {
+		e := map[string]string{"GLANCE_GO_CONFIG_FILE": secretFile(t, text)}
 		return Load(func(k string) string { return e[k] }, "serve")
 	}
-	c, err := load(nil)
+	c, err := load(glanceConf(""))
 	if err != nil || c.Notifications.Driver != "noop" || c.Notifications.PublisherID != "image.localhost" ||
 		strings.Join(c.Notifications.Topics, ",") != "notifications" || len(c.Notifications.Disabled) != 0 {
-		t.Fatal("defaults must be noop with official names", c.Notifications, err)
+		t.Fatal("noop with official names expected", c.Notifications, err)
 	}
-	dir := t.TempDir()
-	secret := filepath.Join(dir, "transport")
-	if err = os.WriteFile(secret, []byte("rabbit://stackrabbit:s3cret@192.168.122.10:5672/\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	c, err = load(map[string]string{"GLANCE_GO_NOTIFICATION_DRIVER": "messagingv2", "GLANCE_GO_TRANSPORT_URL_FILE": secret,
-		"GLANCE_GO_NOTIFICATION_TOPICS": "notifications, audit", "GLANCE_GO_DEFAULT_PUBLISHER_ID": "image.host1",
-		"GLANCE_GO_DISABLED_NOTIFICATIONS": "image.send,task"})
-	if err != nil || c.Notifications.TransportURL != "rabbit://stackrabbit:s3cret@192.168.122.10:5672/" ||
+	on := strings.Replace(glanceConf("default_publisher_id = image.host1\ndisabled_notifications = image.send,task\n"),
+		"driver = noop", "driver = messagingv2\ntopics = notifications, audit", 1)
+	c, err = load(on)
+	if err != nil || c.Notifications.Driver != "messagingv2" || c.Notifications.TransportURL != "rabbit://stackrabbit:s3cret@127.0.0.1:5672/" ||
 		strings.Join(c.Notifications.Topics, ",") != "notifications,audit" || c.Notifications.PublisherID != "image.host1" ||
 		!c.Notifications.Disabled["image.send"] || !c.Notifications.Disabled["task"] {
-		t.Fatal("messagingv2 settings", err)
+		t.Fatal("messagingv2 settings", c.Notifications, err)
 	}
-	loose := filepath.Join(dir, "loose")
-	_ = os.WriteFile(loose, []byte("rabbit://u:s3cret@h:5672/"), 0o644)
-	for _, bad := range []map[string]string{
-		{"GLANCE_GO_NOTIFICATION_DRIVER": "messaging"},
-		{"GLANCE_GO_NOTIFICATION_DRIVER": "messagingv2"},
-		{"GLANCE_GO_NOTIFICATION_DRIVER": "messagingv2", "GLANCE_GO_TRANSPORT_URL_FILE": loose},
-		{"GLANCE_GO_NOTIFICATION_TOPICS": "bad topic"},
-		{"GLANCE_GO_DEFAULT_PUBLISHER_ID": "image/x"},
-		{"GLANCE_GO_DISABLED_NOTIFICATIONS": "image.send;rm"},
+	for _, bad := range []string{
+		strings.Replace(on, "topics = notifications, audit", "topics = bad topic", 1),
+		strings.Replace(on, "image.host1", "image/x", 1),
+		strings.Replace(on, "image.send,task", "image.send;rm", 1),
+		strings.Replace(strings.Replace(glanceConf(""), "driver = noop", "driver = messagingv2", 1), "transport_url = rabbit://stackrabbit:s3cret@127.0.0.1:5672/\n", "", 1),
 	} {
 		if _, err = load(bad); err == nil || strings.Contains(err.Error(), "s3cret") {
-			t.Fatal("accepted or echoed unsafe notification config", bad, err)
+			t.Fatal("accepted or echoed unsafe notification config", err)
 		}
+	}
+	e := environment(t)
+	e["GLANCE_GO_NOTIFICATION_DRIVER"] = "messagingv2"
+	if _, err = Load(func(k string) string { return e[k] }, "serve"); err == nil {
+		t.Fatal("an environment override competed with glance-api.conf")
 	}
 }

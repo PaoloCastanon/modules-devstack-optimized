@@ -30,7 +30,16 @@ func deletionSQLSteps(status string, o *model.DataOperation) []sqlStep {
 	if o != nil {
 		steps = append(steps, execute(tombstoneOperationSQL))
 	}
-	return append(steps, execute("COMMIT"))
+	return append(append(steps, destroySteps()...), execute("COMMIT"))
+}
+
+// destroySteps: the children the original's image_destroy soft-deletes.
+func destroySteps() []sqlStep {
+	return []sqlStep{
+		execute("UPDATE image_locations SET deleted=1, deleted_at=?, updated_at=?, status='deleted' WHERE image_id=? AND deleted=0"),
+		execute("UPDATE image_properties SET deleted=1, deleted_at=?, updated_at=? WHERE image_id=? AND deleted=0"),
+		execute("UPDATE image_tags SET deleted=1, deleted_at=?, updated_at=? WHERE image_id=? AND deleted=0"),
+	}
 }
 func allowDeletion(model.Image) error { return nil }
 
@@ -75,7 +84,7 @@ func TestTombstoneDataAtomicTransitionsAndRetainedReceipts(t *testing.T) {
 				}
 			}
 			called := false
-			s, err := New(scriptDB(t, steps), time.Second).TombstoneData(context.Background(), catalogID, attempt, dataNow, func(i model.Image) error {
+			s, err := testRepo(scriptDB(t, steps), time.Second).TombstoneData(context.Background(), catalogID, attempt, dataNow, func(i model.Image) error {
 				called = true
 				if i.Owner != "p" || i.Properties["x"] != "original" || len(i.Tags) != 1 {
 					t.Error("policy did not get locked catalog")
@@ -148,7 +157,7 @@ func TestTombstoneDataRejectsFencesPolicyAndContradictions(t *testing.T) {
 				steps[1].rows[0][13] = "wrong"
 			}
 			steps = append(steps, execute("ROLLBACK"))
-			_, err := New(scriptDB(t, steps), time.Second).TombstoneData(context.Background(), catalogID, attempt, dataNow, func(model.Image) error {
+			_, err := testRepo(scriptDB(t, steps), time.Second).TombstoneData(context.Background(), catalogID, attempt, dataNow, func(model.Image) error {
 				if tc == "policy" {
 					return model.Fail(model.Forbidden, "denied")
 				}
@@ -162,19 +171,20 @@ func TestTombstoneDataRejectsFencesPolicyAndContradictions(t *testing.T) {
 }
 
 func TestTombstoneDataFailuresRollbackOrReportUncertainty(t *testing.T) {
-	for at := 0; at < 6; at++ {
+	commit := len(deletionSQLSteps("active", dataFixture(model.DataCommitted))) - 1
+	for at := 0; at <= commit; at++ {
 		t.Run(string(rune('a'+at)), func(t *testing.T) {
 			steps := deletionSQLSteps("active", dataFixture(model.DataCommitted))
 			steps[at].err = errors.New("SQL disconnected")
 			steps = steps[:at+1]
-			if at != 0 && at != 5 {
+			if at != 0 && at != commit {
 				steps = append(steps, execute("ROLLBACK"))
 			}
-			out, err := New(scriptDB(t, steps), time.Second).TombstoneData(context.Background(), catalogID, str(attemptA), dataNow, allowDeletion)
+			out, err := testRepo(scriptDB(t, steps), time.Second).TombstoneData(context.Background(), catalogID, str(attemptA), dataNow, allowDeletion)
 			if err == nil {
 				t.Fatal("failure reported success")
 			}
-			if at == 5 && (!errors.Is(err, repository.ErrCommitUncertain) || !out.Deleted || out.Operation == nil || !isTarget(out.Operation, "deleted")) {
+			if at == commit && (!errors.Is(err, repository.ErrCommitUncertain) || !out.Deleted || out.Operation == nil || !isTarget(out.Operation, "deleted")) {
 				t.Fatal("commit outcome was hidden", out, err)
 			}
 		})
@@ -184,7 +194,7 @@ func TestTombstoneDataFailuresRollbackOrReportUncertainty(t *testing.T) {
 			steps := deletionSQLSteps("active", dataFixture(model.DataCommitted))
 			steps[at].affected = 0
 			steps = append(steps[:at+1], execute("ROLLBACK"))
-			_, err := New(scriptDB(t, steps), time.Second).TombstoneData(context.Background(), catalogID, str(attemptA), dataNow, allowDeletion)
+			_, err := testRepo(scriptDB(t, steps), time.Second).TombstoneData(context.Background(), catalogID, str(attemptA), dataNow, allowDeletion)
 			if !errors.Is(err, repository.ErrConflict) {
 				t.Fatal(err)
 			}

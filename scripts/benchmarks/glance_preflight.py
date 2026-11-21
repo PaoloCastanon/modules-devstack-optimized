@@ -81,8 +81,7 @@ class Session:
         self.action('glance-runtime', placement_runtime, action='prepare', domain='glance', root=self.runtime,
                     binary=self.args.binary, auth_root=self.auth, mysql_port=13317, listen_port=19293,
                     public_url=self.args.url, keystone_url='http://192.168.122.10/identity/v3',
-                    notifications=getattr(self.args, 'go_notifications', 'noop'),
-                    catalog=getattr(self.args, 'go_catalog', 'own'))
+                    notifications=getattr(self.args, 'go_notifications', 'noop'))
         runtime_report = json.loads((self.runtime / 'public-report.json').read_text())
         if getattr(self.args, 'go_notifications', 'noop') == 'original':
             require(runtime_report.get('notifications') == 'messagingv2', 'Glance Go sends notifications as the original')

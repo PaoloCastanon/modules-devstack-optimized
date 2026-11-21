@@ -397,7 +397,7 @@ class CompactV6Tests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_protocol({**p, **change})
 
-    def test_official_catalog_reaches_the_lab_command(self):
+    def test_lab_command_has_no_catalog_choice_and_refuses_own(self):
         import tempfile
         from pathlib import Path
         from types import SimpleNamespace
@@ -409,4 +409,7 @@ class CompactV6Tests(unittest.TestCase):
                                    domain='glance', notification_policy='noop', go_notification_policy='noop',
                                    go_route='public', go_catalog='official')
             placement_campaign.Remote(args).stderr.close()
-            self.assertIn('--go-catalog official', popen.call_args[0][0][-1])
+            self.assertNotIn('--go-catalog', popen.call_args[0][0][-1])  # the lab only knows the original catalog
+            args.go_catalog = 'own'
+            with self.assertRaises(ValueError):
+                placement_campaign.Remote(args)

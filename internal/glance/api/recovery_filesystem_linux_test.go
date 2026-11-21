@@ -34,7 +34,7 @@ func TestStartupRecoveryRealFilesystemBoundaries(t *testing.T) {
 			if err := store.Initialize(root, scope); err != nil {
 				t.Fatal(err)
 			}
-			fs, err := store.NewFilesystem(root, scope)
+			fs, err := testStore(root, scope)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,14 +88,14 @@ func TestStartupRecoveryRealFilesystemBoundaries(t *testing.T) {
 			if err = fs.Close(); err != nil {
 				t.Fatal(err)
 			}
-			blob := root + "/objects/" + i.ID + "." + attempt + ".blob"
+			blob := root + "-images/" + i.ID
 			// Use the actual name convention only for deliberate external corruption.
-			entries, err := os.ReadDir(root + "/objects")
+			entries, err := os.ReadDir(root + "-images")
 			if err != nil {
 				t.Fatal(err)
 			}
 			if len(entries) > 0 {
-				blob = root + "/objects/" + entries[0].Name()
+				blob = root + "-images/" + entries[0].Name()
 			}
 			if boundary == "missing committed" {
 				if err = os.Remove(blob); err != nil {
@@ -107,7 +107,7 @@ func TestStartupRecoveryRealFilesystemBoundaries(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			fs, err = store.NewFilesystem(root, scope)
+			fs, err = testStore(root, scope)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -132,8 +132,8 @@ func TestStartupRecoveryRealFilesystemBoundaries(t *testing.T) {
 				if err != nil || report.Cleaned != 1 || d.image.Status != status || d.op.Phase != model.DataCleaned {
 					t.Fatal("recovery", err, report, d.image.Status)
 				}
-				for _, dir := range []string{"objects", "staging"} {
-					entries, err := os.ReadDir(root + "/" + dir)
+				for _, dir := range []string{root + "-images", root + "/staging"} {
+					entries, err := os.ReadDir(dir)
 					if err != nil || len(entries) != 0 {
 						t.Fatal("incomplete cleanup", dir, err)
 					}
@@ -147,7 +147,7 @@ func TestStartupRecoveryRealFilesystemBoundaries(t *testing.T) {
 			}
 			// Repeated recovery uses a NEW exclusive owner and is idempotent.
 			if boundary == "tombstone" || boundary == "staged" {
-				fs, err = store.NewFilesystem(root, scope)
+				fs, err = testStore(root, scope)
 				if err != nil {
 					t.Fatal(err)
 				}

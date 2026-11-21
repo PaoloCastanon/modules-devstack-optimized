@@ -57,7 +57,7 @@ func (c *reservationConn) QueryContext(ctx context.Context, q string, args []dri
 	if len(args) != 1 || args[0].Value != catalogID {
 		return nil, errors.New("missing bound image")
 	}
-	if q == lockDataImage {
+	if q == officialSQL(lockDataImage) {
 		select {
 		case <-c.d.rowLock:
 			c.held = true
@@ -78,7 +78,7 @@ func (c *reservationConn) QueryContext(ctx context.Context, q string, args []dri
 		}
 		return &scriptRows{width: 9, data: [][]driver.Value{{catalogID, status, false, nil, nil, nil, nil, nil, time.Unix(100, 0).UTC()}}}, nil
 	}
-	if q == lockDataOperation && c.held {
+	if q == officialSQL(lockDataOperation) && c.held {
 		c.d.mu.Lock()
 		attempt := c.d.attempt
 		c.d.mu.Unlock()
@@ -95,7 +95,7 @@ func (c *reservationConn) ExecContext(_ context.Context, q string, args []driver
 		return nil, errors.New("write without row lock")
 	}
 	switch q {
-	case reserveImageSQL:
+	case officialSQL(reserveImageSQL):
 		if len(args) != 2 || args[1].Value != catalogID {
 			return nil, errors.New("unbound parent")
 		}
@@ -147,7 +147,7 @@ func TestTwoConcurrentReservationsWithLockingDouble(t *testing.T) {
 	db := sql.OpenDB(reservationConnector{d})
 	defer db.Close()
 	db.SetMaxOpenConns(2)
-	r := New(db, 2*time.Second)
+	r := testRepo(db, 2*time.Second)
 	errs := make(chan error, 2)
 	go func() { _, err := r.ReserveData(context.Background(), catalogID, attemptA, nil, dataNow); errs <- err }()
 	select {

@@ -19,6 +19,8 @@ import (
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/service"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/store"
+	driver "github.com/go-sql-driver/mysql"
 )
 
 // MUTATING. Independently authorized NEW EMPTY schema and EXISTING EMPTY private
@@ -28,73 +30,50 @@ func TestB25MySQLFilesystemHTTP(t *testing.T) {
 	if os.Getenv("GLANCE_GO_B25_MYSQL_TEST") != "1" {
 		t.Fatal("explicit B25 disposable integration authorization required")
 	}
-	readDSN := func(key string) string {
-		t.Helper()
-		b, err := config.ReadSecret(os.Getenv(key))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s := strings.TrimSpace(string(b))
-		if err = mysql.ValidateTestDSN(s); err != nil {
-			t.Fatal(err)
-		}
-		return s
-	}
-	migrateDSN, runtimeDSN := readDSN("GLANCE_GO_TEST_DSN_FILE"), readDSN("GLANCE_GO_TEST_RUNTIME_DSN_FILE")
-	if migrateDSN == runtimeDSN {
-		t.Fatal("separate migration and runtime accounts required")
-	}
-	migration, err := mysql.Open(migrateDSN)
+	secret, err := config.ReadSecret(os.Getenv("GLANCE_GO_TEST_DSN_FILE"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer migration.Close()
-	db, err := mysql.Open(runtimeDSN)
+	dsn := strings.TrimSpace(string(secret))
+	if err = mysql.ValidateTestDSN(dsn); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := driver.ParseDSN(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The paired copy of the original's catalog, created by the runner.
+	official := "glance_official_test_" + strings.TrimPrefix(parsed.DBName, "glance_go_shared_test_")
+	db, err := mysql.Open(dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = db.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	if err = mysql.CheckAccount(ctx, migration, "migrate"); err != nil {
-		t.Fatal(err)
-	}
-	if err = mysql.CheckAccount(ctx, db, "serve"); err != nil {
-		t.Fatal(err)
-	}
-	ms, err := databaseScope(ctx, migration)
+	rs, err := databaseScope(ctx, db)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rs, err := databaseScope(ctx, db)
-	if err != nil || ms != rs {
-		t.Fatal("runtime/migrator scopes differ")
+	var tables, catalogImages int
+	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()").Scan(&tables) != nil || tables != 0 {
+		t.Fatal("NEW EMPTY bookkeeping schema required")
 	}
-	var tables int
-	if migration.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()").Scan(&tables) != nil || tables != 0 {
-		t.Fatal("NEW EMPTY schema required")
+	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM `"+official+"`.images").Scan(&catalogImages) != nil || catalogImages != 0 {
+		t.Fatal("paired official catalog with no images required")
 	}
-	// GLANCE_GO_B25_STORE=rbd runs the same pipeline on a NEW EMPTY RBD pool
-	// (binary built with -tags rbd, cluster from infra/ceph-micro).
-	backend := config.Binary{Backend: "filesystem"}
-	root := ""
-	if os.Getenv("GLANCE_GO_B25_STORE") == "rbd" {
-		backend = config.Binary{Backend: "rbd", RBDConf: os.Getenv("GLANCE_GO_RBD_TEST_CONF"), RBDUser: "admin", RBDPool: os.Getenv("GLANCE_GO_RBD_TEST_POOL")}
-		if n, err := rbdImageCount(backend); err != nil || n != 0 {
-			t.Fatal("NEW EMPTY dedicated rbd pool required", err)
-		}
-	} else {
-		root = os.Getenv("GLANCE_GO_B25_TEST_ROOT")
-		entries, err := os.ReadDir(root)
-		if err != nil || len(entries) != 0 {
-			t.Fatal("EXISTING EMPTY dedicated root required")
-		}
+	root := os.Getenv("GLANCE_GO_B25_TEST_ROOT")
+	if entries, err := os.ReadDir(root); err != nil || len(entries) != 0 {
+		t.Fatal("EXISTING EMPTY dedicated root required")
 	}
-	t.Log("STORE:", backend.Backend)
-	if err = mysql.Migrate(ctx, migration); err != nil {
+	images := sharedImages(t, root)
+	if entries, err := os.ReadDir(images); err != nil || len(entries) != 0 {
+		t.Fatal("EMPTY images directory required next to the root")
+	}
+	if err = mysql.Migrate(ctx, db); err != nil {
 		t.Fatal(err)
 	}
-	if err = mysql.Migrate(ctx, migration); err != nil {
+	if err = mysql.Migrate(ctx, db); err != nil {
 		t.Fatal(err)
 	}
 	if err = mysql.VerifySchema(ctx, db); err != nil {
@@ -104,14 +83,20 @@ func TestB25MySQLFilesystemHTTP(t *testing.T) {
 	if db.QueryRowContext(ctx, "SELECT VERSION()").Scan(&version) != nil {
 		t.Fatal("cannot record server version")
 	}
-	t.Log("MySQL effective version:", version, "scope:", rs)
-	backend.Root = root
-	if err = initStore(backend, rs); err != nil {
+	t.Log("MySQL effective version:", version, "scope:", rs, "catalog:", official)
+	if err = store.Initialize(root, rs); err != nil {
 		t.Fatal("store initialization failed", err)
 	}
+	newRepo := func() *mysql.Repository {
+		t.Helper()
+		r, err := mysql.New(db, 5*time.Second, official, images)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
 	c := testConfig()
-	c.Binary.Backend, c.Binary.Root, c.Binary.Scope = backend.Backend, root, rs
-	c.Binary.RBDConf, c.Binary.RBDUser, c.Binary.RBDPool = backend.RBDConf, backend.RBDUser, backend.RBDPool
+	c.Binary.Root, c.Binary.Scope, c.Binary.OfficialStoreDir = root, rs, images
 	c.DependencyTimeout = 5 * time.Second
 	c.RequestTimeout = 15 * time.Second
 	c.Binary.RecoveryTimeout = 30 * time.Second
@@ -124,19 +109,14 @@ func TestB25MySQLFilesystemHTTP(t *testing.T) {
 	if os.Getenv("GLANCE_GO_B25_KEYSTONE_TEST") == "1" {
 		// Real validation only, using PREEXISTING authorized short-lived secrets.
 		// This test neither issues/renews credentials nor obtains client tokens.
-		keystoneURL = strings.TrimRight(os.Getenv("GLANCE_GO_KEYSTONE_AUTH_URL"), "/")
-		if config.ValidateURL(keystoneURL) != nil || !strings.HasSuffix(keystoneURL, "/v3") {
-			t.Fatal("invalid Keystone URL")
-		}
-		b, err := config.ReadSecret(os.Getenv("GLANCE_GO_KEYSTONE_CREDENTIAL_FILE"))
+		// Keystone URL and service user from the original's glance-api.conf.
+		original, err := config.Load(os.Getenv, "serve")
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal("GLANCE_GO_CONFIG_FILE required for real Keystone")
 		}
-		var credential config.ServiceCredential
-		if json.Unmarshal(b, &credential) != nil || credential.ID == "" || credential.Secret == "" {
-			t.Fatal("invalid service credential")
-		}
-		b, err = config.ReadSecret(os.Getenv("GLANCE_GO_TEST_CLIENT_TOKEN_FILE"))
+		keystoneURL = original.KeystoneURL
+		credential := original.Credential
+		b, err := config.ReadSecret(os.Getenv("GLANCE_GO_TEST_CLIENT_TOKEN_FILE"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -156,11 +136,11 @@ func TestB25MySQLFilesystemHTTP(t *testing.T) {
 	address := ""
 	start := func() {
 		t.Helper()
-		r := mysql.New(db, c.DependencyTimeout)
+		r := newRepo()
 		if err = r.PrepareStatements(ctx); err != nil {
 			t.Fatal(err)
 		}
-		checks := startupChecks{ping: db.PingContext, account: func(ctx context.Context) error { return mysql.CheckAccount(ctx, db, "serve") }, schema: func(ctx context.Context) error { return mysql.VerifySchema(ctx, db) }, scope: func(ctx context.Context) (string, error) { return databaseScope(ctx, db) }}
+		checks := startupChecks{ping: db.PingContext, schema: func(ctx context.Context) error { return mysql.VerifySchema(ctx, db) }, scope: func(ctx context.Context) (string, error) { return databaseScope(ctx, db) }}
 		if err = verifyBackend(ctx, checks); err != nil {
 			t.Fatal(err)
 		}
@@ -239,7 +219,7 @@ func TestB25MySQLFilesystemHTTP(t *testing.T) {
 	if got := request("GET", base+"/file", "", "", token, 200); !bytes.Equal(got, []byte("abcdef")) {
 		t.Fatal("bytes differ")
 	}
-	r := mysql.New(db, c.DependencyTimeout)
+	r := newRepo()
 	s, err := r.DataState(ctx, id)
 	if err != nil || s.Status != "active" || s.Operation == nil || s.Operation.Phase != model.DataCommitted || s.Size == nil || *s.Size != 6 {
 		t.Fatal("physical SQL receipt differs")
@@ -250,7 +230,7 @@ func TestB25MySQLFilesystemHTTP(t *testing.T) {
 	if err = db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	db, err = mysql.Open(runtimeDSN)
+	db, err = mysql.Open(dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,21 +245,15 @@ func TestB25MySQLFilesystemHTTP(t *testing.T) {
 	}
 	request("DELETE", base, "", "", token, 204)
 	request("GET", base, "", "", token, 404)
-	r = mysql.New(db, c.DependencyTimeout)
+	r = newRepo()
 	s, err = r.DataState(ctx, id)
 	if err != nil || !s.Deleted || s.Operation.Phase != model.DataCleaned {
 		t.Fatal("tombstone/cleanup not persisted")
 	}
-	if backend.Backend == "rbd" {
-		if n, err := rbdImageCount(c.Binary); err != nil || n != 0 {
-			t.Fatal("rbd cleanup not complete", n, err)
-		}
-	} else {
-		for _, dir := range []string{"objects", "staging"} {
-			entries, err := os.ReadDir(root + "/" + dir)
-			if err != nil || len(entries) != 0 {
-				t.Fatal("filesystem cleanup not complete")
-			}
+	for _, dir := range []string{images, root + "/staging"} {
+		entries, err := os.ReadDir(dir)
+		if err != nil || len(entries) != 0 {
+			t.Fatal("filesystem cleanup not complete")
 		}
 	}
 	stop()

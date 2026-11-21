@@ -10,7 +10,7 @@ import (
 // so correctness never depends on the statement cache.
 func TestPrepareStatementsFailureKeepsUnpreparedPath(t *testing.T) {
 	db := scriptDB(t, nil) // the script driver refuses Prepare
-	r := New(db, time.Second)
+	r := testRepo(db, time.Second)
 	if err := r.PrepareStatements(context.Background()); err == nil || r.stmts != nil {
 		t.Fatal("failed preparation must not install a partial cache", err)
 	}

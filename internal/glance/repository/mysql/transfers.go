@@ -228,10 +228,9 @@ func (r *Repository) CommitData(ctx context.Context, id, attempt string, now tim
 		if err := r.ack(ctx, tx, "UPDATE images SET status='active', size=?, virtual_size=?, checksum=?, os_hash_algo='sha512', os_hash_value=?, updated_at=? WHERE id=? AND status='saving' AND deleted=FALSE", o.Size, o.VirtualSize, o.Checksum, o.SHA512, at, id); err != nil {
 			return err
 		}
-		if r.official != nil { // the original serves an active image from its location row
-			if err := r.ack(ctx, tx, "INSERT INTO image_locations (image_id, value, meta_data, status, created_at, updated_at, deleted) VALUES (?, ?, '{}', 'active', ?, ?, 0)", id, r.location(id), at, at); err != nil {
-				return err
-			}
+		// The original serves an active image from its location row.
+		if err := r.ack(ctx, tx, "INSERT INTO image_locations (image_id, value, meta_data, status, created_at, updated_at, deleted) VALUES (?, ?, '{}', 'active', ?, ?, 0)", id, r.location(id), at, at); err != nil {
+			return err
 		}
 		return r.ack(ctx, tx, "UPDATE image_data_operations SET phase='committed', updated_at=? WHERE image_id=? AND attempt_id=? AND phase='published'", at, id, attempt)
 	})
@@ -402,4 +401,36 @@ func (r *Repository) ListDataOperations(ctx context.Context, after string, limit
 		return nil, err
 	}
 	return result, nil
+}
+
+// ForgetPurgedData deletes the bookkeeping row of an image whose catalog row
+// no longer exists: the original's glance-manage db purge removes rows of
+// images deleted long ago, and this table has no foreign key to cascade.
+func (r *Repository) ForgetPurgedData(ctx context.Context, id, attempt string) error {
+	if err := transferIDs(id, attempt); err != nil {
+		return err
+	}
+	return conflict(withLockRetry(ctx, func() error {
+		ctx, cancel := context.WithTimeout(ctx, r.timeout)
+		defer cancel()
+		tx, err := r.db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		var rows int
+		if err = tx.QueryRowContext(ctx, r.sql("SELECT COUNT(*) FROM images WHERE id=? FOR UPDATE"), id).Scan(&rows); err != nil {
+			return err
+		}
+		if rows != 0 {
+			return repository.ErrConflict
+		}
+		if err = r.ack(ctx, tx, "DELETE FROM image_data_operations WHERE image_id=? AND attempt_id=?", id, attempt); err != nil {
+			return err
+		}
+		if tx.Commit() != nil {
+			return repository.ErrCommitUncertain
+		}
+		return nil
+	}))
 }

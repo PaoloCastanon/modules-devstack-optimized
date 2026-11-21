@@ -138,7 +138,11 @@ def run(args):
     args.notification_policy = p.get('notification_policy', 'original')
     args.go_notification_policy = p.get('go_notification_policy', 'noop')
     args.go_route = 'public' if p.get('route') == 'public-both' else 'direct'
-    args.go_catalog = p.get('go_catalog', 'own')
+    # Glance Go only serves the original's catalog. Protocols before v6 ran it
+    # on its own catalog: they are reproduced with their own frozen revision.
+    if p.get('go_catalog') != 'official':
+        raise ValueError('this revision runs Glance Go only on the original catalog (protocol v6 or later)')
+    args.go_catalog = 'official'
     storage_check(args.storage_path, p['host_free_minimum_bytes'])
     args.output.mkdir(parents=True, exist_ok=False)
     args.private_root.mkdir(mode=0o700, exist_ok=False)
@@ -162,15 +166,13 @@ def run(args):
                 run_id = pair['pair_id'] + '-' + implementation
                 print(json.dumps({'event': 'preparing', 'pair': i + 1, 'pairs': len(plan), 'run_id': run_id}), flush=True)
                 values = {**pair, 'implementation': implementation, 'run_id': run_id}
-                shared = getattr(args, 'go_catalog', 'own') == 'official'
-                if shared:
-                    # One catalog for both: the original soft-deletes, so an ID it used
-                    # stays reserved. Each implementation gets its own IDs in the pair.
-                    values['namespace'] = str(uuid.uuid5(uuid.UUID(pair['namespace']), implementation))
+                # One catalog for both: the original soft-deletes, so an ID it used
+                # stays reserved. Each implementation gets its own IDs in the pair.
+                values['namespace'] = str(uuid.uuid5(uuid.UUID(pair['namespace']), implementation))
                 config = remote.call('seed', values=values)
                 images = config['seed_snapshot']
-                if shared:  # IDs and the tag derived from them differ by design; every other field must match
-                    images = sorted(({k: v for k, v in i.items() if k not in ('id', 'tags')} for i in images), key=lambda i: i['name'])
+                # IDs and the tag derived from them differ by design; every other field must match
+                images = sorted(({k: v for k, v in i.items() if k not in ('id', 'tags')} for i in images), key=lambda i: i['name'])
                 equivalent = {'images': images, 'payload': config.get('payload')}
                 if baseline is not None and equivalent != baseline:
                     save(args.output / (run_id + '-inequivalent.json'), equivalent)

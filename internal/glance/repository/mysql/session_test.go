@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Scripted SQL protocol double: asserts connection ownership and acknowledged
@@ -68,7 +69,7 @@ func (c *scriptConn) next(q string, exec bool) sqlStep {
 	}
 	step := c.s.steps[0]
 	c.s.steps = c.s.steps[1:]
-	if strings.TrimSpace(step.query) != strings.TrimSpace(q) || step.exec != exec {
+	if strings.TrimSpace(officialSQL(step.query)) != strings.TrimSpace(q) || step.exec != exec {
 		c.s.t.Errorf("SQL ordering: got %q (exec=%v), want %q (exec=%v)", q, exec, step.query, step.exec)
 		step.err = errors.New("unexpected SQL")
 	}
@@ -153,59 +154,6 @@ func scriptDB(t *testing.T, steps []sqlStep) *sql.DB {
 	})
 	return db
 }
-func accountSteps(literal bool, mandatory, active string, grants ...string) []sqlStep {
-	steps := []sqlStep{query("SELECT DATABASE()", "glance_go"), query("SELECT @@GLOBAL.partial_revokes", literal), query("SELECT @@GLOBAL.mandatory_roles, CURRENT_ROLE()", mandatory, active)}
-	data := [][]driver.Value{}
-	for _, g := range grants {
-		data = append(data, []driver.Value{g})
-	}
-	return append(steps, sqlStep{query: "SHOW GRANTS", rows: data})
-}
-func TestAccountEffectivePrivilegeBoundary(t *testing.T) {
-	const safe = "GRANT SELECT, INSERT, UPDATE, DELETE ON `glance_go`.* TO `fixture`@`localhost`"
-	for _, tc := range []struct {
-		name              string
-		literal           bool
-		mandatory, active string
-		grants            []string
-		fail              bool
-	}{
-		{"limited direct grants", true, "", "NONE", []string{safe}, false},
-		{"global privileges", true, "", "NONE", []string{safe, "GRANT SELECT ON *.* TO `fixture`@`localhost`"}, true},
-		{"other schema", true, "", "NONE", []string{safe, "GRANT SELECT ON `glance`.* TO `fixture`@`localhost`"}, true},
-		{"mandatory excessive role", true, "`powerful`@`%`", "NONE", nil, true},
-		{"mandatory limited role unsupported", true, "`limited`@`%`", "NONE", nil, true},
-		{"default active role", true, "", "`limited`@`%`", nil, true},
-		{"inactive safe role not expanded", true, "", "NONE", []string{safe, "GRANT `limited`@`%` TO `fixture`@`localhost`"}, true},
-		{"partial revokes off escaped", false, "", "NONE", []string{strings.ReplaceAll(safe, "glance_go", `glance\_go`)}, false},
-		{"partial revokes off wildcard", false, "", "NONE", []string{safe}, true},
-		{"partial revokes on escaped mismatch", true, "", "NONE", []string{strings.ReplaceAll(safe, "glance_go", `glance\_go`)}, true},
-		{"percent wildcard", false, "", "NONE", []string{"GRANT SELECT ON `glance%`.* TO `fixture`@`localhost`"}, true},
-		{"partial revoke statement", true, "", "NONE", []string{safe, "REVOKE SELECT ON `glance`.* FROM `fixture`@`localhost`"}, true},
-		{"grant option", true, "", "NONE", []string{safe + " WITH GRANT OPTION"}, true},
-		{"proxy", true, "", "NONE", []string{"GRANT PROXY ON `root`@`localhost` TO `fixture`@`localhost`"}, true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			steps := accountSteps(tc.literal, tc.mandatory, tc.active, tc.grants...)
-			if tc.mandatory != "" || tc.active != "NONE" {
-				steps = steps[:3]
-			}
-			err := CheckAccount(context.Background(), scriptDB(t, steps), "serve")
-			if (err != nil) != tc.fail {
-				t.Fatalf("rejection=%v want=%v", err, tc.fail)
-			}
-		})
-	}
-	for _, index := range []int{1, 2, 3} {
-		t.Run(fmt.Sprintf("inspection unavailable %d", index), func(t *testing.T) {
-			steps := accountSteps(true, "", "NONE", safe)[:index+1]
-			steps[index].err = errors.New("permission unavailable")
-			if CheckAccount(context.Background(), scriptDB(t, steps), "serve") == nil {
-				t.Fatal("uninspected privileges accepted")
-			}
-		})
-	}
-}
 
 const historyQuery = "SELECT version, checksum, dirty FROM schema_migrations ORDER BY version"
 
@@ -225,8 +173,7 @@ func historyRows(n int) [][]driver.Value {
 	return rows
 }
 func migrationStepsFrom(applied int) []sqlStep {
-	steps := accountSteps(true, "", "NONE", "GRANT SELECT, INSERT, UPDATE, CREATE, ALTER, INDEX, REFERENCES ON `glance_go`.* TO `fixture`@`localhost`")
-	steps = append(steps, query("SELECT @@SESSION.autocommit", int64(1)), query("SELECT DATABASE()", "glance_go"), query("SELECT GET_LOCK(?, 0)", int64(1)))
+	steps := []sqlStep{query("SELECT @@SESSION.autocommit", int64(1)), query("SELECT DATABASE()", "glance_go_shared"), query("SELECT GET_LOCK(?, 0)", int64(1))}
 	table := sqlStep{query: historyTableQuery}
 	if applied > 0 {
 		table.rows = [][]driver.Value{{"BASE TABLE", "InnoDB"}}
@@ -237,7 +184,7 @@ func migrationStepsFrom(applied int) []sqlStep {
 	}
 	steps = append(steps, historyStructureSteps()...)
 	steps = append(steps, sqlStep{query: historyQuery, rows: historyRows(applied)}, query("SELECT COUNT(*) FROM schema_migrations", int64(applied)))
-	if applied == 2 {
+	if applied == 1 {
 		steps = append(steps, transferStructureSteps()...)
 	}
 	for _, m := range migrations()[applied:] {
@@ -247,9 +194,7 @@ func migrationStepsFrom(applied int) []sqlStep {
 				steps = append(steps, execute(q))
 			}
 		}
-		if m.version == 2 {
-			steps = append(steps, transferStructureSteps()...)
-		}
+		steps = append(steps, transferStructureSteps()...)
 		steps = append(steps, execute(fmt.Sprintf("UPDATE schema_migrations SET dirty=FALSE, applied_at=UTC_TIMESTAMP(6) WHERE version=%d AND dirty=TRUE AND checksum=?", m.version)))
 		steps = append(steps, historyStructureSteps()...)
 		steps = append(steps, sqlStep{query: historyQuery, rows: historyRows(int(m.version))})
@@ -281,8 +226,8 @@ func failedMigrationStep(steps []sqlStep, index int, err error) []sqlStep {
 func TestMigrationSessionAutocommit(t *testing.T) {
 	for _, value := range []driver.Value{int64(0), int64(2), nil, "unexpected"} {
 		t.Run(fmt.Sprint(value), func(t *testing.T) {
-			steps := migrationSteps(false)[:5]
-			steps[4] = query("SELECT @@SESSION.autocommit", value)
+			steps := migrationSteps(false)[:1]
+			steps[0] = query("SELECT @@SESSION.autocommit", value)
 			if Migrate(context.Background(), scriptDB(t, steps)) == nil {
 				t.Fatal("unsafe session was allowed to write")
 			}
@@ -298,7 +243,7 @@ func TestMigrationAcknowledgementAndFailures(t *testing.T) {
 		})
 	}
 	ddl := ""
-	for _, statement := range strings.Split(metadataSQL, ";") {
+	for _, statement := range strings.Split(dataOperationsSQL, ";") {
 		if strings.TrimSpace(statement) != "" {
 			ddl = statement
 			break
@@ -346,3 +291,16 @@ func TestMigrationAcknowledgementAndFailures(t *testing.T) {
 		})
 	}
 }
+
+// testRepo is the repository over the DevStack catalog ("glance") and store.
+func testRepo(db *sql.DB, timeout time.Duration) *Repository {
+	r, err := New(db, timeout, "glance", "/opt/stack/data/glance/images")
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
+
+// officialSQL is how the repository sends an unqualified catalog statement:
+// scripted expectations are written unqualified and compared after it.
+func officialSQL(q string) string { return testRepo(nil, 0).sql(q) }

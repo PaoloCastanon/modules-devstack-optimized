@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
-	"github.com/PaoloCastanon/modules-devstack-optimized/internal/config"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql"
@@ -28,36 +27,12 @@ func TestMySQLCatalogOperations(t *testing.T) {
 	if os.Getenv("GLANCE_GO_MYSQL_TEST") != "1" {
 		t.Fatal("explicit disposable MySQL opt-in required")
 	}
-	secret, err := config.ReadSecret(os.Getenv("GLANCE_GO_TEST_DSN_FILE"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	dsn := strings.TrimSpace(string(secret))
-	if err = mysql.ValidateTestDSN(dsn); err != nil {
-		t.Fatal(err)
-	}
-	db, err := mysql.Open(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if db != nil {
-			_ = db.Close()
-		}
-	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	if err = mysql.CheckAccount(ctx, db, "migrate"); err != nil {
-		t.Fatal(err)
-	}
-	var tables int
-	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()").Scan(&tables) != nil || tables != 0 {
-		t.Fatal("catalog suite requires a NEW EMPTY disposable schema")
-	}
-	if err = mysql.Migrate(ctx, db); err != nil {
-		t.Fatal(err)
-	}
-	r := mysql.New(db, 5*time.Second)
+	db, dsn, official := mysql.IntegrationFixture(t, ctx)
+	defer func() { _ = db.Close() }()
+	var err error
+	r := mysql.IntegrationRepo(t, db, 5*time.Second, official)
 	if err := r.PrepareStatements(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +179,7 @@ func TestMySQLCatalogOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r = mysql.New(db, 5*time.Second)
+	r = mysql.IntegrationRepo(t, db, 5*time.Second, official)
 	s = service.New(r, time.Now)
 	after, err = r.Get(ctx, patched.ID)
 	if err != nil || after.Properties["concurrent-one"] != "kept" || after.Properties["concurrent-two"] != "kept" || len(after.Tags) != 2 {
@@ -249,13 +224,13 @@ func TestMySQLCatalogOperations(t *testing.T) {
 	var deleted bool
 	var status string
 	var properties, tags int
-	if db.QueryRowContext(ctx, "SELECT deleted,status FROM images WHERE id=?", patched.ID).Scan(&deleted, &status) != nil || !deleted || status != "deleted" {
+	if db.QueryRowContext(ctx, "SELECT deleted,status FROM `"+official+"`.images WHERE id=?", patched.ID).Scan(&deleted, &status) != nil || !deleted || status != "deleted" {
 		t.Fatal("tombstone missing")
 	}
-	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM image_properties WHERE image_id=?", patched.ID).Scan(&properties) != nil || properties != 3 {
+	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM `"+official+"`.image_properties WHERE image_id=?", patched.ID).Scan(&properties) != nil || properties != 3 {
 		t.Fatal("tombstone properties not retained")
 	}
-	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM image_tags WHERE image_id=?", patched.ID).Scan(&tags) != nil || tags != 2 {
+	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM `"+official+"`.image_tags WHERE image_id=?", patched.ID).Scan(&tags) != nil || tags != 2 {
 		t.Fatal("tombstone tags not retained")
 	}
 	// All fixture data intentionally remains for review. No automatic cleanup.

@@ -1021,7 +1021,7 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - Proyección de diseño y esfuerzo (≈24 SP) de un store Ceph RBD; no implementado.
   Hallazgo: `Filesystem.Open` relee y hashea el objeto antes del primer byte, lo
   que es coherente con el TTFB y la CPU de las descargas de 16/64 MiB en v3.
-  [Proyección](../docs/glance/ceph-rbd-projection.md).
+  Proyección: `docs/glance/ceph-rbd-projection.md` (retirada el 2026-11-21 junto con RBD).
 - Primera corrida real (VM local, 6 GiB): pasan 7/10 casos. Nova falla al crear
   el servidor (HTTP 500, `MissingAuthPlugin`): keystoneauth necesita el
   descubrimiento de versiones de `/image/`, y Glance Go no lo tenía (respondía
@@ -1055,7 +1055,7 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   rechazo del borrado con un clon COW) y la B25 de punta a punta con disco y con
   RBD. El pool queda vacío al final.
   [Evidencia](../evidence/sprint5/glance-rbd-20261118/README.md),
-  [uso](../docs/glance/ceph-rbd.md).
+  Uso: `docs/glance/ceph-rbd.md` (retirado el 2026-11-21 junto con RBD).
 - **E2E conjunto:** `glance_suite.py --with-placement-go`. Dos corridas
   consecutivas de cada modo sobre `f7ea161`: solo Glance Go 10/10 y Glance Go +
   Placement Go 14/14, con limpieza completa. Nova publicó su proveedor, programó

@@ -36,9 +36,7 @@ infra-check:
 go-check:
 	@python3 scripts/harness.py go
 
-.PHONY: glance-fmt-check glance-vet glance-test glance-build glance-test-mysql
-.PHONY: glance-test-mysql-catalog
-.PHONY: glance-test-b25-upgrade glance-test-b25-sql glance-test-b25-pipeline
+.PHONY: glance-fmt-check glance-vet glance-test glance-build glance-test-integration
 # Go is selected per invocation; no global go env or installation changes.
 GLANCE_TOOLCHAIN ?= go1.27.3
 GLANCE_GOFMT ?= gofmt
@@ -58,24 +56,12 @@ glance-build:
 	@mkdir -p bin
 	$(GLANCE_GO) build -p 1 -trimpath -buildvcs=false -o bin/glance ./cmd/glance
 
-# Explicitly mutates an independently authorized, empty disposable test schema.
-glance-test-mysql:
-	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./internal/glance/repository/mysql -run '^TestMySQLPersistenceAndTransactions$$' -v
-
-# NEW EMPTY independently authorized schema; never run alongside the A suite on it.
-glance-test-mysql-catalog:
-	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./internal/glance/repository/mysql -run '^TestMySQLCatalogOperations$$' -v
-
-# MUTATING opt-ins, each requires its OWN new empty schema; not part of check.
-# GLANCE_GO_B25_MYSQL_TEST=1 must be supplied explicitly after authorization.
-glance-test-b25-upgrade:
-	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./internal/glance/repository/mysql -run '^TestB25MySQLVersionedUpgrade$$' -v
-
-glance-test-b25-sql:
-	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./internal/glance/repository/mysql -run '^TestB25MySQLConcurrentFences$$' -v
-
-glance-test-b25-pipeline:
-	$(GLANCE_GO) test -p 1 -count=1 -tags=integration ./cmd/glance -run '^TestB25MySQLFilesystemHTTP$$' -v
+# MySQL integration suites against the lab VM's MySQL (through an SSH tunnel),
+# each on its own disposable pair: glance_go_shared_test_<suite> plus
+# glance_official_test_<suite> created from the original's DDL. Not part of
+# check; the VM must be running. Usage: docs/glance/development.md.
+glance-test-integration:
+	bash scripts/glance_integration_tests.sh
 
 lab-up:
 	./infra/lab-vm/up.sh
@@ -160,18 +146,6 @@ placement-integration:
 GLANCE_INTEGRATION_ARGS ?=
 glance-integration:
 	python3 scripts/integration/glance_suite.py $(GLANCE_INTEGRATION_ARGS)
-
-# Ceph RBD store for Glance Go, on the developer host (Docker, no VM, no sudo):
-# Ceph 1 MON/1 OSD + disposable MySQL, store tests and B25 end-to-end with
-# filesystem and rbd. Not part of check. Usage: docs/glance/ceph-rbd.md.
-.PHONY: glance-build-rbd glance-test-rbd
-GLANCE_RBD_TEST_OUTPUT ?= /tmp/glance-rbd-tests-$(shell date +%Y%m%dT%H%M%S)
-glance-build-rbd:
-	@mkdir -p bin
-	CGO_ENABLED=1 $(GLANCE_GO) build -p 1 -tags rbd -trimpath -buildvcs=false -o bin/glance-rbd ./cmd/glance
-
-glance-test-rbd:
-	bash infra/ceph-micro/run-tests.sh $(GLANCE_RBD_TEST_OUTPUT)
 
 # Explicit live host campaign; VM/SDK/code deployment must already be prepared.
 .PHONY: placement-benchmark

@@ -201,6 +201,9 @@ func sameText(a *string, b string) bool { return a != nil && *a == b }
 // uncertain read-transaction completion. Always use the authoritative primary.
 func (u *UploadCoordinator) readState(ctx context.Context, id string) (model.DataState, error) {
 	s, err := u.transfers.DataState(ctx, id)
+	return checkedState(s, err, id)
+}
+func checkedState(s model.DataState, err error, id string) (model.DataState, error) {
 	if err != nil || s.ImageID != id || s.Deleted != (s.Status == "deleted") {
 		return model.DataState{}, ErrUploadReconciliation
 	}

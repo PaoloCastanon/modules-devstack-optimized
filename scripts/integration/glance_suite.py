@@ -3,14 +3,16 @@
 
 One command runs, in order and fail-fast, the functional contract of the Go
 service, the reversible substitution behind Apache /image, a real Nova boot from
-an image that only Glance Go stores, and the capture of the Nova → Glance flow.
+an image that Glance Go uploaded into the original's catalog and store (its only
+mode), and the capture of the Nova → Glance flow.
 It always restores the original route, removes its own server, image, runtime
 and identities, and refuses to report a pass if any cleanup check fails.
 
 Requires: the VM with DevStack, admin openrc in the environment, deployed
 openstacksdk, a built cmd/glance binary, the CirrOS file DevStack downloaded and
-explicit flavor/network IDs. Never starts the VM, never writes SQL to the
-original Glance database and never touches the original store.
+explicit flavor/network IDs. Never starts the VM. Glance Go writes the original
+catalog and store, as the permanent replacement; the suite removes every image
+it created.
 """
 import argparse
 import contextlib
@@ -660,7 +662,8 @@ class Suite(Session):
         require(active.get('status') == 'active' and active.get('size') == expected['size']
                 and active.get('checksum') == expected['md5'] and active.get('os_hash_value') == expected['sha512'],
                 'CirrOS active in Go with matching size/MD5/SHA-512')
-        require(not (Path('/opt/stack/data/glance/images') / ident).exists(), 'bytes not in the original store')
+        stored = Path('/opt/stack/data/glance/images') / ident  # glance_store's name, written by Go
+        require(stored.is_file() and file_digest(stored) == expected, 'bytes in the original store as <id>, same hashes')
         self.nova_image = {'id': ident, 'size': expected['size']}
         return {'image_size': expected['size'], 'source': path.name}
 
