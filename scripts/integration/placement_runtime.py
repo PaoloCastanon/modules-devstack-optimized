@@ -39,6 +39,7 @@ def run(args):
         raise ValueError('supported isolated service domain required')
     if not root.is_absolute() or root != root.resolve() or not re.fullmatch(r'tt-placement-[a-z0-9-]+', root.name):
         raise ValueError('absolute canonical tt-placement runtime path required')
+    official = domain == 'glance' and getattr(args, 'catalog', 'own') == 'official'
     if args.action == 'prepare':
         for port in [args.mysql_port, args.listen_port]:
             probe_available_port(port)
@@ -75,6 +76,8 @@ def run(args):
                  '--collect', '--property=Restart=on-failure', '--property=RestartSec=1',
                  *properties, *values])
 
+    if args.action == 'prepare' and official:
+        return prepare_official(args, root, state, save, checkpoint, start_unit)
     if args.action == 'prepare':
         import pymysql
         # Confine only this instance; leave DevStack's mysqld profile unchanged.
@@ -246,6 +249,66 @@ def run(args):
     return 0
 
 
+def prepare_official(args, root, state, save, checkpoint, start_unit):
+    """Glance Go on the ORIGINAL catalog, as the permanent replacement: a
+    private copy of the original's glance-api.conf (same MySQL account and
+    server, same glance database, same filesystem store, same Keystone user),
+    with the notification driver set to the campaign policy. Only Go's own
+    transfer bookkeeping lives in glance_go_shared on that server; the private
+    root holds the store lock/scope and the config copy. No MySQL is started."""
+    import uuid
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'benchmarks'))
+    raw = subprocess.run(['sudo', '-n', 'cat', '/etc/glance/glance-api.conf'], check=True, capture_output=True, text=True).stdout
+    if args.notifications == 'noop':
+        from glance_notifications import noop_config
+        raw = noop_config(raw)
+    save('glance-api.conf', raw)
+    state.update(catalog='official', db_unit=None, schema='glance', notifications=glance_notification_settings(raw)['driver'])
+    checkpoint()
+    shutil.copy(args.binary, root / 'glance')
+    (root / 'glance').chmod(0o700)
+    base = {k: v for k, v in os.environ.items() if not k.startswith('GLANCE_GO_')}
+    conf = {'GLANCE_GO_CONFIG_FILE': str(root / 'glance-api.conf')}
+    with (root / 'migrate.log').open('w') as log:
+        subprocess.run([str(root / 'glance'), 'migrate'], env={**base, **conf}, check=True, stdout=log, stderr=subprocess.STDOUT)
+    (root / 'store').mkdir(mode=0o700)
+    settings = {**conf, 'GLANCE_GO_LISTEN_ADDR': '127.0.0.1:' + str(args.listen_port), 'GLANCE_GO_PUBLIC_BASE_URL': args.public_url,
+                'GLANCE_GO_BINARY_ENABLED': 'true', 'GLANCE_GO_STORE_ROOT': str(root / 'store'),
+                'GLANCE_GO_MAX_CONCURRENT_TRANSFERS': '16', 'GLANCE_GO_UPLOAD_TIMEOUT': '120s', 'GLANCE_GO_DOWNLOAD_TIMEOUT': '120s'}
+    scope = subprocess.run([str(root / 'glance'), 'store-scope'], env={**base, **settings}, check=True, capture_output=True, text=True).stdout.strip()
+    if str(uuid.UUID(scope)) != scope:
+        raise ValueError('verified store scope required')
+    settings['GLANCE_GO_STORE_SCOPE'] = scope
+    with (root / 'store-init.log').open('w') as log:
+        subprocess.run([str(root / 'glance'), 'store-init'], env={**base, **settings}, check=True, stdout=log, stderr=subprocess.STDOUT)
+    save('serve.env', ''.join(k + '=' + v + '\n' for k, v in settings.items()))
+    state['go_unit'] = 'tt-placement-b13-go-' + state['id']
+    start_unit(state['go_unit'], [str(root / 'glance'), 'serve'], ['--property=EnvironmentFile=' + str(root / 'serve.env')])
+    from urllib.request import urlopen
+    from urllib.error import HTTPError
+    for _ in range(100):
+        try:
+            with urlopen('http://127.0.0.1:' + str(args.listen_port) + '/v2/images', timeout=1):
+                break
+        except HTTPError as error:
+            if error.code == 401:
+                break
+        except OSError:
+            pass
+        time.sleep(.2)
+    else:
+        raise RuntimeError('Go readiness failed')
+    state['prepared'] = True
+    checkpoint()
+    report = {'prepared': True, 'db_unit': None, 'go_unit': state['go_unit'], 'schema': 'glance', 'catalog': 'official',
+              'listen_port': args.listen_port, 'binary_sha256': hashlib.sha256((root / 'glance').read_bytes()).hexdigest(),
+              'separate_mysql_datadir': None, 'runtime_has_ddl': False, 'domain': 'glance', 'separate_store': False,
+              'notifications': state['notifications']}
+    save('public-report.json', report)
+    print(json.dumps(report))
+    return 0
+
+
 def glance_notification_settings(conf_text):
     """[oslo_messaging_notifications] (driver, topics, transport_url) with the
     [DEFAULT] transport_url fallback, plus default_publisher_id and
@@ -279,6 +342,8 @@ def main():
     parser.add_argument('--keystone-url', default='http://192.168.122.10/identity/v3')
     parser.add_argument('--notifications', choices=['noop', 'original'], default='noop',
                         help="Glance only: 'original' copies the replaced Glance's notification settings")
+    parser.add_argument('--catalog', choices=['own', 'official'], default='own',
+                        help="Glance only: 'official' serves the original's catalog and store, as the permanent replacement")
     parser.add_argument('--allow-mutations', action='store_true')
     args = parser.parse_args()
     try:

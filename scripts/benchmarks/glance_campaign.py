@@ -34,6 +34,16 @@ def windows(p, pilot=False):
 
 
 def validate_protocol(p):
+    if p['protocol'] == 'glance-compact-v6':
+        # v6: v5 matrix and route, under the same conditions for both: Glance Go
+        # serves the original's catalog, MySQL server and store (as the permanent
+        # replacement), and both run with notifications off (noop).
+        base = {**p, 'protocol': 'glance-compact-v5', 'go_notification_policy': 'original'}
+        base.pop('go_catalog', None)
+        validate_protocol(base)
+        if p.get('go_catalog') != 'official' or p.get('go_notification_policy') != 'noop' or p.get('notification_policy') != 'noop':
+            raise ValueError('v6 requires the official catalog for Go and noop notifications for both')
+        return windows(p)
     if p['protocol'] == 'glance-compact-v5':
         # v5: the matrix of the Placement campaign (C=1/4/8/16, 5 repetitions)
         # and both implementations measured through Apache's /image.
@@ -128,6 +138,7 @@ def run(args):
     args.notification_policy = p.get('notification_policy', 'original')
     args.go_notification_policy = p.get('go_notification_policy', 'noop')
     args.go_route = 'public' if p.get('route') == 'public-both' else 'direct'
+    args.go_catalog = p.get('go_catalog', 'own')
     storage_check(args.storage_path, p['host_free_minimum_bytes'])
     args.output.mkdir(parents=True, exist_ok=False)
     args.private_root.mkdir(mode=0o700, exist_ok=False)

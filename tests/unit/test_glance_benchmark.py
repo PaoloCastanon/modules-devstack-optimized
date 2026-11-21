@@ -384,3 +384,29 @@ class CgroupMemoryTests(unittest.TestCase):
             out = cgroup_memory(rows, 'go', 4, 10)
             self.assertEqual((out['cgroup_anon_mean_bytes'], out['cgroup_anon_peak_bytes'], out['cgroup_samples']), (200, 300, 3))
             self.assertEqual(cgroup_memory(Path(tmp) / 'missing', 'go', 0, 1), {})
+
+
+class CompactV6Tests(unittest.TestCase):
+    def test_v6_same_conditions_official_catalog_and_noop_for_both(self):
+        import json
+        from pathlib import Path
+        from glance_campaign import validate_protocol
+        p = json.loads((Path(__file__).resolve().parents[2] / 'docs/benchmarks/glance-protocol-compact-v6.json').read_text())
+        self.assertEqual(validate_protocol(p), 360)
+        for change in ({'go_catalog': 'own'}, {'go_notification_policy': 'original'}, {'route': 'direct'}, {'repetitions': 3}):
+            with self.assertRaises(ValueError):
+                validate_protocol({**p, **change})
+
+    def test_official_catalog_reaches_the_lab_command(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest import mock
+        import placement_campaign
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(placement_campaign.subprocess, 'Popen') as popen:
+            args = SimpleNamespace(known_hosts=Path(tmp) / 'k', ssh_key=Path(tmp) / 'id', host='stack@192.168.122.10',
+                                   remote_code=Path('/c'), remote_work=Path('/w'), remote_output=Path('/o'), private_root=Path(tmp),
+                                   domain='glance', notification_policy='noop', go_notification_policy='noop',
+                                   go_route='public', go_catalog='official')
+            placement_campaign.Remote(args).stderr.close()
+            self.assertIn('--go-catalog official', popen.call_args[0][0][-1])

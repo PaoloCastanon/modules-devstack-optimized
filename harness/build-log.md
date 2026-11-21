@@ -1312,3 +1312,13 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   - Revisión medida `7e922cd`, binario `67e58def…`.
     [Resultados](../docs/benchmarks/glance-results-v5-pc-juan-20261121.md).
     La evidencia cruda queda fuera del repositorio (en el PC de Juan).
+- 2026-11-21, protocolo Glance compact v6: la matriz y la ruta de la v5,
+  ahora con las mismas condiciones de datos para los dos.
+  - **Glance Go en la campaña:** corre en modo oficial
+    (`placement_runtime.py --catalog official`, una rama solo de Glance), con
+    una copia privada del `glance-api.conf` del original: el mismo servidor
+    MySQL, la misma base `glance`, el mismo store y el mismo usuario de
+    Keystone. No levanta su propio MySQL.
+  - **Notificaciones:** apagadas (`noop`) en los dos.
+  - **Prueba en la VM:** el runtime sirve el catálogo oficial y se cierra
+    limpio. 130 pruebas y `make check` OK.
