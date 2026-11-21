@@ -169,8 +169,8 @@ def run(args):
                     values['namespace'] = str(uuid.uuid5(uuid.UUID(pair['namespace']), implementation))
                 config = remote.call('seed', values=values)
                 images = config['seed_snapshot']
-                if shared:  # IDs differ by design; every other field must still match
-                    images = sorted(({k: v for k, v in i.items() if k != 'id'} for i in images), key=lambda i: i['name'])
+                if shared:  # IDs and the tag derived from them differ by design; every other field must match
+                    images = sorted(({k: v for k, v in i.items() if k not in ('id', 'tags')} for i in images), key=lambda i: i['name'])
                 equivalent = {'images': images, 'payload': config.get('payload')}
                 if baseline is not None and equivalent != baseline:
                     save(args.output / (run_id + '-inequivalent.json'), equivalent)
