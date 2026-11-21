@@ -1292,3 +1292,23 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   - **Efecto:** esa espera queda registrada como latencia, y cada ventana
     cuenta `requests_over_10s` y `max_request_s`. Cualquier error HTTP,
     bytes incorrectos o una limpieza fallida siguen invalidando la ventana.
+- 2026-11-21, campaña Glance compact v5 en el PC de Juan: **aceptada 360/360**.
+  - **Volumen:** 2 465 173 solicitudes medidas, 0 errores.
+  - **Condiciones:** los dos por Apache `/image`; 9 cargas × 1/4/8/16 clientes
+    × 5 pares.
+  - **Resultado:** Glance Go fue mejor en las 36 celdas, de 1,10× (bajar
+    64 MiB, 1 cliente) a 40,3× (ciclo de metadatos, 16 clientes). En todas,
+    el rango de los 5 pares queda sobre 1×.
+  - **Memoria:** PSS de 233–238 MiB en el original frente a 16–39 MiB en
+    Glance Go; `anon` del cgroup, 229–234 frente a 7–31 MiB.
+  - **Saturación del original:** solo una ventana tuvo pedidos de más de
+    10 s (el original subiendo 64 MiB con 16 clientes: 2 pedidos, el más
+    lento de 10,4 s).
+  - **Fallos de entorno corregidos antes de esta corrida (driver local):**
+    Keystone sin responder tras el arranque, el salto de NTP al arrancar y
+    una deriva de ~25 ppm entre el PC y la VM. La VM ahora sigue el reloj
+    del PC con chrony y `ptp_kvm`, con un desfase de 0,00–0,01 ms. Se fue
+    directo a la oficial, porque el piloto ya había pasado 72/72.
+  - Revisión medida `7e922cd`, binario `67e58def…`.
+    [Resultados](../docs/benchmarks/glance-results-v5-pc-juan-20261121.md).
+    La evidencia cruda queda fuera del repositorio (en el PC de Juan).
