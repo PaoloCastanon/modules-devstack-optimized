@@ -1358,5 +1358,7 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   - **Hallazgos corregidos:** PATCH con 409 sobre el esquema real (los
     `DATETIME` del original tienen segundos; ahora se cuentan filas
     encontradas, como SQLAlchemy) y la recuperación que no toleraba imágenes
-    borradas o purgadas por el original.
+    borradas o purgadas por el original. Verificado en vivo: tras purgar
+    5 402 imágenes borradas, Glance Go arrancó solo (76 filas huérfanas
+    olvidadas, 2 conservadas).
     [Evidencia](../evidence/sprint5/glance-official-only-20261121/README.md).

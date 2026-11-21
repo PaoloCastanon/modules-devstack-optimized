@@ -17,6 +17,7 @@ usuario de Keystone. Binario estático `c2c7c2e9ee5354bcce74199a1ec136fca14fffc7
 | B26 conjunta con Placement Go | 2/2 corridas, 16/16 casos |
 | E2E compartido original ↔ Go + Nova ([shared-e2e/](shared-e2e/shared-e2e.log)) | 10/10 rondas |
 | Reemplazo permanente reinstalado (`glance_replace.py install`) | `glance-go.service` activo, `/image` → Glance Go |
+| Purga real del original y arranque de Glance Go | 5 402 imágenes borradas purgadas (`glance-manage db purge` y `purge_images_table`, `--age_in_days 0`); al arrancar: 78 operaciones revisadas, 76 huérfanas olvidadas, 2 conservadas; 0 huérfanas después |
 
 Todas las corridas de B26 terminaron con `pending_images: 0`, catálogo y sitios
 del original sin cambios y los controles de mantenimiento restaurados.
