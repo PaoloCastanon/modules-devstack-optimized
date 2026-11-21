@@ -1,0 +1,4 @@
+=== RUN   TestMySQLCatalogOperations
+--- PASS: TestMySQLCatalogOperations (0.63s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql	1.646s

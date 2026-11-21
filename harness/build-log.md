@@ -1342,3 +1342,21 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   - **Corrección:** con `go_catalog=official`, cada implementación recibe su
     propio espacio de ID dentro del par. La equivalencia de la siembra
     compara todo salvo el ID.
+- 2026-11-21, Glance Go solo en modo oficial (`5422f4c`, rama
+  `feat/glance-official-only`): se quitan el catálogo propio y el store Ceph
+  RBD. Glance Go siempre lee el `glance-api.conf` del original (base `glance`,
+  cuenta MySQL, `filesystem_store_datadir`, usuario de Keystone); su única
+  tabla, `image_data_operations`, sigue en `glance_go_shared` con el mismo
+  checksum de migración que la ya instalada.
+  - **Pruebas:** `go test -race` de Glance, config y auth; `go vet` y
+    `go test` de todo el repo; gate sin el `go-check` de Placement OK.
+    Integración nueva contra el DDL real del original en la VM
+    (`make glance-test-integration`, con `-race`): 9/9 suites.
+  - **VM:** B26 10/10 (12/12 casos) y conjunta con Placement Go 2/2 (16/16);
+    `glance_replace.py install` con el binario nuevo (`c2c7c2e9…`) y E2E
+    compartido 10/10 rondas.
+  - **Hallazgos corregidos:** PATCH con 409 sobre el esquema real (los
+    `DATETIME` del original tienen segundos; ahora se cuentan filas
+    encontradas, como SQLAlchemy) y la recuperación que no toleraba imágenes
+    borradas o purgadas por el original.
+    [Evidencia](../evidence/sprint5/glance-official-only-20261121/README.md).
