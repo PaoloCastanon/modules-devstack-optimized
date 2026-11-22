@@ -1399,3 +1399,19 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   - **Arranque:** la recuperación lista solo lo pendiente (13 s → 35 ms).
   - Integración 9/9 con `-race` y `make check` OK. Falta un `stack.sh` limpio.
     [Evidencia](../evidence/sprint5/glance-devstack-plugin-20261122/README.md).
+- 2026-11-22, optimizaciones (regla: igual al original; si no, no más lento;
+  y aun así más rápido si se puede, sin quitar funciones). Medición pareada
+  directa en la VM, mismo catálogo y disco (original por su puerto de uWSGI):
+  - **Subida en paralelo:** MD5, SHA-512 y la escritura en goroutines propias
+    con doble búfer (antes SHA-512 y escritura en serie). Los mismos dos hashes
+    que el original. 64 MiB: 173,6 → 138,4 ms (C=1) y 3237 → 1864 ms (C=16).
+  - **Subida en dos commits, como `image_data.upload`:** reserva (`saving`) y
+    `FinishData` (recibo, ubicación y `active` en una transacción) tras escribir
+    y verificar el archivo; antes eran cuatro commits con relecturas.
+    1 MiB: 33,6 → 21,3 ms (C=1) y 143 → 100 ms (C=16).
+  - Contra el original, Go queda entre ×2,9 (subir 64 MiB, C=16, límite del
+    disco) y ×47 (subir 1 MiB, C=16). Integración 9/9 con `-race`, suite
+    unificada 3/3.
+  - **Diferencia declarada:** el original aplica las cuotas de Keystone
+    (`use_keystone_limits`, 100 imágenes y 2000 MiB por proyecto en DevStack);
+    Glance Go no, porque está fuera del alcance de las 7 operaciones.
