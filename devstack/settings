@@ -1,0 +1,30 @@
+# DevStack plugin settings: Glance Go replaces the Glance image API (g-api).
+#
+#   [[local|localrc]]
+#   enable_plugin glance-go https://github.com/PaoloCastanon/modules-devstack-optimized main
+#
+# DevStack still installs, configures and migrates the original Glance (g-api):
+# Glance Go reads its glance-api.conf and serves its database, store directory
+# and Keystone service user. After DevStack has started everything (and uploaded
+# CirrOS through g-api), the plugin starts devstack@g-go, points Apache /image to
+# it and stops g-api. The image endpoint in Keystone does not change.
+
+enable_service g-go
+
+# Where enable_plugin cloned this repository.
+GLANCE_GO_DIR=${GLANCE_GO_DIR:-$DEST/glance-go}
+GLANCE_GO_BIN=${GLANCE_GO_BIN:-$GLANCE_GO_DIR/bin/glance}
+# Private root for the store lock and scope marker (image files go to the
+# original's filesystem_store_datadir).
+GLANCE_GO_STORE_ROOT=${GLANCE_GO_STORE_ROOT:-$DATA_DIR/glance-go/store}
+GLANCE_GO_LISTEN=${GLANCE_GO_LISTEN:-127.0.0.1:19292}
+# Extra GLANCE_GO_* settings for the unit, space separated (see
+# configs/glance.env.example), e.g. "GLANCE_GO_MAX_CONCURRENT_TRANSFERS=16".
+GLANCE_GO_EXTRA_ENV=${GLANCE_GO_EXTRA_ENV:-}
+
+# Go toolchain used to build Glance Go, downloaded once from go.dev and checked
+# against its published SHA-256 (linux-amd64). Set GLANCE_GO_TOOLCHAIN_SHA256 for
+# another version or architecture.
+GLANCE_GO_TOOLCHAIN_VERSION=${GLANCE_GO_TOOLCHAIN_VERSION:-1.27.4}
+GLANCE_GO_TOOLCHAIN_SHA256=${GLANCE_GO_TOOLCHAIN_SHA256:-7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840}
+GLANCE_GO_TOOLCHAIN_DIR=${GLANCE_GO_TOOLCHAIN_DIR:-$DEST/go-$GLANCE_GO_TOOLCHAIN_VERSION}
