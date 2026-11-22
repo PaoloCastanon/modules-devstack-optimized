@@ -141,14 +141,38 @@ func (r *Repository) materialize(ctx context.Context, tx *sql.Tx, o *model.DataO
 }
 
 // destroyChildren soft-deletes what the original's image_destroy removes
-// with the image: locations, properties and tags.
+// with the image, the same way: locations are read without locking and
+// updated by primary key (_image_locations_delete_all); properties and tags
+// with one UPDATE by image (_image_child_entry_delete_all). An UPDATE of
+// locations by image_id lets MySQL pick ix_image_locations_deleted and lock
+// rows of other images: concurrent DELETEs deadlocked until their deadline.
 func (r *Repository) destroyChildren(ctx context.Context, tx *sql.Tx, id string, at any) error {
+	rows, err := r.query(ctx, tx, "SELECT id FROM image_locations WHERE image_id=?", id)
+	if err != nil {
+		return err
+	}
+	var locations []int64
+	for rows.Next() {
+		var location int64
+		if err = rows.Scan(&location); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		locations = append(locations, location)
+	}
+	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+		return err
+	}
+	for _, location := range locations {
+		if _, err = r.exec(ctx, tx, "UPDATE image_locations SET deleted=1, deleted_at=?, updated_at=?, status='deleted' WHERE id=? AND deleted=0", at, at, location); err != nil {
+			return err
+		}
+	}
 	for _, q := range []string{
-		"UPDATE image_locations SET deleted=1, deleted_at=?, updated_at=?, status='deleted' WHERE image_id=? AND deleted=0",
 		"UPDATE image_properties SET deleted=1, deleted_at=?, updated_at=? WHERE image_id=? AND deleted=0",
 		"UPDATE image_tags SET deleted=1, deleted_at=?, updated_at=? WHERE image_id=? AND deleted=0",
 	} {
-		if _, err := r.exec(ctx, tx, q, at, at, id); err != nil {
+		if _, err = r.exec(ctx, tx, q, at, at, id); err != nil {
 			return err
 		}
 	}
