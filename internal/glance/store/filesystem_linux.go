@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"os"
 	"path/filepath"
@@ -466,44 +465,81 @@ func (s *Filesystem) Stage(ctx context.Context, key Key, src io.Reader, limit in
 	return s.stageDirect(ctx, name, src, limit, declared)
 }
 
-// md5Worker hashes MD5 on its own goroutine while the caller computes SHA-512
-// and writes the same chunk (the two digests are independent). It never reads
-// the source; each chunk is joined before its buffer is reused, and the
-// goroutine exits before measure returns, so nothing is left behind.
-type md5Worker struct {
+// stage runs one per-chunk step (MD5, SHA-512 or the file write) on its own
+// goroutine. measure feeds every chunk to all stages, so the two digests and
+// the write proceed in parallel, while the next network read fills the other
+// buffer. A buffer is reused only after every stage finished with it, and
+// all goroutines exit before measure returns.
+type stage struct {
 	in   chan []byte
-	done chan struct{}
-	h    hash.Hash
+	done chan error
 }
 
-func newMD5Worker() *md5Worker {
-	w := &md5Worker{in: make(chan []byte), done: make(chan struct{}), h: md5.New()}
+func newStage(run func([]byte) error) *stage {
+	s := &stage{in: make(chan []byte), done: make(chan error)}
 	go func() {
-		for chunk := range w.in {
-			_, _ = w.h.Write(chunk)
-			w.done <- struct{}{}
+		for chunk := range s.in {
+			s.done <- run(chunk)
 		}
-		close(w.done)
 	}()
-	return w
+	return s
 }
 
-func (w *md5Worker) submit(chunk []byte) { w.in <- chunk }
-func (w *md5Worker) wait()               { <-w.done }
+type pipeline struct {
+	stages  []*stage
+	pending bool
+}
 
-// stop ends the goroutine; it must not be called while a chunk is pending.
-func (w *md5Worker) stop() {
-	close(w.in)
-	<-w.done
+func (p *pipeline) submit(chunk []byte) {
+	for _, s := range p.stages {
+		s.in <- chunk
+	}
+	p.pending = true
+}
+
+// wait joins the chunk in flight and returns the first stage error.
+func (p *pipeline) wait() error {
+	if !p.pending {
+		return nil
+	}
+	var first error
+	for _, s := range p.stages {
+		if err := <-s.done; err != nil && first == nil {
+			first = err
+		}
+	}
+	p.pending = false
+	return first
+}
+
+func (p *pipeline) stop() {
+	_ = p.wait()
+	for _, s := range p.stages {
+		close(s.in)
+	}
 }
 
 func measure(ctx context.Context, src io.Reader, write func([]byte) (int, error), limit int64, expected *int64) (Info, error) {
-	h := sha512.New()
-	m := newMD5Worker()
-	defer m.stop()
-	buf := make([]byte, BufferSize)
+	md, sh := md5.New(), sha512.New()
+	stages := []*stage{
+		newStage(func(b []byte) error { _, _ = md.Write(b); return nil }),
+		newStage(func(b []byte) error { _, _ = sh.Write(b); return nil }),
+	}
+	if write != nil {
+		stages = append(stages, newStage(func(b []byte) error {
+			n, err := write(b)
+			if err == nil && n != len(b) {
+				err = io.ErrShortWrite
+			}
+			return err
+		}))
+	}
+	p := &pipeline{stages: stages}
+	defer p.stop()
+	// Two buffers: the read of chunk n+1 overlaps the stages of chunk n.
+	bufs := [2][]byte{make([]byte, BufferSize), make([]byte, BufferSize)}
 	var size int64
-	emptyReads := 0
+	emptyReads, turn := 0, 0
 	for {
 		if err := ctx.Err(); err != nil {
 			return Info{}, err
@@ -512,6 +548,7 @@ func measure(ctx context.Context, src io.Reader, write func([]byte) (int, error)
 		if expected != nil && *expected-size < remaining {
 			remaining = *expected - size
 		}
+		buf := bufs[turn]
 		chunk := buf
 		if remaining < int64(len(buf)) {
 			chunk = buf[:remaining+1] // one extra byte, without overflowing int64
@@ -531,22 +568,14 @@ func measure(ctx context.Context, src io.Reader, write func([]byte) (int, error)
 		}
 		if n > 0 {
 			emptyReads = 0
-			data := chunk[:n]
-			m.submit(data)
-			var writeErr error
-			if write != nil {
-				written, err := write(data)
-				if err == nil && written != n {
-					err = io.ErrShortWrite
-				}
-				writeErr = err
+			// The previous chunk (other buffer) must be fully hashed and
+			// written before this one is handed to the stages.
+			if err := p.wait(); err != nil {
+				return Info{}, err
 			}
-			_, _ = h.Write(data)
-			m.wait() // buf is reused by the next Read
-			if writeErr != nil {
-				return Info{}, writeErr
-			}
+			p.submit(chunk[:n])
 			size += int64(n)
+			turn ^= 1
 		} else if readErr == nil {
 			emptyReads++
 			if emptyReads >= 100 {
@@ -560,13 +589,16 @@ func measure(ctx context.Context, src io.Reader, write func([]byte) (int, error)
 			break
 		}
 	}
+	if err := p.wait(); err != nil {
+		return Info{}, err
+	}
 	if err := ctx.Err(); err != nil {
 		return Info{}, err
 	}
 	if expected != nil && size != *expected {
 		return Info{}, ErrSizeMismatch
 	}
-	return Info{Size: size, Checksum: hex.EncodeToString(m.h.Sum(nil)), SHA512: hex.EncodeToString(h.Sum(nil))}, nil
+	return Info{Size: size, Checksum: hex.EncodeToString(md.Sum(nil)), SHA512: hex.EncodeToString(sh.Sum(nil))}, nil
 }
 
 func (s *Filesystem) Publish(ctx context.Context, key Key, expected Info) error {
