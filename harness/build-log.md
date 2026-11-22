@@ -1415,3 +1415,20 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   - **Diferencia declarada:** el original aplica las cuotas de Keystone
     (`use_keystone_limits`, 100 imágenes y 2000 MiB por proyecto en DevStack);
     Glance Go no, porque está fuera del alcance de las 7 operaciones.
+- 2026-11-22, campaña Glance compact v6 oficial: **aceptada 360/360**
+  (revisión `a69474d`, binario `a082d95d…`, Go 1.27.4).
+  - **Entorno:** DevStack reinstalado desde cero con `enable_plugin glance-go`
+    (`clean.sh` + `stack.sh`, rc 0) y suite unificada 3/3 antes de medir.
+    Dos arreglos de entorno: `clean.sh` se colgó en `ovs-vsctl` con
+    `ovs-vswitchd` detenido (se arrancó), y el kernel nuevo no traía
+    `ptp_kvm` (se instaló `linux-modules-extra`). Un defecto del plugin: si se
+    agrega a un DevStack ya instalado, `unstack.sh` no detiene g-go; ahora el
+    plugin reemplaza siempre el g-go previo (`a69474d`).
+  - **Interrupción:** el PC se quedó sin memoria en la ventana 231 y Claude Code
+    detuvo el proceso; se reanudó desde el par 116, repetido entero con ID
+    nuevos; los recursos de las primeras 230 ventanas se recuperaron de la VM.
+  - **Resultado:** Glance Go gana en las 36 celdas, de ×1,09 (bajar 64 MiB,
+    C=1) a ×39,6 (subir 1 MiB, C=16); PSS 16–53 MiB frente a 233–239 MiB.
+    El original subió un 30–37 % más lento que en la v5 en el DevStack
+    reinstalado: los factores se comparan dentro de cada campaña.
+    [Resultados](../docs/benchmarks/glance-results-v6-pc-juan-20261122.md).
