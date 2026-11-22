@@ -68,14 +68,11 @@ func parseDSN(value string) (*driver.Config, error) {
 	// metadata-only PATCH within the same second leaves the images row
 	// unchanged; counting changed rows would report it as a conflict.
 	c.ClientFoundRows = true
+	// Like pymysql, which the original uses: 10 s to connect and no read or
+	// write timeout. A query waits for MySQL (e.g. a commit stalled by disk
+	// writeback) within the deadline of the request that issued it.
 	if c.Timeout == 0 {
-		c.Timeout = 5 * time.Second
-	}
-	if c.ReadTimeout == 0 {
-		c.ReadTimeout = 5 * time.Second
-	}
-	if c.WriteTimeout == 0 {
-		c.WriteTimeout = 5 * time.Second
+		c.Timeout = 10 * time.Second
 	}
 	if c.Params == nil {
 		c.Params = map[string]string{}

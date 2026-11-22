@@ -22,6 +22,7 @@ type sqlStep struct {
 	rowsErr   error
 	affected  int64
 	checkArgs func([]driver.NamedValue)
+	delay     time.Duration // a slow server: the statement waits, bounded by ctx
 }
 type sessionScript struct {
 	t      *testing.T
@@ -89,8 +90,15 @@ func (c *scriptConn) QueryContext(_ context.Context, q string, args []driver.Nam
 	}
 	return &scriptRows{data: step.rows, err: step.rowsErr, width: width}, nil
 }
-func (c *scriptConn) ExecContext(_ context.Context, q string, args []driver.NamedValue) (driver.Result, error) {
+func (c *scriptConn) ExecContext(ctx context.Context, q string, args []driver.NamedValue) (driver.Result, error) {
 	step := c.next(q, true)
+	if step.delay > 0 {
+		select {
+		case <-time.After(step.delay):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 	if step.checkArgs != nil {
 		step.checkArgs(args)
 	}

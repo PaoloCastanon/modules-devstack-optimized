@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"testing"
+	"time"
 )
 
 func TestDSNGuards(t *testing.T) {
@@ -22,7 +23,8 @@ func TestDSNGuards(t *testing.T) {
 	}
 	db.Close()
 	c, err := parseDSN("glance_go_app:fixture@tcp(127.0.0.1:1)/glance_go_shared")
-	if err != nil || !c.ParseTime || c.InterpolateParams || c.ReadTimeout <= 0 || !c.ClientFoundRows {
+	// As pymysql: connect timeout only; queries are bounded by the request.
+	if err != nil || !c.ParseTime || c.InterpolateParams || c.Timeout != 10*time.Second || c.ReadTimeout != 0 || c.WriteTimeout != 0 || !c.ClientFoundRows {
 		t.Fatal("unsafe defaults")
 	}
 	if err := ValidateTestDSN("glance_go_test:fixture@tcp(127.0.0.1:3306)/glance_go_shared"); err == nil {

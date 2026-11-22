@@ -414,3 +414,38 @@ func TestForgetPurgedDataOnlyForMissingImages(t *testing.T) {
 		t.Fatal("invalid ID accepted")
 	}
 }
+
+// Like oslo.db, a statement waits for a slow MySQL (a commit stalled by disk
+// writeback in the v6 campaign) within the deadline of the request that
+// issued it; r.timeout only bounds callers without a deadline.
+func TestSlowCommitWaitsWithinTheRequestDeadline(t *testing.T) {
+	steps := func() []sqlStep {
+		s := append(transferSteps("saving", false, dataFixture(model.DataPublished)), execute(commitImageSQL), execute(commitLocationSQL), execute(commitOperationSQL), execute("COMMIT"))
+		s[3].delay = 300 * time.Millisecond
+		return s
+	}
+	request, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := testRepo(scriptDB(t, steps()), 100*time.Millisecond).CommitData(request, catalogID, attemptA, dataNow); err != nil {
+		t.Fatal("slow commit failed inside the request deadline", err)
+	}
+	// The request deadline itself still applies: see TestBound… (database/sql
+	// rolls back asynchronously on expiry, which this script double cannot order).
+}
+
+func TestBoundUsesTheCallerDeadlineOrTheRepositoryTimeout(t *testing.T) {
+	r := testRepo(nil, 50*time.Millisecond)
+	ctx, cancel := r.bound(context.Background())
+	deadline, ok := ctx.Deadline()
+	cancel()
+	if !ok || time.Until(deadline) > 50*time.Millisecond {
+		t.Fatal("no deadline for a caller without one")
+	}
+	parent, stop := context.WithTimeout(context.Background(), time.Hour)
+	defer stop()
+	ctx, cancel = r.bound(parent)
+	defer cancel()
+	if d, _ := ctx.Deadline(); d.Before(time.Now().Add(59 * time.Minute)) {
+		t.Fatal("caller deadline shortened")
+	}
+}

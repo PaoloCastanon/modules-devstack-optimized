@@ -83,7 +83,7 @@ func (r *Repository) dataTransaction(ctx context.Context, id string, change func
 }
 
 func (r *Repository) dataTransactionOnce(ctx context.Context, id string, change func(context.Context, *sql.Tx, model.DataState) error) (err error) {
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -313,7 +313,7 @@ func (r *Repository) DataStateSnapshot(ctx context.Context, id string) (model.Da
 	if canonical, err := model.CanonicalID(id); err != nil || canonical != id {
 		return model.DataState{}, model.Fail(model.Invalid, "Canonical image UUID required.")
 	}
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
 	if err != nil {
@@ -336,7 +336,7 @@ func (r *Repository) DownloadView(ctx context.Context, id string) (model.Image, 
 	if canonical, err := model.CanonicalID(id); err != nil || canonical != id {
 		return model.Image{}, model.DataState{}, model.Fail(model.Invalid, "Canonical image UUID required.")
 	}
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
 	if err != nil {
@@ -379,7 +379,7 @@ func (r *Repository) ListDataOperations(ctx context.Context, after string, limit
 			return nil, model.Fail(model.Invalid, "Invalid recovery marker.")
 		}
 	}
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	rows, err := r.db.QueryContext(ctx, "SELECT "+dataColumns+" FROM image_data_operations WHERE image_id>? ORDER BY image_id LIMIT ?", after, limit)
 	if err != nil {
@@ -411,7 +411,7 @@ func (r *Repository) ForgetPurgedData(ctx context.Context, id, attempt string) e
 		return err
 	}
 	return conflict(withLockRetry(ctx, func() error {
-		ctx, cancel := context.WithTimeout(ctx, r.timeout)
+		ctx, cancel := r.bound(ctx)
 		defer cancel()
 		tx, err := r.db.BeginTx(ctx, nil)
 		if err != nil {

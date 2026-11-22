@@ -96,6 +96,15 @@ encontradas (`CLIENT_FOUND_ROWS`), no las cambiadas: los `DATETIME` del original
 tienen segundos, y un PATCH solo de propiedades dentro del mismo segundo deja la
 fila `images` igual.
 
+Como pymysql y oslo.db en el original, no hay timeout por consulta: la conexión
+tiene 10 s para establecerse y cada consulta espera a MySQL dentro del plazo de
+la petición que la originó (15 s en metadatos, `GLANCE_GO_UPLOAD_TIMEOUT` y
+`GLANCE_GO_DOWNLOAD_TIMEOUT` en transferencias, `GLANCE_GO_RECOVERY_TIMEOUT` al
+arrancar). Solo lo que no tiene plazo propio, como el chequeo de arranque, usa
+`GLANCE_GO_DEPENDENCY_TIMEOUT`. Con el MySQL y el disco compartidos con el
+original, una confirmación puede tardar varios segundos mientras el disco vacía
+subidas grandes; un tope de 5 s por consulta convertía esa espera en 503.
+
 `Location` se construye desde la base configurada; no confía en Host ni en
 X-Forwarded-*. Solo se admiten HTTP/HTTPS, un host DNS ASCII o IP válido y un
 puerto válido cuando se indica. Se rechazan credenciales, query/fragmento (también

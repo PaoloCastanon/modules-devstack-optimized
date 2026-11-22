@@ -1362,3 +1362,15 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     5 402 imágenes borradas, Glance Go arrancó solo (76 filas huérfanas
     olvidadas, 2 conservadas).
     [Evidencia](../evidence/sprint5/glance-official-only-20261121/README.md).
+- 2026-11-22, v6 oficial con `ebc4204`: se detuvo en la ventana 232/360
+  (`upload-64m-c16-r01-go`), con 9 subidas en 503 de 549 solicitudes.
+  - **Causa:** 16 subidas de 64 MiB saturaron el disco de la VM (iowait
+    47–59 %) y MySQL, que comparte el disco, tardó más de 5 s en confirmar.
+    Glance Go cortaba cada consulta a los 5 s (`ReadTimeout` del driver y
+    `DependencyTimeout` por operación): `i/o timeout` en el log, 1
+    `transfer_dependency` y 8 `transfer_cancelled`. El original, sin esos
+    topes (pymysql, oslo.db), pasó la misma carga sin errores en 39,6 s.
+  - **Corrección:** como el original, sin timeout por consulta; cada consulta
+    usa el plazo de la petición que la originó, y la conexión, 10 s.
+    Prueba nueva: una confirmación que tarda más que el antiguo tope termina
+    bien dentro del plazo de la petición.

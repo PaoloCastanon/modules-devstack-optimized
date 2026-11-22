@@ -203,7 +203,7 @@ func (r *Repository) Update(ctx context.Context, id string, change func(model.Im
 }
 
 func (r *Repository) update(ctx context.Context, id string, change func(model.Image) (model.Image, error)) (result model.Image, err error) {
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -252,7 +252,7 @@ func (r *Repository) Delete(ctx context.Context, id string, now time.Time, check
 }
 
 func (r *Repository) deleteImage(ctx context.Context, id string, now time.Time, check func(model.Image) error) (err error) {
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -405,7 +405,7 @@ func (r *Repository) List(ctx context.Context, o model.ListOptions) ([]model.Ima
 	if o.ProjectID == "" {
 		return nil, errors.New("verified project scope is required")
 	}
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
 	if err != nil {

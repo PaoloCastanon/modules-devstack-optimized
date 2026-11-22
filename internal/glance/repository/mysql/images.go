@@ -33,7 +33,7 @@ func (r *Repository) Create(ctx context.Context, image model.Image) error {
 }
 
 func (r *Repository) create(ctx context.Context, image model.Image) error {
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -62,7 +62,7 @@ func (r *Repository) create(ctx context.Context, image model.Image) error {
 }
 
 func (r *Repository) Get(ctx context.Context, id string) (model.Image, error) {
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
 	if err != nil {
