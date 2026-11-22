@@ -45,34 +45,27 @@ func TestInjectedWriteFailures(t *testing.T) {
 	}
 }
 
-func TestInjectedDeleteFailureAndDirectorySyncRetry(t *testing.T) {
-	for _, point := range []string{"unlink", "objects-sync", "staging-sync"} {
-		t.Run(point, func(t *testing.T) {
-			s, _, _ := fixture(t)
-			k := key()
-			publish(t, s, k, []byte("content"))
-			real := realOps()
-			s.ops.unlink = func(d *os.File, name string) error {
-				if point == "unlink" && d == s.objects {
-					return syscall.EIO
-				}
-				return real.unlink(d, name)
-			}
-			s.ops.sync = func(f *os.File) error {
-				if point == "objects-sync" && f == s.objects || point == "staging-sync" && f == s.staging {
-					return syscall.EIO
-				}
-				return real.sync(f)
-			}
-			if err := s.Delete(context.Background(), k); !errors.Is(err, syscall.EIO) {
-				t.Fatal(err)
-			}
-			s.ops = real
-			var synced int
-			s.ops.sync = func(f *os.File) error { synced++; return real.sync(f) }
-			if err := s.Delete(context.Background(), k); err != nil || synced != 2 {
-				t.Fatal("retry did not sync both directories", synced, err)
-			}
-		})
+// Delete unlinks <image-id> as glance_store does: a failed unlink is reported
+// and retried; no directory fsync is ever issued (it stalled under writeback).
+func TestInjectedDeleteFailureRetriesWithoutDirectorySync(t *testing.T) {
+	s, _, _ := fixture(t)
+	k := key()
+	publish(t, s, k, []byte("content"))
+	real := realOps()
+	var synced int
+	s.ops.sync = func(f *os.File) error { synced++; return real.sync(f) }
+	s.ops.unlink = func(d *os.File, name string) error { return syscall.EIO }
+	if err := s.Delete(context.Background(), k); !errors.Is(err, syscall.EIO) {
+		t.Fatal(err)
+	}
+	s.ops.unlink = real.unlink
+	if err := s.Delete(context.Background(), k); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Delete(context.Background(), k); err != nil { // already gone
+		t.Fatal(err)
+	}
+	if synced != 0 {
+		t.Fatal("directory fsync on delete", synced)
 	}
 }

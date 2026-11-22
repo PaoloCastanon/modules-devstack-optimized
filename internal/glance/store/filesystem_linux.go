@@ -664,26 +664,13 @@ func (s *Filesystem) Delete(ctx context.Context, key Key) error {
 		return err
 	}
 	s.forgetStaged(name)
-	var result error
-	for _, item := range []struct {
-		dir    *os.File
-		suffix string
-	}{{s.objects, ""}, {s.staging, ".ready"}, {s.staging, ".part"}} {
-		if err = ctx.Err(); err != nil {
-			result = errors.Join(result, err)
-			break
-		}
-		target := name + item.suffix
-		if item.dir == s.objects {
-			target = s.final(name)
-		}
-		if err = s.ops.unlink(item.dir, target); err != nil && !errors.Is(err, syscall.ENOENT) {
-			result = errors.Join(result, opError("delete", err))
-		}
+	// As glance_store's filesystem driver: unlink <image-id>, no directory
+	// fsync. Under heavy writeback an ext4 directory fsync waits for the whole
+	// journal and took longer than the request deadline (DELETE 409/503).
+	if err = s.ops.unlink(s.objects, s.final(name)); err != nil && !errors.Is(err, syscall.ENOENT) {
+		return opError("delete", err)
 	}
-	// Even an ENOENT retry must sync: a previous unlink may have succeeded while
-	// its directory sync failed. Never enumerate or remove any unrelated name.
-	return errors.Join(result, opError("sync deleted objects", s.ops.sync(s.objects)), opError("sync deleted stages", s.ops.sync(s.staging)))
+	return nil
 }
 
 func validHash(value string, length int) bool {
