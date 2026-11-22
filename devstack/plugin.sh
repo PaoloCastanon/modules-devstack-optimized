@@ -65,6 +65,10 @@ function configure_glance_go {
 }
 
 function start_glance_go {
+    # A g-go left running from an earlier stack (unstack.sh only stops it when
+    # it ran with the plugin enabled) would keep serving with the old binary
+    # and a deleted image directory: always replace it.
+    stop_process g-go
     run_process g-go "$GLANCE_GO_BIN serve" "" "" "$(glance_go_env) GLANCE_GO_STORE_SCOPE=$GLANCE_GO_SCOPE"
     if ! wait_for_service $SERVICE_TIMEOUT "http://$GLANCE_GO_LISTEN/v2/images"; then
         die $LINENO "g-go did not start"
