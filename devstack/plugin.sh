@@ -47,9 +47,13 @@ function glance_go_env {
 
 # configure_glance_go: its bookkeeping database next to glance (never the
 # original's tables) and the private store root, bound to that database.
+# stack.sh recreated the glance database (init_glance); the bookkeeping of
+# that catalog starts empty too, as every other DevStack service database.
 function configure_glance_go {
     local env
     env=$(glance_go_env)
+    recreate_database glance_go_shared
+    install -d -m 700 "$(dirname "$GLANCE_GO_STORE_ROOT")"
     install -d -m 700 "$GLANCE_GO_STORE_ROOT"
     env $env "$GLANCE_GO_BIN" migrate
     local scope
@@ -90,7 +94,7 @@ if is_service_enabled g-go; then
         stop_process g-go
     fi
     if [[ "$1" == "clean" ]]; then
-        sudo rm -rf "$GLANCE_GO_STORE_ROOT"
+        sudo rm -rf "$(dirname "$GLANCE_GO_STORE_ROOT")"
     fi
 fi
 

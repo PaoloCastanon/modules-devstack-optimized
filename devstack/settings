@@ -16,7 +16,7 @@ GLANCE_GO_DIR=${GLANCE_GO_DIR:-$DEST/glance-go}
 GLANCE_GO_BIN=${GLANCE_GO_BIN:-$GLANCE_GO_DIR/bin/glance}
 # Private root for the store lock and scope marker (image files go to the
 # original's filesystem_store_datadir).
-GLANCE_GO_STORE_ROOT=${GLANCE_GO_STORE_ROOT:-$DATA_DIR/glance-go/store}
+GLANCE_GO_STORE_ROOT=${GLANCE_GO_STORE_ROOT:-$DATA_DIR/g-go/store-root}
 GLANCE_GO_LISTEN=${GLANCE_GO_LISTEN:-127.0.0.1:19292}
 # Extra GLANCE_GO_* settings for the unit, space separated (see
 # configs/glance.env.example), e.g. "GLANCE_GO_MAX_CONCURRENT_TRANSFERS=16".
