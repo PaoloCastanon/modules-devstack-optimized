@@ -449,3 +449,25 @@ func TestBoundUsesTheCallerDeadlineOrTheRepositoryTimeout(t *testing.T) {
 		t.Fatal("caller deadline shortened")
 	}
 }
+
+const finishOperationSQL = "UPDATE image_data_operations SET phase='committed', size=?, virtual_size=?, checksum=?, os_hash_value=?, updated_at=? WHERE image_id=? AND attempt_id=? AND phase='reserved'"
+
+// FinishData: one transaction from reserved to committed, as the original's
+// image_repo.save after glance_store.add.
+func TestFinishDataIsOneTransactionFromReserved(t *testing.T) {
+	ok := append(transferSteps("saving", false, dataFixture(model.DataReserved)),
+		execute(commitImageSQL), execute(commitLocationSQL), execute(finishOperationSQL), execute("COMMIT"))
+	if err := testRepo(scriptDB(t, ok), time.Second).FinishData(context.Background(), catalogID, attemptA, receipt(), dataNow); err != nil {
+		t.Fatal(err)
+	}
+	for _, phase := range []model.DataPhase{model.DataStaged, model.DataCommitted, model.DataCleaned} {
+		steps := append(transferSteps("saving", false, dataFixture(phase)), execute("ROLLBACK"))
+		if err := testRepo(scriptDB(t, steps), time.Second).FinishData(context.Background(), catalogID, attemptA, receipt(), dataNow); !errors.Is(err, repository.ErrConflict) {
+			t.Fatal(phase, err)
+		}
+	}
+	queued := append(transferSteps("queued", false, dataFixture(model.DataReserved)), execute("ROLLBACK"))
+	if err := testRepo(scriptDB(t, queued), time.Second).FinishData(context.Background(), catalogID, attemptA, receipt(), dataNow); !errors.Is(err, repository.ErrConflict) {
+		t.Fatal("finished an image that is not saving", err)
+	}
+}

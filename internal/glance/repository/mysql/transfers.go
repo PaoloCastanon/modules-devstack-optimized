@@ -248,6 +248,39 @@ func (r *Repository) CommitData(ctx context.Context, id, attempt string, now tim
 	})
 }
 
+// FinishData is the second and last commit of an upload, as the original's
+// image_repo.save after glance_store.add: with the file written and verified,
+// one transaction stores the receipt, the location and status active, and
+// moves the reserved operation to committed. (Stage, Publish and Commit stay
+// for compatibility; a direct write to <image-id> needs no step between.)
+func (r *Repository) FinishData(ctx context.Context, id, attempt string, c model.DataContent, now time.Time) error {
+	if err := transferIDs(id, attempt); err != nil {
+		return err
+	}
+	if err := c.Validate(nil); err != nil {
+		return err
+	}
+	return r.dataTransaction(ctx, id, func(ctx context.Context, tx *sql.Tx, s model.DataState) error {
+		if !saving(s) {
+			return repository.ErrConflict
+		}
+		if err := currentAttempt(s, attempt, model.DataReserved); err != nil {
+			return err
+		}
+		if err := c.Validate(s.Operation.ExpectedSize); err != nil {
+			return err
+		}
+		at := dataTime(now, s)
+		if err := r.ack(ctx, tx, "UPDATE images SET status='active', size=?, virtual_size=?, checksum=?, os_hash_algo='sha512', os_hash_value=?, updated_at=? WHERE id=? AND status='saving' AND deleted=FALSE", c.Size, c.VirtualSize, c.Checksum, c.SHA512, at, id); err != nil {
+			return err
+		}
+		if err := r.ack(ctx, tx, "INSERT INTO image_locations (image_id, value, meta_data, status, created_at, updated_at, deleted) VALUES (?, ?, '{}', 'active', ?, ?, 0)", id, r.location(id), at, at); err != nil {
+			return err
+		}
+		return r.ack(ctx, tx, "UPDATE image_data_operations SET phase='committed', size=?, virtual_size=?, checksum=?, os_hash_value=?, updated_at=? WHERE image_id=? AND attempt_id=? AND phase='reserved'", c.Size, c.VirtualSize, c.Checksum, c.SHA512, at, id, attempt)
+	})
+}
+
 func (r *Repository) BeginDataCleanup(ctx context.Context, id, attempt, target string, code *string, now time.Time) error {
 	if err := transferIDs(id, attempt); err != nil {
 		return err

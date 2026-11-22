@@ -243,6 +243,12 @@ func (u *UploadCoordinator) resolution(ctx context.Context) (context.Context, co
 
 // checkpoint resolves acknowledged and uncertain SQL writes explicitly. An exact
 // expected phase/receipt is required; a merely plausible status is insufficient.
+// dataFinisher is implemented by the MySQL repository: the single final
+// commit of an upload (see FinishData).
+type dataFinisher interface {
+	FinishData(ctx context.Context, id, attempt string, c model.DataContent, now time.Time) error
+}
+
 func (u *UploadCoordinator) checkpoint(ctx context.Context, key store.Key, phase model.DataPhase, c *model.DataContent, writeErr error) error {
 	if writeErr != nil && !errors.Is(writeErr, repository.ErrCommitUncertain) {
 		return uploadDBError(writeErr, key.ImageID)
@@ -460,6 +466,21 @@ func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value
 	}
 	if err = ctx.Err(); err != nil {
 		return fail(err)
+	}
+	if f, ok := u.transfers.(dataFinisher); ok {
+		// As the original (image_repo.save after glance_store.add): the file
+		// is written at its final name, so after verifying it one commit
+		// stores receipt, location and status active.
+		if err = u.bytes.Publish(ctx, key, info); err != nil {
+			return fail(uploadStorageError(err))
+		}
+		if err = ctx.Err(); err != nil {
+			return fail(err)
+		}
+		if err = u.checkpoint(ctx, key, model.DataCommitted, &content, f.FinishData(ctx, id, key.AttemptID, content, u.now())); err != nil {
+			return fail(err)
+		}
+		return content, nil
 	}
 	err = u.checkpoint(ctx, key, model.DataStaged, &content, u.transfers.StageData(ctx, id, key.AttemptID, content, u.now()))
 	if err != nil {
