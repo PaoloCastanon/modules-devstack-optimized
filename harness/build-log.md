@@ -1374,3 +1374,17 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     usa el plazo de la petición que la originó, y la conexión, 10 s.
     Prueba nueva: una confirmación que tarda más que el antiguo tope termina
     bien dentro del plazo de la petición.
+  - **Prueba de carga dirigida** (16 clientes en ciclo POST + PUT 64 MiB +
+    DELETE durante 180 s contra `/image`, Glance Go permanente): ya sin
+    timeouts de MySQL, pero el DELETE tardaba hasta el plazo de 15 s (409/503).
+    Dos causas más, corregidas como en el original:
+    - **Deadlocks:** `UPDATE image_locations … WHERE image_id=? AND deleted=0`
+      dejaba a MySQL usar `ix_image_locations_deleted` y bloquear filas de otras
+      imágenes. Ahora, como `_image_locations_delete_all`, se leen los `id` sin
+      bloquear y se actualiza cada ubicación por clave primaria.
+    - **fsync del directorio al borrar:** `glance_store` solo hace `unlink`;
+      el fsync esperaba el journal de ext4 con la escritura pendiente.
+    - **Resultado:** 580 ciclos, 0 errores, 0 deadlocks, 0 timeouts; DELETE
+      p50 143 ms y p99 513 ms (antes 1,7 s y 15 s); PUT p50 4,8 s.
+  - **Verificación con el binario final** (`f47d772f…`): `make check`,
+    integración 9/9 con `-race`, B26 3/3 y E2E compartido 3/3.
