@@ -1,0 +1,4 @@
+=== RUN   TestMySQLPersistenceAndTransactions
+--- PASS: TestMySQLPersistenceAndTransactions (0.47s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql	1.484s

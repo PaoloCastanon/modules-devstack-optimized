@@ -1,0 +1,4 @@
+=== RUN   TestB25MySQLConcurrentDistinctImages
+--- PASS: TestB25MySQLConcurrentDistinctImages (6.08s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql	7.107s

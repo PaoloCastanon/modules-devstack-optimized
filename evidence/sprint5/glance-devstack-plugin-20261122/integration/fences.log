@@ -1,0 +1,4 @@
+=== RUN   TestB25MySQLConcurrentFences
+--- PASS: TestB25MySQLConcurrentFences (0.56s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql	1.575s

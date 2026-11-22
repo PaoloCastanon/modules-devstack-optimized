@@ -1388,3 +1388,14 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
       p50 143 ms y p99 513 ms (antes 1,7 s y 15 s); PUT p50 4,8 s.
   - **Verificación con el binario final** (`f47d772f…`): `make check`,
     integración 9/9 con `-race`, B26 3/3 y E2E compartido 3/3.
+- 2026-11-22, Glance Go como servicio de DevStack: plugin `glance-go`
+  (`enable_plugin`, [uso](../docs/glance/devstack-plugin.md)) que compila Glance
+  Go con Go 1.27.4 (sha256 verificado), lo arranca como `devstack@g-go` con
+  `run_process`, apunta `/image` con `write_local_proxy_http_config` y detiene
+  g-api. Reemplaza al instalador propio y a las instancias temporales.
+  - **Suite nueva** `glance_devstack_suite.py`: B26 y el E2E del catálogo
+    compartido sobre `devstack@g-go`; notificaciones contra una línea base del
+    original. 13/13 corridas, 11/11 casos.
+  - **Arranque:** la recuperación lista solo lo pendiente (13 s → 35 ms).
+  - Integración 9/9 con `-race` y `make check` OK. Falta un `stack.sh` limpio.
+    [Evidencia](../evidence/sprint5/glance-devstack-plugin-20261122/README.md).

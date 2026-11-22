@@ -1,0 +1,4 @@
+=== RUN   TestMySQLTransferOperations
+--- PASS: TestMySQLTransferOperations (1.09s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql	2.105s
