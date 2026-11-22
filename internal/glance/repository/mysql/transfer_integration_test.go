@@ -187,6 +187,9 @@ func TestMySQLTransferOperations(t *testing.T) {
 			if o.ImageID == image2.ID {
 				t.Fatal("orphaned bookkeeping kept")
 			}
+			if o.ImageID == image.ID {
+				t.Fatal("startup recovery listed a committed upload of a live image")
+			}
 		}
 	}
 	// Intentionally retained fixture rows. No automatic cleanup or schema deletion.

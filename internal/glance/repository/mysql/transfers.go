@@ -14,6 +14,18 @@ import (
 var _ repository.Transfers = (*Repository)(nil)
 
 const dataColumns = "image_id, attempt_id, phase, expected_size, size, virtual_size, checksum, os_hash_value, cleanup_target, last_error_code, created_at, updated_at"
+
+// recoveryCandidatesSQL: only the operations startup recovery must act on, so
+// it costs what is pending, not every upload ever made (the original does no
+// startup work at all): unfinished transfers, committed ones whose image the
+// original deleted or purged, and cleaned ones whose image row was purged. A
+// committed upload of a live image is not re-checked; a missing file still
+// fails its download (503), as in the original.
+const recoveryCandidatesSQL = "SELECT o.image_id, o.attempt_id, o.phase, o.expected_size, o.size, o.virtual_size, o.checksum, o.os_hash_value, o.cleanup_target, o.last_error_code, o.created_at, o.updated_at" +
+	" FROM image_data_operations o LEFT JOIN images i ON i.id=o.image_id WHERE o.image_id>? AND (" +
+	"o.phase IN ('reserved','staged','published','cleanup')" +
+	" OR o.phase='committed' AND (i.id IS NULL OR i.deleted)" +
+	" OR o.phase='cleaned' AND i.id IS NULL) ORDER BY o.image_id LIMIT ?"
 const readDataImage = "SELECT id, status, deleted, size, virtual_size, checksum, os_hash_algo, os_hash_value, updated_at FROM images WHERE id=?"
 const readDataOperation = "SELECT " + dataColumns + " FROM image_data_operations WHERE image_id=?"
 const lockDataImage = readDataImage + " FOR UPDATE"
@@ -381,7 +393,7 @@ func (r *Repository) ListDataOperations(ctx context.Context, after string, limit
 	}
 	ctx, cancel := r.bound(ctx)
 	defer cancel()
-	rows, err := r.db.QueryContext(ctx, "SELECT "+dataColumns+" FROM image_data_operations WHERE image_id>? ORDER BY image_id LIMIT ?", after, limit)
+	rows, err := r.db.QueryContext(ctx, r.sql(recoveryCandidatesSQL), after, limit)
 	if err != nil {
 		return nil, err
 	}

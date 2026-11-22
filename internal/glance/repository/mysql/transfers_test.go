@@ -275,7 +275,7 @@ func TestAuthoritativeDataReadAndRecoveryInventory(t *testing.T) {
 	if err != nil || state.Status != "active" || !reflect.DeepEqual(state.Operation, o) {
 		t.Fatal(state, err)
 	}
-	query := "SELECT " + dataColumns + " FROM image_data_operations WHERE image_id>? ORDER BY image_id LIMIT ?"
+	query := recoveryCandidatesSQL
 	step := sqlStep{query: query, rows: [][]driver.Value{operationRow(o)}, checkArgs: func(a []driver.NamedValue) {
 		if len(a) != 2 || a[0].Value != "" || a[1].Value != int64(10) {
 			t.Error(a)
@@ -371,7 +371,7 @@ func TestTransferOperationFailuresRollbackWithoutConfirmingCleanup(t *testing.T)
 }
 
 func TestRecoveryInventoryFailsClosed(t *testing.T) {
-	q := "SELECT " + dataColumns + " FROM image_data_operations WHERE image_id>? ORDER BY image_id LIMIT ?"
+	q := recoveryCandidatesSQL
 	for _, label := range []string{"empty", "query-error", "cursor-error", "bad-receipt"} {
 		t.Run(label, func(t *testing.T) {
 			step := sqlStep{query: q}
