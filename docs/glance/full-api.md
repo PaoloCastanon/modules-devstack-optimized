@@ -18,6 +18,7 @@ del original.
 | Plugins de importación | `image_conversion` (qemu-img), `image_decompression`, `inject_image_metadata`, `no_op` | `images`, `image_properties` | `glance-image-import.conf` |
 | Cuotas locales | límites al crear, subir y editar | `images` | `user_storage_quota`, `image_size_cap`, `image_{member,property,tag}_quota` |
 | Borrado diferido | `DELETE` deja `pending_delete`; `glance-scrubber` lo completa | `images`, `image_locations` | `delayed_delete`, `scrub_time` |
+| Límites de Keystone en caché | los límites de un proyecto se reutilizan unos segundos | — | `GLANCE_GO_LIMITS_CACHE_SECONDS` (5 por defecto; 0 pregunta siempre, como el original) |
 | Otros | `POST /v2/tasks` (tipo `import`), `/healthcheck` | `tasks` | `[DEFAULT] max_retries`/`retry_interval` de `[database]` |
 | Importación interoperable | `PUT /stage`, `POST /import`, `/v2/info/import` | `images`, `image_properties` (`os_glance_import_task`) | `node_staging_uri`, `enabled_import_methods`, `[import_filtering_opts]` |
 | Tareas | `/v2/tasks`, `/v2/tasks/{id}`, `/v2/images/{id}/tasks` | `tasks`, `task_info` | `[task] task_time_to_live` |
