@@ -25,7 +25,8 @@ func (h *Handler) cacheAllowed(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	if !who(r).HasRole("admin") {
-		h.status(w, 403, "Access was denied to this resource.")
+		action := map[string]string{http.MethodGet: "cache_list", http.MethodPut: "cache_image", http.MethodDelete: "cache_delete"}[r.Method]
+		h.status(w, 403, "You are not authorized to complete "+action+" action.")
 		return false
 	}
 	return true

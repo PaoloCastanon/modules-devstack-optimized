@@ -26,6 +26,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// RequestIDKey carries the request's X-Openstack-Request-Id (a task's request_id).
+type RequestIDKey struct{}
+
 // Importer is the original's interoperable image import (glance-direct,
 // web-download) and the tasks API. An accepted import moves the image to
 // "importing" with the lock os_glance_import_task and an api_image_import
@@ -50,6 +53,8 @@ type Importer struct {
 
 // ImportRequest is the body of POST /v2/images/{id}/import.
 type ImportRequest struct {
+	// Raw is the body as the client sent it (the task's import_req).
+	Raw    json.RawMessage `json:"-"`
 	Method struct {
 		Name string `json:"name"`
 		URI  string `json:"uri"`
@@ -131,7 +136,11 @@ func (m *Importer) Stage(ctx context.Context, who auth.Identity, value string, s
 	if err = m.tasks.SetStaged(ctx, id, "queued", "uploading", m.now(), check); err != nil {
 		return importConflict(err, id)
 	}
-	if err = m.writeStaged(ctx, id, src, declared); err != nil {
+	n, err := m.writeStaged(ctx, id, src, declared)
+	if err == nil {
+		err = m.tasks.StagedSize(context.WithoutCancel(ctx), id, n)
+	}
+	if err != nil {
 		_ = os.Remove(m.staged(id))
 		if e := m.tasks.SetStaged(context.WithoutCancel(ctx), id, "uploading", "queued", m.now(), func(model.Image) error { return nil }); e != nil && !errors.Is(e, repository.ErrNotFound) {
 			return errors.Join(err, e)
@@ -141,13 +150,13 @@ func (m *Importer) Stage(ctx context.Context, who auth.Identity, value string, s
 	return nil
 }
 
-func (m *Importer) writeStaged(ctx context.Context, id string, src io.Reader, declared *int64) error {
+func (m *Importer) writeStaged(ctx context.Context, id string, src io.Reader, declared *int64) (int64, error) {
 	if err := os.MkdirAll(m.cfg.StagingDir, 0o750); err != nil {
-		return err
+		return 0, err
 	}
 	tmp, err := os.CreateTemp(m.cfg.StagingDir, "."+id+".")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer os.Remove(tmp.Name())
 	n, err := io.Copy(tmp, io.LimitReader(contextReader{ctx, src}, m.data.MaxUploadBytes()+1))
@@ -161,9 +170,9 @@ func (m *Importer) writeStaged(ctx context.Context, id string, src io.Reader, de
 		err = e
 	}
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return os.Rename(tmp.Name(), m.staged(id))
+	return n, os.Rename(tmp.Name(), m.staged(id))
 }
 
 type contextReader struct {
@@ -243,12 +252,18 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 	if err != nil {
 		return model.Task{}, err
 	}
-	body, _ := json.Marshal(req)
-	input, _ := json.Marshal(map[string]any{"image_id": id, "import_req": json.RawMessage(body), "backend": nil})
+	body := req.Raw
+	if body == nil {
+		body, _ = json.Marshal(req)
+	}
+	input, _ := json.Marshal(map[string]any{"image_id": id, "import_req": body, "backend": []any{nil}})
 	now := m.now().UTC().Truncate(time.Second)
 	in, user := string(input), who.UserID
 	task := model.Task{ID: tid.String(), Type: "api_image_import", Status: "pending", Owner: who.ProjectID, ImageID: &id, UserID: &user,
 		Input: &in, CreatedAt: now, UpdatedAt: now}
+	if rid, ok := ctx.Value(RequestIDKey{}).(string); ok && rid != "" {
+		task.RequestID = &rid
+	}
 	err = m.tasks.BeginImport(ctx, task, from, func(image model.Image) error {
 		if err := m.svc.writable(ctx, who, image); err != nil {
 			return err
@@ -260,10 +275,10 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 			return model.Fail(model.Conflict, "Image has active task.")
 		}
 		if method == "glance-direct" && image.Status != "uploading" {
-			return model.Fail(model.Conflict, "Image needs to be staged before 'glance-direct' method can be used.")
+			return model.Fail(model.Conflict, "Image needs to be staged before 'glance-direct' method can be used")
 		}
 		if method == "web-download" && image.Status != "queued" {
-			return model.Fail(model.Conflict, "Image needs to be in 'queued' state to use 'web-download' method.")
+			return model.Fail(model.Conflict, "Image needs to be in 'queued' state to use 'web-download' method")
 		}
 		return nil
 	})
@@ -355,7 +370,7 @@ func (m *Importer) run(task model.Task, method, uri string) {
 		m.setTask(&task, "failure", nil, importMessage(err))
 		return
 	}
-	m.setTask(&task, "success", map[string]string{"image_id": id}, "")
+	m.setTask(&task, "success", map[string]string{"image_id": id}, fmt.Sprintf("Copied %d MiB", size>>20))
 }
 
 func importMessage(err error) string {
@@ -395,7 +410,8 @@ func (m *Importer) download(ctx context.Context, id, uri string) error {
 		n := res.ContentLength
 		declared = &n
 	}
-	return m.writeStaged(ctx, id, res.Body, declared)
+	_, err = m.writeStaged(ctx, id, res.Body, declared)
+	return err
 }
 
 // Recover closes, at startup, the imports a previous process left open (the
@@ -498,7 +514,7 @@ func (m *Importer) tasksAccess(who auth.Identity) error {
 		return err
 	}
 	if !who.HasRole("admin") {
-		return model.Fail(model.Forbidden, "You are not authorized to complete get_task action.")
+		return model.Fail(model.Forbidden, "You are not authorized to complete tasks_api_access action.")
 	}
 	return nil
 }

@@ -172,9 +172,11 @@ func (r *Repository) BeginImport(ctx context.Context, t model.Task, from []strin
 		if err := r.setStatus(ctx, tx, id, image.Status, "importing", at); err != nil {
 			return err
 		}
-		if _, err := r.exec(ctx, tx, "INSERT INTO image_properties (image_id, name, value, created_at, deleted) VALUES (?, ?, ?, ?, 0) ON DUPLICATE KEY UPDATE value=VALUES(value), deleted=0, deleted_at=NULL, updated_at=VALUES(created_at)",
-			id, model.ImportTaskProperty, t.ID, at); err != nil {
-			return err
+		for name, value := range map[string]string{model.ImportTaskProperty: t.ID, "os_glance_importing_to_stores": "", "os_glance_failed_import": ""} {
+			if _, err := r.exec(ctx, tx, "INSERT INTO image_properties (image_id, name, value, created_at, deleted) VALUES (?, ?, ?, ?, 0) ON DUPLICATE KEY UPDATE value=VALUES(value), deleted=0, deleted_at=NULL, updated_at=VALUES(created_at)",
+				id, name, value, at); err != nil {
+				return err
+			}
 		}
 		return r.insertTask(ctx, tx, t)
 	})
@@ -187,7 +189,7 @@ func (r *Repository) ReleaseImport(ctx context.Context, imageID, taskID, status 
 			return nil // the lock was broken or released: nothing to do
 		}
 		if image.Status == "importing" {
-			if err := r.setStatus(ctx, tx, imageID, "importing", status, now.UTC().Truncate(time.Second)); err != nil {
+			if err := r.ack(ctx, tx, "UPDATE images SET status=?, size=NULL, updated_at=? WHERE id=? AND status='importing' AND deleted=FALSE", status, now.UTC().Truncate(time.Second), imageID); err != nil {
 				return err
 			}
 		}
@@ -205,6 +207,7 @@ func (r *Repository) ReleaseImport(ctx context.Context, imageID, taskID, status 
 	return released, err
 }
 
+// SetStaged also records the staged size (uploading) or clears it (queued).
 func (r *Repository) SetStaged(ctx context.Context, imageID, from, to string, now time.Time, check func(model.Image) error) error {
 	return r.lockedImage(ctx, imageID, func(ctx context.Context, tx *sql.Tx, image model.Image) error {
 		if err := check(image); err != nil {
@@ -213,6 +216,16 @@ func (r *Repository) SetStaged(ctx context.Context, imageID, from, to string, no
 		if image.Status != from {
 			return repository.ErrConflict
 		}
+		if to == "queued" {
+			return r.ack(ctx, tx, "UPDATE images SET status=?, size=NULL, updated_at=? WHERE id=? AND status=? AND deleted=FALSE", to, now.UTC().Truncate(time.Second), imageID, from)
+		}
 		return r.setStatus(ctx, tx, imageID, from, to, now.UTC().Truncate(time.Second))
+	})
+}
+
+// StagedSize records the size of the staged data of an uploading image.
+func (r *Repository) StagedSize(ctx context.Context, imageID string, size int64) error {
+	return r.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return r.ack(ctx, tx, "UPDATE images SET size=? WHERE id=? AND status='uploading' AND deleted=FALSE", size, imageID)
 	})
 }

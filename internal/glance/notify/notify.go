@@ -144,3 +144,17 @@ func TaskPayload(t model.Task) map[string]any {
 	return map[string]any{"id": t.ID, "type": t.Type, "status": t.Status, "result": nil, "owner": t.Owner, "message": nil,
 		"expires_at": expires, "created_at": isotime(t.CreatedAt), "updated_at": isotime(t.UpdatedAt), "deleted": false, "deleted_at": nil}
 }
+
+// NamespacePayload is the original's format_metadef_namespace_notification.
+func NamespacePayload(n model.Namespace, oldName string) map[string]any {
+	var updated any
+	if n.UpdatedAt != nil {
+		updated = isotime(*n.UpdatedAt)
+	}
+	if oldName == "" {
+		oldName = n.Namespace
+	}
+	return map[string]any{"namespace": n.Namespace, "namespace_old": oldName, "display_name": n.DisplayName, "protected": n.Protected,
+		"visibility": n.Visibility, "owner": n.Owner, "description": n.Description, "created_at": isotime(n.CreatedAt), "updated_at": updated,
+		"deleted": false, "deleted_at": nil}
+}

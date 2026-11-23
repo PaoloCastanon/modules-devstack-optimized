@@ -79,8 +79,8 @@ func TestKeystoneLimitsLikeOsloLimit(t *testing.T) {
 	if !errors.As(err, &domain) || domain.Kind != model.LimitExceeded || !strings.Contains(domain.Message, "Resource image_count_total is over limit of 3 due to current usage 3 and delta 1") {
 		t.Fatal("project limit not enforced", err)
 	}
-	// 2000 MiB + 1 byte rounds up to 2001 MiB: over the registered 2000.
-	e = enforcer(t, ks.URL, model.Usage{SizeTotal: 2000<<20 + 1})
+	// 2001 MiB: over the registered 2000 (usage rounds down, as the original).
+	e = enforcer(t, ks.URL, model.Usage{SizeTotal: 2001 << 20})
 	if err = e.EnforceUpload(ctx, "p"); !errors.As(err, &domain) || !strings.Contains(domain.Message, "image_size_total") {
 		t.Fatal("size limit not enforced", err)
 	}

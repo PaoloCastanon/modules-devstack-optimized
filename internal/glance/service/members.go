@@ -69,7 +69,7 @@ func memberError(err error, id string) error {
 	case errors.Is(err, repository.ErrMemberNotFound):
 		return memberNotFound()
 	case errors.Is(err, repository.ErrMemberDuplicate):
-		return model.Fail(model.Conflict, "The image already has this member.")
+		return model.Fail(model.Conflict, "The image already has this member.") // CreateMember names it
 	}
 	return mutationError(err, id)
 }
@@ -167,6 +167,9 @@ func (s *Service) CreateMember(ctx context.Context, who auth.Identity, imageID, 
 		}
 		return nil
 	})
+	if errors.Is(err, repository.ErrMemberDuplicate) {
+		return model.Member{}, model.Fail(model.Conflict, "Member "+memberID+" is duplicated for image "+id)
+	}
 	if err != nil {
 		return model.Member{}, memberError(err, id)
 	}
@@ -180,7 +183,7 @@ func (s *Service) UpdateMember(ctx context.Context, who auth.Identity, imageID, 
 		return model.Member{}, err
 	}
 	if !model.MemberStatus(status) {
-		return model.Member{}, model.Fail(model.Invalid, "Status must be one of pending, accepted, rejected.")
+		return model.Member{}, model.Fail(model.Invalid, `Incorrect request: Status must be "pending", "accepted" or "rejected".`)
 	}
 	m, err := repo.UpdateMember(ctx, id, memberID, status, s.now(), func(image model.Image, m model.Member) error {
 		if err := s.visible(ctx, who, image); err != nil {
@@ -244,7 +247,7 @@ func (s *Service) RemoveTag(ctx context.Context, who auth.Identity, imageID, tag
 				return nil
 			}
 		}
-		return model.Fail(model.NotFound, "Tag "+tag+" not found.")
+		return model.Fail(model.NotFound, "The resource could not be found.")
 	})
 }
 
@@ -316,7 +319,7 @@ func (s *Service) writable(ctx context.Context, who auth.Identity, image model.I
 		return model.Fail(model.Forbidden, "Modifying images requires member or admin role.")
 	}
 	if !who.HasRole("admin") && image.Owner != who.ProjectID {
-		return model.Fail(model.Forbidden, "Only the owner or an administrator may modify this image.")
+		return model.Fail(model.Forbidden, "You are not authorized to complete modify_image action.")
 	}
 	return nil
 }

@@ -29,7 +29,7 @@ import (
 // was checked against; any other revision fails closed at startup.
 var SupportedOfficialRevisions = []string{"2024_1_contract01"}
 
-var officialTables = regexp.MustCompile(`\b(FROM|INTO|UPDATE|JOIN)\s+(images|image_properties|image_tags|image_locations|image_members|tasks|task_info|cached_images|node_reference)\b`)
+var officialTables = regexp.MustCompile(`\b(FROM|INTO|UPDATE|JOIN)\s+(images|image_properties|image_tags|image_locations|image_members|tasks|task_info|cached_images|node_reference|metadef_namespaces|metadef_objects|metadef_properties|metadef_tags|metadef_resource_types|metadef_namespace_resource_types)\b`)
 
 // officialNamespace derives the attempt ID of an adopted original upload.
 var officialNamespace = uuid.MustParse("6f1d1c64-6c2b-5b8e-9b0a-2f6f4d6e9a10")

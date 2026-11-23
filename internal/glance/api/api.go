@@ -11,6 +11,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -75,6 +76,17 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 	mux.HandleFunc("/v2/info/import", h.importInfo)
 	mux.HandleFunc("/v2/tasks", h.tasksList)
 	mux.HandleFunc("/v2/tasks/{task}", h.task)
+	mux.HandleFunc("/v2/metadefs/namespaces", h.namespaces)
+	mux.HandleFunc("/v2/metadefs/namespaces/{ns}", h.namespace)
+	mux.HandleFunc("/v2/metadefs/namespaces/{ns}/objects", h.metadefObjects)
+	mux.HandleFunc("/v2/metadefs/namespaces/{ns}/objects/{name}", h.metadefObject)
+	mux.HandleFunc("/v2/metadefs/namespaces/{ns}/properties", h.metadefProperties)
+	mux.HandleFunc("/v2/metadefs/namespaces/{ns}/properties/{name}", h.metadefProperty)
+	mux.HandleFunc("/v2/metadefs/namespaces/{ns}/tags", h.metadefTags)
+	mux.HandleFunc("/v2/metadefs/namespaces/{ns}/tags/{name}", h.metadefTag)
+	mux.HandleFunc("/v2/metadefs/namespaces/{ns}/resource_types", h.namespaceResourceTypes)
+	mux.HandleFunc("/v2/metadefs/namespaces/{ns}/resource_types/{name}", h.namespaceResourceType)
+	mux.HandleFunc("/v2/metadefs/resource_types", h.resourceTypes)
 	mux.HandleFunc("/v2/cache", h.cacheList)
 	mux.HandleFunc("/v2/cache/{image}", h.cacheImage)
 	mux.HandleFunc("/v2/info/usage", h.usage)
@@ -162,13 +174,19 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 			h.failure(w, err)
 			return
 		}
-		mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), identityKey{}, identity)))
+		ctx := withRequestID(context.WithValue(r.Context(), identityKey{}, identity), requestID)
+		mux.ServeHTTP(w, r.WithContext(ctx))
 	}), nil
+}
+
+// withRequestID gives the service the request's ID (a task's request_id).
+func withRequestID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, service.RequestIDKey{}, id)
 }
 
 // Log route templates rather than arbitrary paths, identifiers or queries.
 func logRoute(path string) string {
-	if path == "/v2/images" || path == "/" || path == "/versions" || path == "/v2/info/usage" || path == "/v2/info/stores" || path == "/v2/info/stores/detail" || path == "/v2/info/import" || path == "/v2/tasks" || path == "/v2/cache" {
+	if path == "/v2/images" || path == "/" || path == "/versions" || path == "/v2/info/usage" || path == "/v2/info/stores" || path == "/v2/info/stores/detail" || path == "/v2/info/import" || path == "/v2/tasks" || path == "/v2/cache" || path == "/v2/metadefs/namespaces" || path == "/v2/metadefs/resource_types" {
 		return path
 	}
 	if rest, ok := strings.CutPrefix(path, "/v2/schemas/"); ok && rest != "" {
@@ -210,6 +228,17 @@ func logRoute(path string) string {
 	}
 	if rest, ok := strings.CutPrefix(path, "/v2/cache/"); ok && rest != "" && !strings.Contains(rest, "/") {
 		return "/v2/cache/{image_id}"
+	}
+	if rest, ok := strings.CutPrefix(path, "/v2/metadefs/namespaces/"); ok && rest != "" {
+		parts := strings.Split(rest, "/")
+		switch {
+		case len(parts) == 1:
+			return "/v2/metadefs/namespaces/{ns}"
+		case len(parts) == 2 && slices.Contains([]string{"objects", "properties", "tags", "resource_types"}, parts[1]):
+			return "/v2/metadefs/namespaces/{ns}/" + parts[1]
+		case len(parts) == 3 && parts[2] != "" && slices.Contains([]string{"objects", "properties", "tags", "resource_types"}, parts[1]):
+			return "/v2/metadefs/namespaces/{ns}/" + parts[1] + "/{name}"
+		}
 	}
 	return "unmatched"
 }

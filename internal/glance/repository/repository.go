@@ -53,10 +53,51 @@ type Tasks interface {
 	ReleaseImport(ctx context.Context, imageID, taskID, status string, keep bool, now time.Time) (bool, error)
 	// SetStaged moves a queued image to uploading (staged) or back.
 	SetStaged(ctx context.Context, imageID string, from, to string, now time.Time, check func(model.Image) error) error
+	StagedSize(ctx context.Context, imageID string, size int64) error
 	UpdateTask(ctx context.Context, task model.Task) error
 	GetTask(ctx context.Context, id string) (model.Task, error)
 	ListTasks(ctx context.Context, o model.TaskListOptions) ([]model.Task, error)
 	ImageTasks(ctx context.Context, imageID string) ([]model.Task, error)
 	// OpenTasks lists api_image_import tasks still pending or processing.
 	OpenTasks(ctx context.Context) ([]model.Task, error)
+}
+
+var (
+	ErrMetadefNotFound  = errors.New("metadata definition not found")
+	ErrMetadefDuplicate = errors.New("metadata definition already exists")
+)
+
+// Metadefs is the original's metadef_* tables.
+type Metadefs interface {
+	ListNamespaces(ctx context.Context, o model.NamespaceListOptions) ([]model.Namespace, error)
+	GetNamespace(ctx context.Context, name string) (model.Namespace, error)
+	Associations(ctx context.Context, namespaceID int64) ([]model.ResourceTypeAssociation, error)
+	CreateNamespace(ctx context.Context, n model.Namespace, props []model.MetadefProperty, objects []model.MetadefObject, tags []model.MetadefTag, assocs []model.ResourceTypeAssociation) (model.Namespace, error)
+	UpdateNamespace(ctx context.Context, id int64, n model.Namespace) error
+	DeleteNamespace(ctx context.Context, id int64) error
+
+	Objects(ctx context.Context, namespaceID int64) ([]model.MetadefObject, error)
+	Object(ctx context.Context, namespaceID int64, name string) (model.MetadefObject, error)
+	CreateObject(ctx context.Context, namespaceID int64, o model.MetadefObject) error
+	UpdateObject(ctx context.Context, namespaceID int64, name string, o model.MetadefObject) error
+	DeleteObject(ctx context.Context, namespaceID int64, name string) error
+	DeleteObjects(ctx context.Context, namespaceID int64) error
+
+	Properties(ctx context.Context, namespaceID int64) ([]model.MetadefProperty, error)
+	Property(ctx context.Context, namespaceID int64, name string) (model.MetadefProperty, error)
+	CreateProperty(ctx context.Context, namespaceID int64, p model.MetadefProperty) error
+	UpdateProperty(ctx context.Context, namespaceID int64, name string, p model.MetadefProperty) error
+	DeleteProperty(ctx context.Context, namespaceID int64, name string) error
+	DeleteProperties(ctx context.Context, namespaceID int64) error
+
+	Tags(ctx context.Context, namespaceID int64) ([]model.MetadefTag, error)
+	Tag(ctx context.Context, namespaceID int64, name string) (model.MetadefTag, error)
+	CreateTags(ctx context.Context, namespaceID int64, tags []model.MetadefTag, replace bool) error
+	UpdateTag(ctx context.Context, namespaceID int64, name string, t model.MetadefTag) error
+	DeleteTag(ctx context.Context, namespaceID int64, name string) error
+	DeleteTags(ctx context.Context, namespaceID int64) error
+
+	ResourceTypes(ctx context.Context) ([]model.ResourceType, error)
+	Associate(ctx context.Context, namespaceID int64, a model.ResourceTypeAssociation) error
+	Dissociate(ctx context.Context, namespaceID int64, name string) error
 }

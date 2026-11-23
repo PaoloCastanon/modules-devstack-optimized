@@ -6,7 +6,6 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"net/url"
 	"strconv"
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
@@ -83,10 +82,16 @@ func (h *Handler) importImage(w http.ResponseWriter, r *http.Request) {
 		h.status(w, 404, "The resource could not be found.")
 		return
 	}
-	var req service.ImportRequest
-	if !h.readObject(w, r, &req) {
+	var raw json.RawMessage
+	if !h.readObject(w, r, &raw) {
 		return
 	}
+	var req service.ImportRequest
+	if json.Unmarshal(raw, &req) != nil {
+		h.status(w, 400, "Expected a JSON object.")
+		return
+	}
+	req.Raw = raw
 	if req.Method.Name == "" {
 		h.status(w, 400, "Import method name is required.")
 		return
@@ -151,22 +156,26 @@ func (h *Handler) tasksList(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]map[string]any, 0, len(tasks))
 	for _, t := range tasks {
-		out = append(out, taskRepresentation(t, false))
+		// The original's task stub: no input, result, message, image,
+		// request or user.
+		rep := taskRepresentation(t, false)
+		delete(rep, "image_id")
+		delete(rep, "request_id")
+		delete(rep, "user_id")
+		out = append(out, rep)
 	}
-	q.Del("marker")
 	first := "/v2/tasks"
-	if e := q.Encode(); e != "" {
+	if e := withoutMarker(r.URL.RawQuery); e != "" {
 		first += "?" + e
 	}
+	q.Del("marker")
 	body := map[string]any{"tasks": out, "first": first, "schema": "/v2/schemas/tasks"}
 	limit := o.Limit
 	if limit == 0 {
 		limit = 25
 	}
 	if len(tasks) == limit {
-		next := url.Values(q)
-		next.Set("marker", tasks[len(tasks)-1].ID)
-		body["next"] = "/v2/tasks?" + next.Encode()
+		body["next"] = nextLink("/v2/tasks", r.URL.RawQuery, tasks[len(tasks)-1].ID)
 	}
 	h.json(w, 200, body)
 }
@@ -206,7 +215,12 @@ func (h *Handler) imageTasks(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]map[string]any, 0, len(tasks))
 	for _, t := range tasks {
-		out = append(out, taskRepresentation(t, true))
+		// As the original's image tasks: the task row, without links.
+		rep := taskRepresentation(t, true)
+		delete(rep, "self")
+		delete(rep, "schema")
+		rep["deleted"], rep["deleted_at"] = false, nil
+		out = append(out, rep)
 	}
 	h.json(w, 200, map[string]any{"tasks": out})
 }

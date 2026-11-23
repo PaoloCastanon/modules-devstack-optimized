@@ -62,7 +62,8 @@ func New(cfg config.KeystoneLimits, client *http.Client, usage UsageReader) (*En
 	return &Enforcer{cfg: cfg, client: client, usage: usage}, nil
 }
 
-func mib(bytes int64) int64 { return (bytes + 1<<20 - 1) >> 20 }
+// mib: bytes // units.Mi, as the original rounds usage down.
+func mib(bytes int64) int64 { return bytes >> 20 }
 
 func usageOf(u model.Usage) map[string]int64 {
 	return map[string]int64{ImageSizeTotal: mib(u.SizeTotal), ImageStageTotal: mib(u.StageTotal), ImageCountTotal: u.CountTotal, ImageCountUploading: u.CountUploading}
