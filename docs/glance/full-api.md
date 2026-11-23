@@ -11,7 +11,14 @@ del original.
 | Tags por ruta | `PUT/DELETE /v2/images/{id}/tags/{tag}` | `image_tags` | — |
 | Desactivar / reactivar | `POST /v2/images/{id}/actions/{deactivate,reactivate}` | `images` | — |
 | Cuotas de Keystone | `/v2/info/usage`; límites al crear y subir | uso desde `images`, `image_locations`, `image_properties` | `use_keystone_limits`, `[oslo_limit]` |
-| Stores | `/v2/info/stores[/detail]` (un store: 404 como el original) | — | `enabled_backends` (ausente) |
+| Varios stores | `/v2/info/stores[/detail]`, `X-Image-Meta-Store`, `copy-image`, `stores`/`all_stores`, `DELETE /v2/stores/{store}/{id}`; campo `stores` | `image_locations` (`meta_data.store`) | `enabled_backends`, `[glance_store] default_backend`, `[<store>] filesystem_store_datadir`, `store_description`, `weight`, `[os_glance_staging_store]` |
+| Ubicaciones | `GET/POST /v2/images/{id}/locations`, PATCH `/locations`, `direct_url` | `image_locations`, `tasks` | `show_image_direct_url`, `show_multiple_locations` |
+| Inspección de formato | al subir e importar: rechazo 415 y `virtual_size` | `images` | `[image_format] require_image_format_match`, `gpt_safety_checks_nonfatal` |
+| Políticas y protecciones | todas las acciones; propiedades protegidas | — | `[oslo_policy] policy_file`, `property_protection_file`, `property_protection_rule_format` |
+| Plugins de importación | `image_conversion` (qemu-img), `image_decompression`, `inject_image_metadata`, `no_op` | `images`, `image_properties` | `glance-image-import.conf` |
+| Cuotas locales | límites al crear, subir y editar | `images` | `user_storage_quota`, `image_size_cap`, `image_{member,property,tag}_quota` |
+| Borrado diferido | `DELETE` deja `pending_delete`; `glance-scrubber` lo completa | `images`, `image_locations` | `delayed_delete`, `scrub_time` |
+| Otros | `POST /v2/tasks` (tipo `import`), `/healthcheck` | `tasks` | `[DEFAULT] max_retries`/`retry_interval` de `[database]` |
 | Importación interoperable | `PUT /stage`, `POST /import`, `/v2/info/import` | `images`, `image_properties` (`os_glance_import_task`) | `node_staging_uri`, `enabled_import_methods`, `[import_filtering_opts]` |
 | Tareas | `/v2/tasks`, `/v2/tasks/{id}`, `/v2/images/{id}/tasks` | `tasks`, `task_info` | `[task] task_time_to_live` |
 | Caché de imágenes | `/v2/cache[/{image_id}]`; descargas servidas desde la caché | `cached_images`, `node_reference` | `[paste_deploy] flavor`, `image_cache_dir`, `worker_self_reference_url`, `cache_prefetcher_interval` |
@@ -40,13 +47,19 @@ del original.
   original la copia mientras responde). El resultado es el mismo, y la primera
   descarga conserva `sendfile`.
 
+## Herramientas en Go
+
+`glance-manage` (`db sync|version|upgrade|check|purge|purge_images_table`,
+`db load_metadefs|unload_metadefs|export_metadefs`), `glance-cache-pruner`,
+`glance-cache-cleaner` y `glance-scrubber`. El plugin DevStack las instala en
+`/usr/local/bin` y, por defecto (`GLANCE_GO_INSTALL_ORIGINAL=False`), no
+instala el Glance de Python: el esquema de la base lo crea `glance-manage` Go
+con el DDL de la revisión `2024_1_contract01`.
+
 ## Lo que no implementa todavía
 
-- Varios stores (`enabled_backends`), `copy-image` y `glance-download`.
-- La API de ubicaciones (`/v2/images/{id}/locations`, `show_multiple_locations`).
-- La inspección del formato al subir (`[image_format] require_image_format_match`,
-  activa en DevStack).
-- Protección de propiedades (`property_protection_file`), plugins de
-  importación (`image_import_plugins`), borrado diferido y `glance-scrubber`.
-- La tarea legada `POST /v2/tasks` (tipo `import`), y las herramientas
-  `glance-manage` y `glance-cache-*`, que siguen siendo del original.
+- `glance-download` (importación entre regiones) y stores que no son de
+  archivos (rbd, swift, cinder, s3, http): `enabled_backends` acepta solo
+  `file`.
+- `/v2/info/stores/detail` informa `chunk_size` 65536 y
+  `thin_provisioning` false fijos para los stores de archivos.

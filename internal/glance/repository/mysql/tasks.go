@@ -169,8 +169,11 @@ func (r *Repository) BeginImport(ctx context.Context, t model.Task, from []strin
 			return repository.ErrConflict
 		}
 		at := t.CreatedAt.UTC()
-		if err := r.setStatus(ctx, tx, id, image.Status, "importing", at); err != nil {
-			return err
+		// copy-image keeps the image active; the other methods import it.
+		if image.Status != "active" {
+			if err := r.setStatus(ctx, tx, id, image.Status, "importing", at); err != nil {
+				return err
+			}
 		}
 		for name, value := range map[string]string{model.ImportTaskProperty: t.ID, "os_glance_importing_to_stores": "", "os_glance_failed_import": ""} {
 			if _, err := r.exec(ctx, tx, "INSERT INTO image_properties (image_id, name, value, created_at, deleted) VALUES (?, ?, ?, ?, 0) ON DUPLICATE KEY UPDATE value=VALUES(value), deleted=0, deleted_at=NULL, updated_at=VALUES(created_at)",

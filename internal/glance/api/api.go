@@ -31,6 +31,8 @@ type identityKey struct{}
 var HealthcheckDisableFile = "/etc/glance/healthcheck_disable"
 
 type Handler struct {
+	storeList    []StoreInfo
+	multi        MultiStore
 	service      *service.Service
 	auth         auth.Authenticator
 	publicURL    *url.URL
@@ -99,6 +101,7 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 	mux.HandleFunc("/v2/info/usage", h.usage)
 	mux.HandleFunc("/v2/info/stores", h.stores)
 	mux.HandleFunc("/v2/info/stores/detail", h.stores)
+	mux.HandleFunc("/v2/stores/{store}/{id}", h.deleteFromStore)
 	if h.binary != nil {
 		mux.HandleFunc("/v2/images/{id}/file", h.file)
 	}
@@ -382,6 +385,19 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Location", h.publicURL.JoinPath("v2", "images", image.ID).String())
+	// As the original's ResponseSerializer.create.
+	if h.imports != nil {
+		if methods := h.imports.Methods(); len(methods) > 0 {
+			w.Header().Set("OpenStack-image-import-methods", strings.Join(methods, ","))
+		}
+	}
+	if len(h.storeList) > 0 {
+		ids := make([]string, 0, len(h.storeList))
+		for _, st := range h.storeList {
+			ids = append(ids, st.ID)
+		}
+		w.Header().Set("OpenStack-image-store-ids", strings.Join(ids, ","))
+	}
 	h.json(w, 201, representation(image))
 }
 
@@ -404,7 +420,7 @@ func (h *Handler) show(w http.ResponseWriter, r *http.Request) {
 		h.failure(w, err)
 		return
 	}
-	h.json(w, 200, h.withLocations(r, representation(image)))
+	h.json(w, 200, h.withStores(r, h.withLocations(r, representation(image))))
 }
 
 func (h *Handler) json(w http.ResponseWriter, status int, value any) {

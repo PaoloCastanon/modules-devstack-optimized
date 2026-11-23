@@ -26,5 +26,9 @@ func (h *Handler) stores(w http.ResponseWriter, r *http.Request) {
 		h.status(w, 405, "Method not implemented.")
 		return
 	}
+	if len(h.storeList) > 0 {
+		h.storesView(w, r)
+		return
+	}
 	h.status(w, 404, "Multi backend is not supported at this site.")
 }

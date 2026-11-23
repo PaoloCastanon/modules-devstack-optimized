@@ -58,6 +58,9 @@ type UploadCoordinator struct {
 	images                    ImageReader
 	transfers                 repository.Transfers
 	quota                     QuotaEnforcer
+	defaultBackend            string
+	backends                  map[string]bool
+	backendOrder              []string // enabled_backends order
 	cache                     *ImageCache
 	bytes                     store.Store
 	limits                    UploadLimits
@@ -217,7 +220,8 @@ func (u *UploadCoordinator) readState(ctx context.Context, id string) (model.Dat
 	return checkedState(s, err, id)
 }
 func checkedState(s model.DataState, err error, id string) (model.DataState, error) {
-	if err != nil || s.ImageID != id || s.Deleted != (s.Status == "deleted") {
+	// A deleted row is "deleted", or "pending_delete" with delayed_delete.
+	if err != nil || s.ImageID != id || s.Deleted != (s.Status == "deleted" || s.Status == "pending_delete") {
 		return model.DataState{}, ErrUploadReconciliation
 	}
 	if s.Operation != nil && (s.Operation.ImageID != id || s.Operation.Validate() != nil) {
@@ -352,7 +356,35 @@ func (u *UploadCoordinator) notify(eventType, priority string, payload any) {
 // image.activate and image.update (active), or an ERROR image.upload whose
 // payload is a message, as official Glance.
 func (u *UploadCoordinator) Upload(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64) (model.DataContent, error) {
-	return u.write(ctx, who, value, src, declared, "")
+	return u.write(ctx, who, value, src, declared, "", "")
+}
+
+// UploadTo is Upload into one of enabled_backends (X-Image-Meta-Store).
+func (u *UploadCoordinator) UploadTo(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64, backend string) (model.DataContent, error) {
+	b, err := u.backendKey(backend)
+	if err != nil {
+		return model.DataContent{}, err
+	}
+	return u.write(ctx, who, value, src, declared, "", b)
+}
+
+// SetBackends enables multi-store: the default store's name and the others.
+func (u *UploadCoordinator) SetBackends(def string, names []string) {
+	u.defaultBackend, u.backends, u.backendOrder = def, map[string]bool{}, append([]string(nil), names...)
+	for _, n := range names {
+		u.backends[n] = true
+	}
+}
+
+// backendKey maps a store name to its store key ("" for the default).
+func (u *UploadCoordinator) backendKey(name string) (string, error) {
+	if name == "" || name == u.defaultBackend {
+		return "", nil
+	}
+	if !u.backends[name] {
+		return "", model.Fail(model.Invalid, "Unknown scheme '"+name+"' found in URI")
+	}
+	return name, nil
 }
 
 // ImportUpload writes an import's data (task holds the image's import lock)
@@ -361,12 +393,21 @@ func (u *UploadCoordinator) ImportUpload(ctx context.Context, who auth.Identity,
 	if task == "" {
 		return model.DataContent{}, model.Fail(model.Invalid, "Import without a task.")
 	}
-	return u.write(ctx, who, id, src, declared, task)
+	return u.write(ctx, who, id, src, declared, task, "")
 }
 
-func (u *UploadCoordinator) write(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64, task string) (model.DataContent, error) {
+// ImportUploadTo is ImportUpload into a backend.
+func (u *UploadCoordinator) ImportUploadTo(ctx context.Context, who auth.Identity, id string, src io.Reader, declared *int64, task, backend string) (model.DataContent, error) {
+	b, err := u.backendKey(backend)
+	if err != nil {
+		return model.DataContent{}, err
+	}
+	return u.write(ctx, who, id, src, declared, task, b)
+}
+
+func (u *UploadCoordinator) write(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64, task, backend string) (model.DataContent, error) {
 	var prepared *model.Image
-	content, err := u.upload(ctx, who, value, src, declared, &prepared, task)
+	content, err := u.upload(ctx, who, value, src, declared, &prepared, task, backend)
 	if prepared == nil {
 		return content, err
 	}
@@ -385,7 +426,7 @@ func (u *UploadCoordinator) write(ctx context.Context, who auth.Identity, value 
 	return content, nil
 }
 
-func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64, prepared **model.Image, task string) (model.DataContent, error) {
+func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64, prepared **model.Image, task, backend string) (model.DataContent, error) {
 	var zero model.DataContent
 	if err := ctx.Err(); err != nil {
 		return zero, err
@@ -461,7 +502,7 @@ func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value
 	if err != nil {
 		return zero, ErrUploadUnavailable
 	}
-	key := store.Key{ImageID: id, AttemptID: attempt.String()}
+	key := store.Key{ImageID: id, AttemptID: attempt.String(), Backend: backend}
 	_, reserveErr := u.transfers.ReserveData(ctx, id, key.AttemptID, expected, u.now())
 	if reserveErr != nil && !errors.Is(reserveErr, repository.ErrCommitUncertain) {
 		return zero, uploadDBError(reserveErr, id)
@@ -549,7 +590,7 @@ func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value
 		if err = ctx.Err(); err != nil {
 			return fail(err)
 		}
-		if err = u.checkpoint(ctx, key, model.DataCommitted, &content, f.FinishData(ctx, id, key.AttemptID, content, u.now())); err != nil {
+		if err = u.checkpoint(ctx, key, model.DataCommitted, &content, u.finish(f, ctx, id, key, content)); err != nil {
 			return fail(err)
 		}
 		return content, nil
@@ -687,4 +728,16 @@ func (q *quotaReader) Read(p []byte) (int, error) {
 		return n, errStorageQuotaFull
 	}
 	return n, err
+}
+
+// backendFinisher is FinishData into a backend (the MySQL repository).
+type backendFinisher interface {
+	FinishDataTo(ctx context.Context, id, attempt string, c model.DataContent, now time.Time, backend string) error
+}
+
+func (u *UploadCoordinator) finish(f dataFinisher, ctx context.Context, id string, key store.Key, c model.DataContent) error {
+	if b, ok := f.(backendFinisher); ok && key.Backend != "" {
+		return b.FinishDataTo(ctx, id, key.AttemptID, c, u.now(), key.Backend)
+	}
+	return f.FinishData(ctx, id, key.AttemptID, c, u.now())
 }

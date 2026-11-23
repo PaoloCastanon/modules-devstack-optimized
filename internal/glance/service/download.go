@@ -209,7 +209,7 @@ func downloadReceipt(s model.DataState) (store.Key, model.DataContent, error) {
 		return store.Key{}, model.DataContent{}, ErrUploadReconciliation
 	}
 	c := model.DataContent{Size: *o.Size, VirtualSize: o.VirtualSize, Checksum: *o.Checksum, SHA512: *o.SHA512}
-	k := store.Key{ImageID: s.ImageID, AttemptID: o.AttemptID}
+	k := store.Key{ImageID: s.ImageID, AttemptID: o.AttemptID, Backend: s.Backend}
 	if !committed(s, k, c) || c.Validate(o.ExpectedSize) != nil {
 		return k, c, ErrUploadReconciliation
 	}

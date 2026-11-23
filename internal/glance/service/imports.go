@@ -61,6 +61,16 @@ type ImportRequest struct {
 	} `json:"method"`
 	Stores    []string `json:"stores"`
 	AllStores bool     `json:"all_stores"`
+	// AllStoresMustSucceed defaults to true, as the original.
+	AllStoresMustSucceed *bool `json:"all_stores_must_succeed"`
+}
+
+// importJob is what the worker needs beyond the task.
+type importJob struct {
+	method, uri string
+	roles       []string
+	stores      []string
+	mustSucceed bool
 }
 
 func NewImporter(cfg config.ImportSettings, svc *Service, data *UploadCoordinator, client *http.Client) (*Importer, error) {
@@ -229,10 +239,15 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 	if !slices.Contains(m.cfg.Methods, method) || method == "glance-download" {
 		return model.Task{}, model.Fail(model.Invalid, "Import method "+method+" is not valid for this image.")
 	}
-	if len(req.Stores) > 0 || req.AllStores || method == "copy-image" {
-		return model.Task{}, model.Fail(model.Invalid, "Multiple stores are not supported at this site.")
+	stores, err := m.importStores(ctx, id, method, req)
+	if err != nil {
+		return model.Task{}, err
 	}
+	must := req.AllStoresMustSucceed == nil || *req.AllStoresMustSucceed
 	from := []string{"uploading"}
+	if method == "copy-image" {
+		from = []string{"active"}
+	}
 	if method == "web-download" {
 		u, err := url.Parse(req.Method.URI)
 		if err != nil || req.Method.URI == "" {
@@ -256,7 +271,14 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 	if body == nil {
 		body, _ = json.Marshal(req)
 	}
-	input, _ := json.Marshal(map[string]any{"image_id": id, "import_req": body, "backend": []any{nil}})
+	backend := []any{nil}
+	if len(stores) > 0 {
+		backend = []any{}
+		for _, s := range stores {
+			backend = append(backend, s)
+		}
+	}
+	input, _ := json.Marshal(map[string]any{"image_id": id, "import_req": body, "backend": backend})
 	now := m.now().UTC().Truncate(time.Second)
 	in, user := string(input), who.UserID
 	task := model.Task{ID: tid.String(), Type: "api_image_import", Status: "pending", Owner: who.ProjectID, ImageID: &id, UserID: &user,
@@ -265,7 +287,15 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 		task.RequestID = &rid
 	}
 	err = m.tasks.BeginImport(ctx, task, from, func(image model.Image) error {
-		if err := m.svc.writable(ctx, who, image); err != nil {
+		if method == "copy-image" {
+			// copy_image is admin-only by default and needs an active image.
+			if err := m.svc.permitImage(ctx, who, "copy_image", image, adminOnly(who, "copy_image")); err != nil {
+				return err
+			}
+			if image.Status != "active" {
+				return model.Fail(model.Conflict, "Image needs to be active to be copied")
+			}
+		} else if err := m.svc.writable(ctx, who, image); err != nil {
 			return err
 		}
 		if image.DiskFormat == nil || image.ContainerFormat == nil || *image.DiskFormat == "" || *image.ContainerFormat == "" {
@@ -289,11 +319,17 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 	if image, err := m.svc.repo.Get(ctx, id); err == nil {
 		m.svc.notify("image.update", notify.ImagePayload(image))
 	}
-	m.start(task, method, req.Method.URI, who.Roles)
+	if len(stores) > 0 {
+		_ = m.setImage(ctx, id, func(i *model.Image) {
+			i.Properties = cloneProps(i.Properties)
+			i.Properties["os_glance_importing_to_stores"] = strings.Join(stores, ",")
+		})
+	}
+	m.start(task, importJob{method: method, uri: req.Method.URI, roles: who.Roles, stores: stores, mustSucceed: must})
 	return task, nil
 }
 
-func (m *Importer) start(task model.Task, method, uri string, roles []string) {
+func (m *Importer) start(task model.Task, job importJob) {
 	m.workers.Add(1)
 	go func() {
 		defer m.workers.Done()
@@ -303,7 +339,7 @@ func (m *Importer) start(task model.Task, method, uri string, roles []string) {
 			return // restarted: Recover will close the task
 		}
 		defer func() { <-m.slots }()
-		m.run(task, method, uri, roles)
+		m.run(task, job)
 	}()
 }
 
@@ -322,7 +358,8 @@ func (m *Importer) setTask(task *model.Task, status string, result any, message 
 	m.notifier.Notify("task."+status, notify.Info, notify.TaskPayload(*task))
 }
 
-func (m *Importer) run(task model.Task, method, uri string, roles []string) {
+func (m *Importer) run(task model.Task, job importJob) {
+	method, uri, roles := job.method, job.uri, job.roles
 	id := *task.ImageID
 	ctx := m.ctx
 	m.setTask(&task, "processing", nil, "")
@@ -332,6 +369,18 @@ func (m *Importer) run(task model.Task, method, uri string, roles []string) {
 			err = errors.Join(err, e)
 		}
 		m.setTask(&task, "failure", nil, importMessage(err))
+	}
+	if method == "copy-image" {
+		err := m.copyStores(ctx, id, job.stores, job.mustSucceed)
+		if _, e := m.tasks.ReleaseImport(context.WithoutCancel(ctx), id, task.ID, "active", false, m.now()); e != nil {
+			err = errors.Join(err, e)
+		}
+		if err != nil {
+			m.setTask(&task, "failure", nil, importMessage(err))
+			return
+		}
+		m.setTask(&task, "success", map[string]string{"image_id": id}, "")
+		return
 	}
 	if method == "web-download" {
 		if err := m.download(ctx, id, uri); err != nil {
@@ -369,9 +418,25 @@ func (m *Importer) run(task model.Task, method, uri string, roles []string) {
 	}
 	who := auth.Identity{UserID: user, ProjectID: task.Owner, Roles: []string{"member", "reader"}, ExpiresAt: m.now().Add(24 * time.Hour)}
 	size := info.Size()
-	if _, err = m.data.ImportUpload(ctx, who, id, f, &size, task.ID); err != nil {
+	first := ""
+	if len(job.stores) > 0 {
+		first = job.stores[0]
+	}
+	if _, err = m.data.ImportUploadTo(ctx, who, id, f, &size, task.ID, first); err != nil {
 		fail(err)
 		return
+	}
+	if len(job.stores) > 0 {
+		_ = m.setImage(ctx, id, func(i *model.Image) {
+			i.Properties = cloneProps(i.Properties)
+			i.Properties["os_glance_importing_to_stores"] = strings.Join(job.stores[1:], ",")
+		})
+		if err = m.copyStores(ctx, id, job.stores[1:], job.mustSucceed); err != nil {
+			_ = os.Remove(m.staged(id))
+			_, _ = m.tasks.ReleaseImport(context.WithoutCancel(ctx), id, task.ID, "queued", false, m.now())
+			m.setTask(&task, "failure", nil, importMessage(err))
+			return
+		}
 	}
 	_ = os.Remove(m.staged(id))
 	if _, err = m.tasks.ReleaseImport(context.WithoutCancel(ctx), id, task.ID, "queued", false, m.now()); err != nil {
@@ -589,6 +654,6 @@ func (m *Importer) LegacyImport(ctx context.Context, who auth.Identity, taskType
 		return model.Task{}, importConflict(err, image.ID)
 	}
 	m.notifier.Notify("task.create", notify.Info, notify.TaskPayload(task))
-	m.start(task, "web-download", in.From, who.Roles)
+	m.start(task, importJob{method: "web-download", uri: in.From, roles: who.Roles})
 	return task, nil
 }

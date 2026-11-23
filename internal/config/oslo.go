@@ -155,6 +155,34 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 		c.DBRetryInterval = time.Duration(n) * time.Second
 	}
 	dir := strings.TrimRight(f.get("glance_store", "filesystem_store_datadir"), "/")
+	c.DelayedDelete = strings.EqualFold(f.get("DEFAULT", "delayed_delete"), "true")
+	// Multi-store: enabled_backends = name:type,...; the default backend's
+	// directory is the main store, the others are extra ones.
+	if backends := f.list("DEFAULT", "enabled_backends"); len(backends) > 0 {
+		c.DefaultBackend = f.get("glance_store", "default_backend")
+		for _, b := range backends {
+			name, kind, _ := strings.Cut(b, ":")
+			name, kind = strings.TrimSpace(name), strings.TrimSpace(kind)
+			if kind != "file" {
+				return errors.New("only file stores are supported in enabled_backends: " + b)
+			}
+			d := strings.TrimRight(f.get(name, "filesystem_store_datadir"), "/")
+			if d == "" || d[0] != '/' {
+				return errors.New("store " + name + " needs an absolute filesystem_store_datadir")
+			}
+			w, _ := strconv.Atoi(firstOf(f.get(name, "weight"), "0"))
+			c.Backends = append(c.Backends, StoreBackend{Name: name, Type: kind, Dir: d, Description: f.get(name, "store_description"), Weight: w})
+			if name == c.DefaultBackend {
+				dir = d
+			}
+		}
+		if c.DefaultBackend == "" {
+			return errors.New("[glance_store] default_backend is required with enabled_backends")
+		}
+		if dir == strings.TrimRight(f.get("glance_store", "filesystem_store_datadir"), "/") && f.get(c.DefaultBackend, "filesystem_store_datadir") == "" {
+			return errors.New("default_backend " + c.DefaultBackend + " is not in enabled_backends")
+		}
+	}
 	if dir == "" || dir[0] != '/' {
 		return errors.New("the original [glance_store] filesystem_store_datadir must be absolute")
 	}
@@ -331,6 +359,11 @@ func readLimits(c *Config, f osloFile) error {
 // readImport: the original's import options and defaults.
 func readImport(c *Config, f osloFile, env func(string) string) error {
 	staging := firstOf(f.get("DEFAULT", "node_staging_uri"), "file:///tmp/staging/")
+	if len(c.Backends) > 0 { // multi-store: the reserved staging store
+		if d := f.get("os_glance_staging_store", "filesystem_store_datadir"); d != "" {
+			staging = "file://" + d
+		}
+	}
 	dir, ok := strings.CutPrefix(staging, "file://")
 	dir = strings.TrimRight(dir, "/")
 	if !ok || dir == "" || dir[0] != '/' {

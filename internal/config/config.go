@@ -64,6 +64,12 @@ type Config struct {
 	ShowDirectURL, ShowMultipleLocations bool
 	// PolicyFile is [oslo_policy] policy_file, resolved next to glance-api.conf.
 	PolicyFile string
+	// DelayedDelete is [DEFAULT] delayed_delete (data left pending_delete
+	// for glance-scrubber).
+	DelayedDelete bool
+	// Backends are enabled_backends (multi-store); empty with one store.
+	Backends       []StoreBackend
+	DefaultBackend string
 	// PropertyProtectionFile and its rule format (roles or policies).
 	PropertyProtectionFile, PropertyProtectionFormat string
 }
@@ -303,4 +309,10 @@ func tokenCacheTime(getenv func(string) string, prefix string) (time.Duration, e
 		return 0, errors.New(prefix + "TOKEN_CACHE_TIME must be -1 (disabled) or 1..86400 seconds")
 	}
 	return time.Duration(max(n, 0)) * time.Second, nil
+}
+
+// StoreBackend is one enabled_backends entry (only "file" stores).
+type StoreBackend struct {
+	Name, Type, Dir, Description string
+	Weight                       int
 }

@@ -94,6 +94,20 @@ func (r *Repository) ack(ctx context.Context, tx *sql.Tx, q string, args ...any)
 
 func (r *Repository) location(id string) string { return "file://" + r.official.storeDir + "/" + id }
 
+// storeLocation reports whether value is the image's file in one of the
+// stores (the default one, or any enabled backend).
+func (r *Repository) storeLocation(id, value string) bool {
+	if value == r.location(id) {
+		return true
+	}
+	for name := range r.backends {
+		if v, _ := r.locationFor(id, name); v == value {
+			return true
+		}
+	}
+	return false
+}
+
 // OfficialAttempt is the attempt ID adopted for an image the original uploaded.
 func OfficialAttempt(id string) string { return uuid.NewSHA1(officialNamespace, []byte(id)).String() }
 
@@ -121,7 +135,7 @@ func (r *Repository) adoptable(ctx context.Context, tx *sql.Tx, s model.DataStat
 	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
 		return nil, err
 	}
-	if len(values) != 1 || values[0] != r.location(s.ImageID) {
+	if len(values) != 1 || !r.storeLocation(s.ImageID, values[0]) {
 		return nil, nil
 	}
 	o := model.DataOperation{ImageID: s.ImageID, AttemptID: OfficialAttempt(s.ImageID), Phase: model.DataCommitted,

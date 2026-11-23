@@ -162,6 +162,13 @@ func run(args []string, logger *slog.Logger) (result error) {
 		}()
 		binary.owner.SetNotifier(notifier)
 		options = append(options, api.WithBinaryTransfers(binary.owner))
+		if len(c.Backends) > 0 {
+			var list []api.StoreInfo
+			for _, b := range c.Backends {
+				list = append(list, api.StoreInfo{ID: b.Name, Type: b.Type, Description: b.Description, DataDir: b.Dir, Weight: b.Weight, Default: b.Name == c.DefaultBackend})
+			}
+			options = append(options, api.WithStores(list, binary.owner))
+		}
 	}
 	// Reuse Keystone connections under concurrency (net/http keeps only 2 idle
 	// per host by default; keystoneauth's requests pool keeps 10).

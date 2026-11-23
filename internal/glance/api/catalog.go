@@ -111,7 +111,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	values := make([]map[string]any, 0, len(images))
 	for _, image := range images {
-		values = append(values, h.withLocations(r, representation(image)))
+		values = append(values, h.withStores(r, h.withLocations(r, representation(image))))
 	}
 	q := r.URL.Query()
 	q.Del("marker")

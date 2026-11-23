@@ -28,8 +28,10 @@ func (r *Repository) Scrub(ctx context.Context, scrubTime time.Duration, now tim
 		return 0, err
 	}
 	done := 0
+	// The alias keeps r.sql from adding deleted=0: pending_delete locations
+	// are deleted rows, as the original's image_location_update leaves them.
 	for _, id := range ids {
-		lrows, err := r.db.QueryContext(ctx, r.sql("SELECT id, value FROM image_locations WHERE image_id=? AND status IN ('pending_delete','active')"), id)
+		lrows, err := r.db.QueryContext(ctx, r.sql("SELECT l.id, l.value FROM image_locations l WHERE l.image_id=? AND l.status IN ('pending_delete','active')"), id)
 		if err != nil {
 			return done, err
 		}

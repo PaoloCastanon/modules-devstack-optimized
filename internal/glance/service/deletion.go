@@ -179,6 +179,11 @@ func (u *UploadCoordinator) DeleteImage(ctx context.Context, who auth.Identity, 
 	resolved, cancel := u.resolution(ctx)
 	defer cancel()
 	s, readErr := u.readState(resolved, id)
+	if readErr == nil && s.Deleted && s.Status == "pending_delete" && sameDataReceipt(before, s) {
+		// delayed_delete: the data stays until glance-scrubber removes it.
+		u.notify("image.delete", notify.Info, notify.DeletePayload(i, s.UpdatedAt))
+		return nil
+	}
 	if readErr != nil || !s.Deleted || s.Status != "deleted" || !sameDataReceipt(before, s) {
 		return ErrUploadReconciliation
 	}

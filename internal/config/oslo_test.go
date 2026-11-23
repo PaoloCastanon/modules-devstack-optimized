@@ -144,3 +144,25 @@ func TestOriginalImageSizeCapAndQuotas(t *testing.T) {
 		t.Fatal("explicit bound ignored", c.Binary.MaxUploadBytes, err)
 	}
 }
+
+func TestOriginalEnabledBackendsAndDelayedDelete(t *testing.T) {
+	conf := strings.Replace(devstackConf, "[DEFAULT]\n", "[DEFAULT]\nenabled_backends = fast:file, cheap:file\ndelayed_delete = True\n", 1)
+	conf = strings.Replace(conf, "[glance_store]\n", "[glance_store]\ndefault_backend = fast\n", 1)
+	conf += "[fast]\nfilesystem_store_datadir = /opt/stack/data/glance/fast/\nstore_description = Fast\n[cheap]\nfilesystem_store_datadir = /opt/stack/data/glance/cheap\nweight = 5\n[os_glance_staging_store]\nfilesystem_store_datadir = /opt/stack/data/glance/os_glance_staging_store\n"
+	env := map[string]string{"GLANCE_GO_CONFIG_FILE": originalConf(t, conf, 0644)}
+	c, err := Load(func(k string) string { return env[k] }, "serve")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.DelayedDelete || c.DefaultBackend != "fast" || len(c.Backends) != 2 || c.Backends[0].Dir != "/opt/stack/data/glance/fast" || c.Backends[0].Description != "Fast" || c.Backends[1].Weight != 5 {
+		t.Fatalf("%+v %v", c.Backends, c.DelayedDelete)
+	}
+	if c.Binary.OfficialStoreDir != "/opt/stack/data/glance/fast" || c.Import.StagingDir != "/opt/stack/data/glance/os_glance_staging_store" {
+		t.Fatal("default store / staging", c.Binary.OfficialStoreDir, c.Import.StagingDir)
+	}
+	bad := strings.Replace(conf, "cheap:file", "cheap:rbd", 1)
+	env["GLANCE_GO_CONFIG_FILE"] = originalConf(t, bad, 0644)
+	if _, err = Load(func(k string) string { return env[k] }, "serve"); err == nil {
+		t.Fatal("non-file backend accepted")
+	}
+}
