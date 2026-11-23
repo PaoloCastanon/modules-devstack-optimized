@@ -193,6 +193,9 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 	if err := readImport(c, f); err != nil {
 		return err
 	}
+	if err := readCache(c, f); err != nil {
+		return err
+	}
 	k := func(key string) string { return f["keystone_authtoken"][key] }
 	if t := k("auth_type"); t != "" && t != "password" {
 		return errors.New("only [keystone_authtoken] auth_type = password is supported")
@@ -321,6 +324,42 @@ func readImport(c *Config, f osloFile) error {
 		return err
 	}
 	return ports("disallowed_ports", &c.Import.DisallowedPorts)
+}
+
+// readCache: the cache is on when the paste flavor includes it (keystone+cache
+// or keystone+cachemanagement), as the original's pipelines.
+func readCache(c *Config, f osloFile) error {
+	flavor := f.get("paste_deploy", "flavor")
+	if !strings.Contains(flavor, "cache") {
+		return nil
+	}
+	dir := strings.TrimRight(f.get("DEFAULT", "image_cache_dir"), "/")
+	if dir == "" || dir[0] != '/' {
+		return errors.New("the image cache needs an absolute [DEFAULT] image_cache_dir")
+	}
+	if d := firstOf(f.get("DEFAULT", "image_cache_driver"), "centralized_db"); d != "centralized_db" {
+		return errors.New("only image_cache_driver = centralized_db is supported")
+	}
+	c.Cache = CacheSettings{Enabled: true, Dir: dir, NodeURL: strings.TrimRight(f.get("DEFAULT", "worker_self_reference_url"), "/"),
+		PrefetchInterval: 300 * time.Second, MaxSize: 10 << 30}
+	if v := f.get("DEFAULT", "cache_prefetcher_interval"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			return errors.New("invalid [DEFAULT] cache_prefetcher_interval")
+		}
+		c.Cache.PrefetchInterval = time.Duration(n) * time.Second
+	}
+	if v := f.get("DEFAULT", "image_cache_max_size"); v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || n < 0 {
+			return errors.New("invalid [DEFAULT] image_cache_max_size")
+		}
+		c.Cache.MaxSize = n
+	}
+	if c.Cache.NodeURL == "" {
+		c.Cache.NodeURL = c.PublicURL
+	}
+	return nil
 }
 
 func firstOf(v, fallback string) string {

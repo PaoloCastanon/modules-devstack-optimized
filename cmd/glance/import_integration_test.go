@@ -94,8 +94,11 @@ func TestImportMySQLFilesystemHTTP(t *testing.T) {
 	c.Binary.UploadTimeout, c.Binary.DownloadTimeout = time.Minute, time.Minute
 	c.Import = config.ImportSettings{StagingDir: staging, Methods: []string{"glance-direct", "web-download"}, TaskTimeToLive: 48 * time.Hour,
 		AllowedSchemes: []string{"http"}, AllowedPorts: []int{port}}
+	cacheDir := filepath.Clean(root) + "-cache"
+	c.Cache = config.CacheSettings{Enabled: true, Dir: cacheDir, NodeURL: "http://glance-go-test-node:9292", PrefetchInterval: 200 * time.Millisecond, MaxSize: 1 << 30}
 	var runtime *binaryRuntime
 	var importer *service.Importer
+	var cache *service.ImageCache
 	var stopHTTP context.CancelFunc
 	var httpDone chan error
 	address := ""
@@ -116,7 +119,12 @@ func TestImportMySQLFilesystemHTTP(t *testing.T) {
 		if _, err = importer.Recover(ctx); err != nil {
 			t.Fatal(err)
 		}
-		h, err := api.New(catalog, importIdentity{}, "http://127.0.0.1:9293", "http://keystone-fixture.invalid/v3", 1048576, testLogger(), api.WithBinaryTransfers(runtime.owner), api.WithImports(importer))
+		if cache, err = service.NewImageCache(ctx, c.Cache, r, runtime.owner, testLogger()); err != nil {
+			t.Fatal(err)
+		}
+		runtime.owner.SetCache(cache)
+		cache.Prefetch()
+		h, err := api.New(catalog, importIdentity{}, "http://127.0.0.1:9293", "http://keystone-fixture.invalid/v3", 1048576, testLogger(), api.WithBinaryTransfers(runtime.owner), api.WithImports(importer), api.WithCache(cache))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -133,6 +141,7 @@ func TestImportMySQLFilesystemHTTP(t *testing.T) {
 			t.Fatal(err)
 		}
 		importer.Close()
+		cache.Close()
 		if err := runtime.close(); err != nil {
 			t.Fatal(err)
 		}
@@ -260,6 +269,67 @@ func TestImportMySQLFilesystemHTTP(t *testing.T) {
 	b := call("GET", "/v2/tasks/00000000-0000-4000-8000-000000000001", "", "", "admin-token", 200)
 	if !strings.Contains(string(b), `"status":"failure"`) {
 		t.Fatal(string(b))
+	}
+	// Image cache: a complete download is cached; the next one is a hit.
+	cachedImage := create()
+	call("PUT", "/v2/images/"+cachedImage+"/file", "cache-me", "application/octet-stream", "member-token", 204)
+	call("GET", "/v2/cache", "", "", "member-token", 403)
+	call("GET", "/v2/images/"+cachedImage+"/file", "", "", "member-token", 200)
+	listing := func() map[string]any {
+		var l map[string]any
+		_ = json.Unmarshal(call("GET", "/v2/cache", "", "", "admin-token", 200), &l)
+		return l
+	}
+	hits := func(id string) float64 {
+		for range 100 {
+			for _, e := range listing()["cached_images"].([]any) {
+				if m := e.(map[string]any); m["image_id"] == id {
+					return m["hits"].(float64)
+				}
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		return -1
+	}
+	if hits(cachedImage) != 0 {
+		t.Fatal("complete download not cached", listing())
+	}
+	if b, err := os.ReadFile(filepath.Join(cacheDir, cachedImage)); err != nil || string(b) != "cache-me" {
+		t.Fatal("cached copy differs", err)
+	}
+	if got := call("GET", "/v2/images/"+cachedImage+"/file", "", "", "member-token", 200); string(got) != "cache-me" {
+		t.Fatal("cached download differs")
+	}
+	for range 100 {
+		if hits(cachedImage) == 1 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if hits(cachedImage) != 1 {
+		t.Fatal("cache hit not counted", listing())
+	}
+	// Queue + prefetcher, then deletion.
+	queued := create()
+	call("PUT", "/v2/cache/"+queued, "", "", "admin-token", 400) // not active
+	call("PUT", "/v2/images/"+queued+"/file", "prefetch-me", "application/octet-stream", "member-token", 204)
+	call("PUT", "/v2/cache/"+queued, "", "", "admin-token", 202)
+	if hits(queued) != 0 {
+		t.Fatal("queued image not prefetched", listing())
+	}
+	call("DELETE", "/v2/cache/"+queued, "", "", "admin-token", 204)
+	call("DELETE", "/v2/images/"+cachedImage, "", "", "member-token", 204)
+	for _, e := range listing()["cached_images"].([]any) {
+		if id := e.(map[string]any)["image_id"]; id == queued || id == cachedImage {
+			t.Fatal("deleted cache entry still listed", id)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(cacheDir, cachedImage)); !os.IsNotExist(err) {
+		t.Fatal("cached copy of a deleted image left behind")
+	}
+	call("DELETE", "/v2/cache", "", "", "admin-token", 204)
+	if l := listing(); len(l["cached_images"].([]any)) != 0 || len(l["queued_images"].([]any)) != 0 {
+		t.Fatal("cache not cleared", l)
 	}
 	// Deleting a staged image removes its staged data.
 	staged := create()

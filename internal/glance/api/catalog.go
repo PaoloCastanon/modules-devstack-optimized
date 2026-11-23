@@ -259,9 +259,13 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 			h.binaryFailure(w, err)
 			return
 		}
-		if h.imports != nil { // staged data of an image deleted before its import
-			if id, err := model.CanonicalID(r.PathValue("id")); err == nil {
+		if id, err := model.CanonicalID(r.PathValue("id")); err == nil {
+			if h.imports != nil { // staged data of an image deleted before its import
 				h.imports.DiscardStaged(id)
+			}
+			if h.cache != nil { // as the original's cache middleware on DELETE
+				_ = h.cache.Delete(r.Context(), id)
+				_ = h.cache.Unqueue(id)
 			}
 		}
 		w.WriteHeader(http.StatusNoContent)

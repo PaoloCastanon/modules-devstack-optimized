@@ -170,6 +170,20 @@ func run(args []string, logger *slog.Logger) (result error) {
 		logger.Info("import methods enabled", "methods", importer.Methods(), "staging", c.Import.StagingDir, "recovered_tasks", recovered)
 		options = append(options, api.WithImports(importer))
 	}
+	if binary != nil && c.Cache.Enabled {
+		// The original's image cache (centralized_db) and its prefetcher.
+		cacheCtx, cancelCache := context.WithTimeout(ctx, c.DependencyTimeout)
+		cache, err := service.NewImageCache(cacheCtx, c.Cache, r, binary.owner, logger)
+		cancelCache()
+		if err != nil {
+			return errors.New("image cache unavailable")
+		}
+		defer cache.Close() // before the store closes
+		binary.owner.SetCache(cache)
+		cache.Prefetch()
+		logger.Info("image cache enabled", "dir", c.Cache.Dir, "prefetch_s", c.Cache.PrefetchInterval.Seconds())
+		options = append(options, api.WithCache(cache))
+	}
 	handler, err := api.New(catalog, authenticator, c.PublicURL, c.KeystoneURL, c.MaxBodyBytes, logger, options...)
 	if err != nil {
 		return err

@@ -46,6 +46,18 @@ type Config struct {
 	Limits KeystoneLimits
 	// Import is the original's interoperable import configuration.
 	Import ImportSettings
+	// Cache is the original's image cache (paste flavor with "cache").
+	Cache CacheSettings
+}
+
+// CacheSettings: image_cache_dir with the centralized_db driver (cached
+// images in the catalog database, per node_reference_url).
+type CacheSettings struct {
+	Enabled          bool
+	Dir              string
+	NodeURL          string // worker_self_reference_url
+	PrefetchInterval time.Duration
+	MaxSize          int64
 }
 
 // ImportSettings: node_staging_uri, enabled_import_methods,

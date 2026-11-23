@@ -34,6 +34,7 @@ type Handler struct {
 	challenge    string
 	binary       BinaryTransfers
 	imports      *service.Importer
+	cache        *service.ImageCache
 }
 
 func New(service *service.Service, authenticator auth.Authenticator, publicURL, keystoneURL string, maxBodyBytes int64, logger *slog.Logger, options ...Option) (http.Handler, error) {
@@ -73,6 +74,8 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 	mux.HandleFunc("/v2/info/import", h.importInfo)
 	mux.HandleFunc("/v2/tasks", h.tasksList)
 	mux.HandleFunc("/v2/tasks/{task}", h.task)
+	mux.HandleFunc("/v2/cache", h.cacheList)
+	mux.HandleFunc("/v2/cache/{image}", h.cacheImage)
 	mux.HandleFunc("/v2/info/usage", h.usage)
 	mux.HandleFunc("/v2/info/stores", h.stores)
 	mux.HandleFunc("/v2/info/stores/detail", h.stores)
@@ -164,7 +167,7 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 
 // Log route templates rather than arbitrary paths, identifiers or queries.
 func logRoute(path string) string {
-	if path == "/v2/images" || path == "/" || path == "/versions" || path == "/v2/info/usage" || path == "/v2/info/stores" || path == "/v2/info/stores/detail" || path == "/v2/info/import" || path == "/v2/tasks" {
+	if path == "/v2/images" || path == "/" || path == "/versions" || path == "/v2/info/usage" || path == "/v2/info/stores" || path == "/v2/info/stores/detail" || path == "/v2/info/import" || path == "/v2/tasks" || path == "/v2/cache" {
 		return path
 	}
 	if rest, ok := strings.CutPrefix(path, "/v2/schemas/"); ok && rest != "" && !strings.Contains(rest, "/") {
@@ -198,6 +201,9 @@ func logRoute(path string) string {
 	}
 	if rest, ok := strings.CutPrefix(path, "/v2/tasks/"); ok && rest != "" && !strings.Contains(rest, "/") {
 		return "/v2/tasks/{id}"
+	}
+	if rest, ok := strings.CutPrefix(path, "/v2/cache/"); ok && rest != "" && !strings.Contains(rest, "/") {
+		return "/v2/cache/{image_id}"
 	}
 	return "unmatched"
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"sync"
 
@@ -276,7 +277,18 @@ func (u *UploadCoordinator) OpenDownload(ctx context.Context, who auth.Identity,
 	if err != nil {
 		return nil, err
 	}
-	f, size, err := u.bytes.OpenStream(ctx, key)
+	// The image cache serves a complete copy when it has one.
+	var f store.ReadSeekCloser
+	var size int64
+	cached := false
+	if u.cache != nil {
+		if cf, ok := u.cache.open(id, content.Size); ok {
+			f, size, cached = cf, content.Size, true
+		}
+	}
+	if !cached {
+		f, size, err = u.bytes.OpenStream(ctx, key)
+	}
 	if err != nil {
 		if f != nil {
 			_ = f.Close()
@@ -314,6 +326,16 @@ func (u *UploadCoordinator) OpenDownload(ctx context.Context, who auth.Identity,
 			priority = notify.Error
 		}
 		u.notify("image.send", priority, notify.SendPayload(id, owner, who.ProjectID, who.UserID, n))
+		if u.cache != nil && n == requested && requested == content.Size { // a complete download
+			if cached {
+				u.cache.hit(id)
+			} else {
+				u.cache.fill(id, content.Size, content.Checksum, func(ctx context.Context) (io.ReadCloser, int64, string, error) {
+					f, _, err := u.bytes.OpenStream(ctx, key)
+					return f, content.Size, content.Checksum, err
+				}, nil)
+			}
+		}
 	}
 	return &Download{Body: &downloadBody{ReadSeekCloser: f, release: leave}, Size: content.Size, Checksum: content.Checksum, Sent: sent}, nil
 }

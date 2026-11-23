@@ -47,6 +47,7 @@ type UploadCoordinator struct {
 	images                    ImageReader
 	transfers                 repository.Transfers
 	quota                     QuotaEnforcer
+	cache                     *ImageCache
 	bytes                     store.Store
 	limits                    UploadLimits
 	now                       func() time.Time
