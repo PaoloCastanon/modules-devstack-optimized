@@ -29,6 +29,8 @@ class GlanceBenchmarkTests(unittest.TestCase):
         text = glance_switch.replacement(19293).decode()
         self.assertIn('"/image"', text)
         self.assertNotIn('/placement', text)
+        # Same Apache conditions as the original's site file.
+        self.assertTrue(text.startswith('KeepAlive Off\nSetEnv proxy-sendchunked 1\n'))
         for port in [True, 80, 65536, '19293']:
             with self.assertRaises(ValueError):
                 glance_switch.replacement(port)
