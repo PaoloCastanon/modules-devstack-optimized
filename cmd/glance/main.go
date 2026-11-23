@@ -62,11 +62,27 @@ func run(args []string, logger *slog.Logger) (result error) {
 	}()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// As oslo.db at startup: max_retries attempts (-1: forever), retry_interval
+	// apart, so a service started before MySQL (a reboot) waits for it.
+	for attempt := 0; ; attempt++ {
+		ping, cancelPing := context.WithTimeout(ctx, 10*time.Second)
+		err = db.PingContext(ping)
+		cancelPing()
+		if err == nil {
+			break
+		}
+		if ctx.Err() != nil || c.DBMaxRetries >= 0 && attempt >= c.DBMaxRetries {
+			return errors.New("database connection failed")
+		}
+		logger.Warn("database not reachable; retrying", "attempt", attempt+1, "retry_interval_s", c.DBRetryInterval.Seconds())
+		select {
+		case <-ctx.Done():
+			return errors.New("database connection failed")
+		case <-time.After(c.DBRetryInterval):
+		}
+	}
 	startup, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	if err = db.PingContext(startup); err != nil {
-		return errors.New("database connection failed")
-	}
 	if mode == "migrate" {
 		if err = mysql.Migrate(startup, db); err != nil {
 			return err

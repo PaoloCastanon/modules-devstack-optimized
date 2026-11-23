@@ -138,6 +138,21 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 		return errors.New("the original [database] connection must name the glance database")
 	}
 	c.DatabaseDSN, c.OfficialCatalog = dsn, catalog
+	c.DBMaxRetries, c.DBRetryInterval = 10, 10*time.Second
+	if v := f.get("database", "max_retries"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < -1 {
+			return errors.New("invalid [database] max_retries")
+		}
+		c.DBMaxRetries = n
+	}
+	if v := f.get("database", "retry_interval"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return errors.New("invalid [database] retry_interval")
+		}
+		c.DBRetryInterval = time.Duration(n) * time.Second
+	}
 	dir := strings.TrimRight(f.get("glance_store", "filesystem_store_datadir"), "/")
 	if dir == "" || dir[0] != '/' {
 		return errors.New("the original [glance_store] filesystem_store_datadir must be absolute")

@@ -52,6 +52,10 @@ type Config struct {
 	ImageFormat ImageFormatSettings
 	// Quotas are image_member_quota, image_property_quota, image_tag_quota.
 	MemberQuota, PropertyQuota, TagQuota int
+	// DBMaxRetries and DBRetryInterval are [database] max_retries and
+	// retry_interval (oslo.db: 10 and 10 s; -1 retries forever).
+	DBMaxRetries    int
+	DBRetryInterval time.Duration
 }
 
 // ImageFormatSettings: require_image_format_match (default True) and
