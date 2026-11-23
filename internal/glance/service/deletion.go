@@ -75,7 +75,13 @@ func cleanupFence(s model.DataState, key store.Key, target string, phase model.D
 // finishCleanup is used by the sole deletion owner or exclusive startup only.
 // Its caller must prove no writer for this key can still execute Stage/Publish.
 // Retrying Delete also synchronizes directories when names are already absent.
-func (u *UploadCoordinator) finishCleanup(ctx context.Context, before model.DataState, target string) error {
+//
+// The state is read once more before the bytes are unlinked. fresh means
+// before was just committed by this call (the deletion's own tombstone):
+// the re-reads after the unlink are then redundant, since the cleanup
+// transition is itself a conditional write on the operation's phase and an
+// acknowledged commit needs no confirmation.
+func (u *UploadCoordinator) finishCleanup(ctx context.Context, before model.DataState, target string, fresh bool) error {
 	if before.Operation == nil {
 		return ErrUploadReconciliation
 	}
@@ -90,17 +96,21 @@ func (u *UploadCoordinator) finishCleanup(ctx context.Context, before model.Data
 	if u.bytes.Delete(ctx, key) != nil {
 		return ErrUploadReconciliation
 	}
-	s, err = u.readState(ctx, key.ImageID)
-	if err != nil || !cleanupFence(s, key, target, model.DataCleanup) || !sameDataReceipt(before, s) {
-		return ErrUploadReconciliation
+	if !fresh {
+		s, err = u.readState(ctx, key.ImageID)
+		if err != nil || !cleanupFence(s, key, target, model.DataCleanup) || !sameDataReceipt(before, s) {
+			return ErrUploadReconciliation
+		}
 	}
 	err = u.transfers.CompleteDataCleanup(ctx, key.ImageID, key.AttemptID, u.now())
 	if err != nil && !errors.Is(err, repository.ErrCommitUncertain) {
 		return ErrUploadReconciliation
 	}
-	s, err = u.readState(ctx, key.ImageID)
-	if err != nil || !cleanupFence(s, key, target, model.DataCleaned) || !sameDataReceipt(before, s) {
-		return ErrUploadReconciliation
+	if !fresh || err != nil { // an acknowledged commit needs no confirmation
+		s, err = u.readState(ctx, key.ImageID)
+		if err != nil || !cleanupFence(s, key, target, model.DataCleaned) || !sameDataReceipt(before, s) {
+			return ErrUploadReconciliation
+		}
 	}
 	return nil
 }
@@ -178,7 +188,9 @@ func (u *UploadCoordinator) DeleteImage(ctx context.Context, who auth.Identity, 
 	// request was cancelled. A proposed SQL return value is never confirmation.
 	resolved, cancel := u.resolution(ctx)
 	defer cancel()
+	// The returned state is a proposal, never evidence: it is read back.
 	s, readErr := u.readState(resolved, id)
+	certain := err == nil // the tombstone was acknowledged
 	if readErr == nil && s.Deleted && s.Status == "pending_delete" && sameDataReceipt(before, s) {
 		// delayed_delete: the data stays until glance-scrubber removes it.
 		u.notify("image.delete", notify.Info, notify.DeletePayload(i, s.UpdatedAt))
@@ -199,5 +211,5 @@ func (u *UploadCoordinator) DeleteImage(ctx context.Context, who auth.Identity, 
 	if !cleanupFence(s, key, "deleted", model.DataCleanup) {
 		return ErrUploadReconciliation
 	}
-	return u.finishCleanup(resolved, s, "deleted")
+	return u.finishCleanup(resolved, s, "deleted", certain)
 }

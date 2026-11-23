@@ -270,6 +270,12 @@ func (u *UploadCoordinator) checkpoint(ctx context.Context, key store.Key, phase
 	if writeErr != nil && !errors.Is(writeErr, repository.ErrCommitUncertain) {
 		return uploadDBError(writeErr, key.ImageID)
 	}
+	// An acknowledged write is its own proof: each transition is one
+	// conditional UPDATE whose affected rows were checked, so only an
+	// uncertain commit is read back to learn what happened.
+	if writeErr == nil {
+		return nil
+	}
 	resolved, cancel := u.resolution(ctx)
 	defer cancel()
 	s, err := u.readState(resolved, key.ImageID)
