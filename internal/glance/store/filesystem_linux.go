@@ -870,8 +870,13 @@ func (s *Filesystem) Copy(ctx context.Context, from Key, to string) (Info, error
 		}
 		return Info{}, opError("copy", err)
 	}
-	h5, h512 := md5.New(), sha512.New()
-	n, err := io.Copy(io.MultiWriter(out, h5, h512), readerCtx{ctx, in})
+	// The upload's pipeline: write, MD5 and SHA-512 in parallel with the
+	// next read; the source must keep its size while copied.
+	var size int64
+	if st, e := in.Stat(); e == nil {
+		size = st.Size()
+	}
+	info, err := measure(ctx, in, func(b []byte) (int, error) { return s.ops.write(out, b) }, size, &size)
 	if e := out.Close(); err == nil {
 		err = e
 	}
@@ -879,19 +884,7 @@ func (s *Filesystem) Copy(ctx context.Context, from Key, to string) (Info, error
 		_ = s.ops.unlink(dst, s.final(name))
 		return Info{}, opError("copy", err)
 	}
-	return Info{Size: n, Checksum: hex.EncodeToString(h5.Sum(nil)), SHA512: hex.EncodeToString(h512.Sum(nil))}, nil
-}
-
-type readerCtx struct {
-	ctx context.Context
-	r   io.Reader
-}
-
-func (r readerCtx) Read(p []byte) (int, error) {
-	if err := r.ctx.Err(); err != nil {
-		return 0, err
-	}
-	return r.r.Read(p)
+	return info, nil
 }
 
 // DeleteDefault removes only the default store's copy of an image (the
