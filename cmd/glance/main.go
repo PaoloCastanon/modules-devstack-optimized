@@ -20,6 +20,7 @@ import (
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/quota"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/service"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/policy"
 )
 
 func main() {
@@ -168,6 +169,16 @@ func run(args []string, logger *slog.Logger) (result error) {
 	client := &http.Client{Timeout: c.DependencyTimeout, Transport: transport}
 	authenticator := auth.NewKeystone(c.KeystoneURL, client, c.Credential, auth.WithTokenCache(c.TokenCacheTime, 10000))
 	model.Quotas.Members, model.Quotas.Properties, model.Quotas.Tags = c.MemberQuota, c.PropertyQuota, c.TagQuota
+	overrides, err := policy.LoadFile(c.PolicyFile)
+	if err != nil {
+		return errors.New("cannot read the policy file")
+	}
+	if service.Policy, err = policy.New(overrides); err != nil {
+		return err
+	}
+	if len(overrides) > 0 {
+		logger.Info("policy file loaded", "file", c.PolicyFile, "rules", len(overrides))
+	}
 	catalog := service.New(r, time.Now)
 	catalog.SetNotifier(notifier)
 	if c.Limits.Enabled {

@@ -134,6 +134,15 @@ func (u *UploadCoordinator) downloadVisible(ctx context.Context, who auth.Identi
 			return notFound(id)
 		}
 	}
+	if overridden() {
+		target := visibilityTarget(who, i)
+		if i.Owner != who.ProjectID && i.Visibility == "shared" {
+			target["member_id"] = who.ProjectID // a member: checked above
+		}
+		if err := Permit(who, "download_image", target, nil); err != nil {
+			return err
+		}
+	}
 	// As the original's image_data download.
 	if i.Status == "deactivated" && !who.HasRole("admin") {
 		return model.Fail(model.Forbidden, "The requested image has been deactivated. Image data download is forbidden.")
@@ -220,7 +229,7 @@ func (u *UploadCoordinator) OpenDownload(ctx context.Context, who auth.Identity,
 	if err := who.Check(u.now()); err != nil {
 		return nil, err
 	}
-	if !who.HasRole("reader") && !who.HasRole("admin") {
+	if !overridden() && !who.HasRole("reader") && !who.HasRole("admin") {
 		return nil, model.Fail(model.Forbidden, "Reading images requires reader or admin role.")
 	}
 	id, err := model.CanonicalID(value)

@@ -62,6 +62,8 @@ type Config struct {
 	// ShowDirectURL, ShowMultipleLocations: show_image_direct_url and
 	// show_multiple_locations (both off by default, OSSN-0065).
 	ShowDirectURL, ShowMultipleLocations bool
+	// PolicyFile is [oslo_policy] policy_file, resolved next to glance-api.conf.
+	PolicyFile string
 }
 
 // ImageFormatSettings: require_image_format_match (default True) and

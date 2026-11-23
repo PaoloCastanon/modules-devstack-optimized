@@ -61,6 +61,12 @@ func (s *Service) readNamespaceAs(ctx context.Context, who auth.Identity, name s
 	if err != nil {
 		return nil, n, err
 	}
+	if overridden() {
+		if Permit(who, "get_metadef_namespace", namespaceTarget(n), nil) != nil {
+			return nil, n, model.Fail(model.NotFound, "The resource could not be found.")
+		}
+		return repo, n, nil
+	}
 	if !who.HasRole("admin") && n.Visibility != "public" && n.Owner != who.ProjectID {
 		if child {
 			return nil, n, model.Fail(model.NotFound, "Namespace "+name+" not found")
@@ -77,13 +83,24 @@ func (s *Service) writeNamespace(ctx context.Context, who auth.Identity, name, a
 	if err != nil {
 		return nil, n, err
 	}
-	if err = metadefAdmin(who, action); err != nil {
+	if overridden() {
+		if err = Permit(who, action, namespaceTarget(n), nil); err != nil {
+			return nil, n, err
+		}
+	} else if err = metadefAdmin(who, action); err != nil {
 		return nil, n, err
 	}
 	return repo, n, nil
 }
 
+func namespaceTarget(n model.Namespace) map[string]any {
+	return map[string]any{"project_id": n.Owner, "owner": n.Owner, "visibility": n.Visibility, "namespace": n.Namespace}
+}
+
 func metadefAdmin(who auth.Identity, action string) error {
+	if overridden() {
+		return Permit(who, action, nil, nil)
+	}
 	if !who.HasRole("admin") {
 		return model.Fail(model.Forbidden, "You are not authorized to complete "+action+" action.")
 	}
@@ -293,7 +310,7 @@ func (s *Service) Object(ctx context.Context, who auth.Identity, ns, name string
 }
 
 func (s *Service) SaveObject(ctx context.Context, who auth.Identity, ns, name string, o model.MetadefObject) (model.MetadefObject, error) {
-	repo, n, err := s.writeNamespace(ctx, who, ns, "add_metadef_object")
+	repo, n, err := s.writeNamespace(ctx, who, ns, map[bool]string{true: "add_metadef_object", false: "modify_metadef_object"}[name == ""])
 	if err != nil {
 		return o, err
 	}
@@ -373,7 +390,7 @@ func (s *Service) Property(ctx context.Context, who auth.Identity, ns, name stri
 }
 
 func (s *Service) SaveProperty(ctx context.Context, who auth.Identity, ns, name string, p model.MetadefProperty) (model.MetadefProperty, error) {
-	repo, n, err := s.writeNamespace(ctx, who, ns, "add_metadef_property")
+	repo, n, err := s.writeNamespace(ctx, who, ns, map[bool]string{true: "add_metadef_property", false: "modify_metadef_property"}[name == ""])
 	if err != nil {
 		return p, err
 	}
@@ -458,7 +475,11 @@ func tagDuplicate(name, ns string) error {
 
 // CreateMetadefTags is POST /tags (one or many; replace unless append).
 func (s *Service) CreateMetadefTags(ctx context.Context, who auth.Identity, ns string, names []string, replace bool) ([]model.MetadefTag, error) {
-	repo, n, err := s.writeNamespace(ctx, who, ns, "add_metadef_tag")
+	action := "add_metadef_tag"
+	if len(names) != 1 || !replace {
+		action = "add_metadef_tags"
+	}
+	repo, n, err := s.writeNamespace(ctx, who, ns, action)
 	if err != nil {
 		return nil, err
 	}

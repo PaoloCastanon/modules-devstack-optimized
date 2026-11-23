@@ -101,6 +101,9 @@ func (s *Service) ListMembers(ctx context.Context, who auth.Identity, imageID st
 	if image.Visibility != "shared" {
 		return nil, model.Fail(model.Forbidden, "Only shared images have members.")
 	}
+	if err = s.permitImage(ctx, who, "get_members", image, nil); err != nil {
+		return nil, err
+	}
 	members, err := repo.ListMembers(ctx, id)
 	if err != nil {
 		return nil, err
@@ -127,14 +130,23 @@ func (s *Service) GetMember(ctx context.Context, who auth.Identity, imageID, mem
 	if err != nil {
 		return model.Member{}, err
 	}
-	if !who.HasRole("admin") && image.Owner != who.ProjectID && memberID != who.ProjectID {
+	if overridden() {
+		target := s.imageTarget(ctx, who, image)
+		target["member_id"] = memberID
+		if err = Permit(who, "get_member", target, nil); err != nil {
+			return model.Member{}, err
+		}
+	} else if !who.HasRole("admin") && image.Owner != who.ProjectID && memberID != who.ProjectID {
 		return model.Member{}, memberNotFound()
 	}
 	m, err := repo.GetMember(ctx, id, memberID)
 	return m, memberError(err, id)
 }
 
-func ownerPolicy(who auth.Identity, image model.Image) error {
+func ownerPolicy(who auth.Identity, image model.Image, action ...string) error {
+	if overridden() && len(action) > 0 {
+		return Permit(who, action[0], visibilityTarget(who, image), nil)
+	}
 	if who.HasRole("admin") {
 		return nil
 	}
@@ -156,7 +168,7 @@ func (s *Service) CreateMember(ctx context.Context, who auth.Identity, imageID, 
 		if err := s.visible(ctx, who, image); err != nil {
 			return err
 		}
-		if err := ownerPolicy(who, image); err != nil {
+		if err := ownerPolicy(who, image, "add_member"); err != nil {
 			return err
 		}
 		if image.Visibility != "shared" {
@@ -189,6 +201,11 @@ func (s *Service) UpdateMember(ctx context.Context, who auth.Identity, imageID, 
 		if err := s.visible(ctx, who, image); err != nil {
 			return err
 		}
+		if overridden() {
+			target := visibilityTarget(who, image)
+			target["member_id"] = memberID
+			return Permit(who, "modify_member", target, nil)
+		}
 		if !who.HasRole("admin") && (who.ProjectID != memberID || !who.HasRole("member")) {
 			return model.Fail(model.Forbidden, "Only the member project can change its membership status.")
 		}
@@ -211,7 +228,7 @@ func (s *Service) DeleteMember(ctx context.Context, who auth.Identity, imageID, 
 		if err := s.visible(ctx, who, image); err != nil {
 			return err
 		}
-		return ownerPolicy(who, image)
+		return ownerPolicy(who, image, "delete_member")
 	})
 	if err != nil {
 		return memberError(err, id)
@@ -280,7 +297,11 @@ func (s *Service) action(ctx context.Context, who auth.Identity, imageID, name, 
 			return model.Image{}, err
 		}
 		// The original's default: admin, or a member of the owner project.
-		if !who.HasRole("admin") && (!who.HasRole("member") || image.Owner != who.ProjectID) {
+		if overridden() {
+			if err := s.permitImage(ctx, who, name, image, nil); err != nil {
+				return model.Image{}, err
+			}
+		} else if !who.HasRole("admin") && (!who.HasRole("member") || image.Owner != who.ProjectID) {
 			return model.Image{}, model.Fail(model.Forbidden, "You are not authorized to complete "+name+" action.")
 		}
 		switch image.Status {
@@ -312,9 +333,16 @@ func (s *Service) updateImage(ctx context.Context, who auth.Identity, imageID st
 
 // writable is the original's modify_image for one locked image: 404 when
 // it is not visible, 403 when visible but not the caller's.
-func (s *Service) writable(ctx context.Context, who auth.Identity, image model.Image) error {
+func (s *Service) writable(ctx context.Context, who auth.Identity, image model.Image, action ...string) error {
 	if err := s.visible(ctx, who, image); err != nil {
 		return err
+	}
+	if overridden() {
+		name := "modify_image"
+		if len(action) > 0 {
+			name = action[0]
+		}
+		return s.permitImage(ctx, who, name, image, nil)
 	}
 	if !who.HasRole("member") && !who.HasRole("admin") {
 		return model.Fail(model.Forbidden, "Modifying images requires member or admin role.")

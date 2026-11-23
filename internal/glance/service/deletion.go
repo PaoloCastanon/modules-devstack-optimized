@@ -28,7 +28,7 @@ func (u *UploadCoordinator) claimDeletion(id string) (func(), error) {
 }
 
 func deletionPolicy(who auth.Identity, i model.Image) error {
-	if err := writePolicy(who, i); err != nil {
+	if err := writePolicy(who, i, "delete_image"); err != nil {
 		return err
 	}
 	if i.Protected {
@@ -114,7 +114,7 @@ func (u *UploadCoordinator) DeleteImage(ctx context.Context, who auth.Identity, 
 	if err := who.Check(u.now()); err != nil {
 		return err
 	}
-	if !who.HasRole("member") && !who.HasRole("admin") {
+	if !overridden() && !who.HasRole("member") && !who.HasRole("admin") {
 		return model.Fail(model.Forbidden, "Deleting images requires member or admin role.")
 	}
 	id, err := model.CanonicalID(value)

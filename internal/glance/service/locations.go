@@ -48,8 +48,12 @@ func (m *Importer) Locations(ctx context.Context, who auth.Identity, value strin
 	if err != nil {
 		return nil, err
 	}
+	var def error
 	if !who.HasRole("service") && !who.HasRole("admin") { // rule:service_api
-		return nil, model.Fail(model.Forbidden, "You are not authorized to complete fetch_image_location action.")
+		def = model.Fail(model.Forbidden, "You are not authorized to complete fetch_image_location action.")
+	}
+	if err = m.svc.permitImage(ctx, who, "fetch_image_location", image, def); err != nil {
+		return nil, err
 	}
 	return repo.ImageLocations(ctx, image.ID)
 }
@@ -73,8 +77,12 @@ func (m *Importer) AddLocation(ctx context.Context, who auth.Identity, value, ur
 		return model.Fail(model.Conflict, "It's not allowed to add locations if image status is "+image.Status+".")
 	}
 	service := who.HasRole("service")
+	var def error
 	if !service && !who.HasRole("admin") && (!who.HasRole("member") || image.Owner != who.ProjectID) {
-		return model.Fail(model.Forbidden, "You are not authorized to complete add_image_location action.")
+		def = model.Fail(model.Forbidden, "You are not authorized to complete add_image_location action.")
+	}
+	if err = m.svc.permitImage(ctx, who, "add_image_location", image, def); err != nil {
+		return err
 	}
 	if !service {
 		return model.Fail(model.Forbidden, "http store must be enabled to use location API by normal user.")

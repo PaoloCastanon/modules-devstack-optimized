@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/service"
 )
 
@@ -24,9 +25,13 @@ func (h *Handler) cacheAllowed(w http.ResponseWriter, r *http.Request) bool {
 		h.status(w, 404, "Caching via API is not supported at this site.")
 		return false
 	}
+	action := map[string]string{http.MethodGet: "cache_list", http.MethodPut: "cache_image", http.MethodDelete: "cache_delete"}[r.Method]
+	var def error
 	if !who(r).HasRole("admin") {
-		action := map[string]string{http.MethodGet: "cache_list", http.MethodPut: "cache_image", http.MethodDelete: "cache_delete"}[r.Method]
-		h.status(w, 403, "You are not authorized to complete "+action+" action.")
+		def = model.Fail(model.Forbidden, "You are not authorized to complete "+action+" action.")
+	}
+	if err := service.Permit(who(r), action, nil, def); err != nil {
+		h.failure(w, err)
 		return false
 	}
 	return true

@@ -307,7 +307,7 @@ func (u *UploadCoordinator) authorized(ctx context.Context, who auth.Identity, i
 	if err := who.Check(u.now()); err != nil {
 		return model.Image{}, err
 	}
-	if !who.HasRole("member") && !who.HasRole("admin") {
+	if !overridden() && !who.HasRole("member") && !who.HasRole("admin") {
 		return model.Image{}, model.Fail(model.Forbidden, "Uploading images requires member or admin role.")
 	}
 	i, err := u.images.Get(ctx, id)
@@ -317,7 +317,7 @@ func (u *UploadCoordinator) authorized(ctx context.Context, who auth.Identity, i
 	if i.ID != id {
 		return i, ErrUploadReconciliation
 	}
-	if err = writePolicy(who, i); err != nil {
+	if err = writePolicy(who, i, "upload_image"); err != nil {
 		return i, err
 	}
 	if i.Properties[model.ImportTaskProperty] != task {

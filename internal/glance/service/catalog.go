@@ -15,7 +15,10 @@ func (s *Service) List(ctx context.Context, who auth.Identity, options model.Lis
 	if err := who.Check(s.now()); err != nil {
 		return nil, err
 	}
-	if !who.HasRole("reader") && !who.HasRole("admin") {
+	if err := Permit(who, "get_images", map[string]any{"project_id": who.ProjectID}, nil); err != nil {
+		return nil, err
+	}
+	if !overridden() && !who.HasRole("reader") && !who.HasRole("admin") {
 		return nil, model.Fail(model.Forbidden, "Listing images requires reader or admin role.")
 	}
 	options.ProjectID, options.Admin = who.ProjectID, who.HasRole("admin")
@@ -26,7 +29,17 @@ func (s *Service) List(ctx context.Context, who auth.Identity, options model.Lis
 	return s.repo.List(ctx, options)
 }
 
-func writePolicy(who auth.Identity, image model.Image) error {
+// writePolicy is the default modify/upload/delete rule; with a policy file
+// the action's rule decides once the image is visible.
+func writePolicy(who auth.Identity, image model.Image, action ...string) error {
+	if overridden() && len(action) > 0 {
+		if !who.HasRole("admin") && image.Owner != who.ProjectID && image.Visibility != "public" && image.Visibility != "community" && image.Visibility != "shared" {
+			return notFound(image.ID)
+		}
+		target := visibilityTarget(who, image)
+		target["id"] = image.ID
+		return Permit(who, action[0], target, nil)
+	}
 	if !who.HasRole("member") && !who.HasRole("admin") {
 		return model.Fail(model.Forbidden, "Modifying images requires member or admin role.")
 	}
@@ -53,7 +66,7 @@ func (s *Service) Patch(ctx context.Context, who auth.Identity, id string, ops [
 	if err := who.Check(s.now()); err != nil {
 		return model.Image{}, err
 	}
-	if !who.HasRole("member") && !who.HasRole("admin") {
+	if !overridden() && !who.HasRole("member") && !who.HasRole("admin") {
 		return model.Image{}, model.Fail(model.Forbidden, "Modifying images requires member or admin role.")
 	}
 	id, err := model.CanonicalID(id)
@@ -66,7 +79,7 @@ func (s *Service) Patch(ctx context.Context, who auth.Identity, id string, ops [
 		}
 		for _, op := range ops {
 			var visibility string
-			if op.Key == "visibility" && op.Op != "remove" && !who.HasRole("admin") && json.Unmarshal(op.Value, &visibility) == nil && visibility == "public" {
+			if !overridden() && op.Key == "visibility" && op.Op != "remove" && !who.HasRole("admin") && json.Unmarshal(op.Value, &visibility) == nil && visibility == "public" {
 				return model.Image{}, model.Fail(model.Forbidden, "Publishing images requires admin role.")
 			}
 		}
@@ -75,7 +88,13 @@ func (s *Service) Patch(ctx context.Context, who auth.Identity, id string, ops [
 			return model.Image{}, err
 		}
 		// Check the decoded value, not just its possible JSON spellings/escapes.
-		if changed.Visibility == "public" && current.Visibility != "public" && !who.HasRole("admin") {
+		if overridden() && changed.Visibility != current.Visibility {
+			if action := map[string]string{"public": "publicize_image", "community": "communitize_image"}[changed.Visibility]; action != "" {
+				if err := Permit(who, action, visibilityTarget(who, changed), nil); err != nil {
+					return model.Image{}, err
+				}
+			}
+		} else if changed.Visibility == "public" && current.Visibility != "public" && !who.HasRole("admin") {
 			return model.Image{}, model.Fail(model.Forbidden, "Publishing images requires admin role.")
 		}
 		return changed, nil
@@ -90,7 +109,7 @@ func (s *Service) Delete(ctx context.Context, who auth.Identity, id string) erro
 	if err := who.Check(s.now()); err != nil {
 		return err
 	}
-	if !who.HasRole("member") && !who.HasRole("admin") {
+	if !overridden() && !who.HasRole("member") && !who.HasRole("admin") {
 		return model.Fail(model.Forbidden, "Deleting images requires member or admin role.")
 	}
 	id, err := model.CanonicalID(id)
@@ -100,7 +119,7 @@ func (s *Service) Delete(ctx context.Context, who auth.Identity, id string) erro
 	var removed model.Image
 	err = s.repo.Delete(ctx, id, s.now(), func(current model.Image) error {
 		removed = current
-		if err := s.writable(ctx, who, current); err != nil {
+		if err := s.writable(ctx, who, current, "delete_image"); err != nil {
 			return err
 		}
 		if current.Protected {

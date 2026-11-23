@@ -513,10 +513,12 @@ func (m *Importer) tasksAccess(who auth.Identity) error {
 	if err := who.Check(m.now()); err != nil {
 		return err
 	}
-	if !who.HasRole("admin") {
-		return model.Fail(model.Forbidden, "You are not authorized to complete tasks_api_access action.")
-	}
-	return nil
+	return Permit(who, "tasks_api_access", nil, func() error {
+		if !who.HasRole("admin") {
+			return model.Fail(model.Forbidden, "You are not authorized to complete tasks_api_access action.")
+		}
+		return nil
+	}())
 }
 
 // LegacyImport is POST /v2/tasks with type "import" (the original's

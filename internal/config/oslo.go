@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -235,6 +236,10 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 			return errors.New("invalid [DEFAULT] " + key)
 		}
 		*dst = b
+	}
+	c.PolicyFile = firstOf(f.get("oslo_policy", "policy_file"), "policy.yaml")
+	if !strings.HasPrefix(c.PolicyFile, "/") {
+		c.PolicyFile = filepath.Join(filepath.Dir(env("GLANCE_GO_CONFIG_FILE")), c.PolicyFile)
 	}
 	// image_size_cap (1 TiB by default) bounds uploads, unless
 	// GLANCE_GO_MAX_UPLOAD_BYTES sets the bound explicitly.
