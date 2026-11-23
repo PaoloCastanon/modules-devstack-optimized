@@ -26,7 +26,7 @@ func BenchmarkServiceUpload64MiBRealStore(b *testing.B) {
 	if err := store.Initialize(root, scope); err != nil {
 		b.Fatal(err)
 	}
-	fs, err := store.NewFilesystem(root, scope)
+	fs, err := testStore(root, scope)
 	if err != nil {
 		b.Fatal(err)
 	}

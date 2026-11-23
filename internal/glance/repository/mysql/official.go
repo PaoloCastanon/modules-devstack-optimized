@@ -8,15 +8,15 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
 	"github.com/google/uuid"
 )
 
-// Official catalog dialect. With UseOfficialCatalog the repository reads and
-// writes the original Glance tables (images, image_properties, image_tags,
-// image_locations in the official database) instead of Glance Go's own copy,
-// so both implementations serve one catalog and one filesystem store.
+// The repository reads and writes the original Glance tables (images,
+// image_properties, image_tags, image_locations in the official database), so
+// both implementations serve one catalog and one filesystem store.
 // Differences handled here, as the original's SQLAlchemy models define them:
 //   - children carry id/created_at/deleted columns; reads skip deleted rows;
 //   - an active image has an image_locations row pointing at its file;
@@ -40,22 +40,17 @@ type officialCatalog struct {
 	cache    sync.Map // original SQL -> rewritten SQL
 }
 
-// UseOfficialCatalog switches the repository to the original's tables in
-// schema (normally "glance") with files under storeDir (its
-// filesystem_store_datadir). Call before PrepareStatements and before serving.
-func (r *Repository) UseOfficialCatalog(schema, storeDir string) error {
-	if !OfficialCatalogName(schema) || !filepath.IsAbs(storeDir) || filepath.Clean(storeDir) != storeDir || r.stmts != nil {
-		return errors.New("invalid official catalog configuration")
+// New is the repository over the original's tables in schema (normally
+// "glance") with files under storeDir (its filesystem_store_datadir).
+func New(db *sql.DB, timeout time.Duration, schema, storeDir string) (*Repository, error) {
+	if !OfficialCatalogName(schema) || !filepath.IsAbs(storeDir) || filepath.Clean(storeDir) != storeDir {
+		return nil, errors.New("invalid official catalog configuration")
 	}
-	r.official = &officialCatalog{schema: schema, storeDir: storeDir}
-	return nil
+	return &Repository{db: db, timeout: timeout, official: &officialCatalog{schema: schema, storeDir: storeDir}}, nil
 }
 
 // VerifyOfficialCatalog checks the original's schema revision.
 func (r *Repository) VerifyOfficialCatalog(ctx context.Context) error {
-	if r.official == nil {
-		return nil
-	}
 	var revision string
 	if err := r.db.QueryRowContext(ctx, "SELECT version_num FROM `"+r.official.schema+"`.alembic_version").Scan(&revision); err != nil {
 		return errors.New("cannot read the official catalog revision")
@@ -72,9 +67,6 @@ func (r *Repository) VerifyOfficialCatalog(ctx context.Context) error {
 // soft-delete filter to child reads. Own mode returns q unchanged.
 func (r *Repository) sql(q string) string {
 	o := r.official
-	if o == nil {
-		return q
-	}
 	if v, ok := o.cache.Load(q); ok {
 		return v.(string)
 	}
@@ -109,7 +101,7 @@ func OfficialAttempt(id string) string { return uuid.NewSHA1(officialNamespace, 
 // with no bookkeeping row: verified sha512 metadata and exactly one active
 // location, the local file named by its ID. Anything else is not adopted.
 func (r *Repository) adoptable(ctx context.Context, tx *sql.Tx, s model.DataState) (*model.DataOperation, error) {
-	if r.official == nil || s.Deleted || s.Status != "active" || s.Size == nil || s.Checksum == nil ||
+	if s.Deleted || s.Status != "active" || s.Size == nil || s.Checksum == nil ||
 		s.HashAlgorithm == nil || *s.HashAlgorithm != "sha512" || s.HashValue == nil {
 		return nil, nil
 	}
@@ -149,17 +141,38 @@ func (r *Repository) materialize(ctx context.Context, tx *sql.Tx, o *model.DataO
 }
 
 // destroyChildren soft-deletes what the original's image_destroy removes
-// with the image: locations, properties and tags.
+// with the image, the same way: locations are read without locking and
+// updated by primary key (_image_locations_delete_all); properties and tags
+// with one UPDATE by image (_image_child_entry_delete_all). An UPDATE of
+// locations by image_id lets MySQL pick ix_image_locations_deleted and lock
+// rows of other images: concurrent DELETEs deadlocked until their deadline.
 func (r *Repository) destroyChildren(ctx context.Context, tx *sql.Tx, id string, at any) error {
-	if r.official == nil {
-		return nil
+	rows, err := r.query(ctx, tx, "SELECT id FROM image_locations WHERE image_id=?", id)
+	if err != nil {
+		return err
+	}
+	var locations []int64
+	for rows.Next() {
+		var location int64
+		if err = rows.Scan(&location); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		locations = append(locations, location)
+	}
+	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+		return err
+	}
+	for _, location := range locations {
+		if _, err = r.exec(ctx, tx, "UPDATE image_locations SET deleted=1, deleted_at=?, updated_at=?, status='deleted' WHERE id=? AND deleted=0", at, at, location); err != nil {
+			return err
+		}
 	}
 	for _, q := range []string{
-		"UPDATE image_locations SET deleted=1, deleted_at=?, updated_at=?, status='deleted' WHERE image_id=? AND deleted=0",
 		"UPDATE image_properties SET deleted=1, deleted_at=?, updated_at=? WHERE image_id=? AND deleted=0",
 		"UPDATE image_tags SET deleted=1, deleted_at=?, updated_at=? WHERE image_id=? AND deleted=0",
 	} {
-		if _, err := r.exec(ctx, tx, q, at, at, id); err != nil {
+		if _, err = r.exec(ctx, tx, q, at, at, id); err != nil {
 			return err
 		}
 	}
@@ -171,9 +184,6 @@ func (r *Repository) destroyChildren(ctx context.Context, tx *sql.Tx, id string,
 // look up its location on each request. Each image is adopted in its own
 // locking transaction with the same checks as on demand.
 func (r *Repository) AdoptOriginalUploads(ctx context.Context) (int, error) {
-	if r.official == nil {
-		return 0, nil
-	}
 	rows, err := r.db.QueryContext(ctx, r.sql("SELECT i.id FROM images i WHERE i.deleted=FALSE AND i.status='active' AND i.os_hash_algo='sha512'")+
 		" AND NOT EXISTS (SELECT 1 FROM image_data_operations o WHERE o.image_id=i.id)")
 	if err != nil {

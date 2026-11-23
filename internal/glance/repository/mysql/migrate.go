@@ -15,10 +15,10 @@ import (
 //go:embed migrations/000_history.sql
 var historySQL string
 
-//go:embed migrations/001_metadata.sql
-var metadataSQL string
-
-//go:embed migrations/002_image_data_operations.sql
+// Glance Go's only own table: transfer bookkeeping, next to the original's
+// catalog (which it never migrates). No foreign key: images lives in glance.
+//
+//go:embed migrations/001_image_data_operations.sql
 var dataOperationsSQL string
 
 type migration struct {
@@ -28,9 +28,9 @@ type migration struct {
 }
 
 // Append new immutable migrations here only when their SQL is approved. History
-// initialization (000) is not a metadata schema version.
+// initialization (000) is not a schema version.
 func migrations() []migration {
-	return []migration{{version: 1, sql: metadataSQL}, {version: 2, sql: dataOperationsSQL, verify: verifyTransferStructure}}
+	return []migration{{version: 1, sql: dataOperationsSQL, verify: verifyTransferStructure}}
 }
 
 func (m migration) checksum() string { return fmt.Sprintf("%x", sha256.Sum256([]byte(m.sql))) }
@@ -100,47 +100,13 @@ func VerifySchema(ctx context.Context, db *sql.DB) error {
 
 // Migrate is called only by the explicit migrate command. MySQL DDL implicitly
 // commits: dirty is persisted before DDL and never cleared after a failed step.
+// Migrate creates or verifies glance_go_shared's bookkeeping with the
+// original's account (whose grants are the original's, not Glance Go's).
 func Migrate(ctx context.Context, db *sql.DB) error {
 	return migrateVersions(ctx, db, migrations())
 }
 
-// sharedFK is the only line of migration 2 that a shared database cannot
-// keep: images lives in the official catalog, owned by the original Glance.
-const sharedFK = "    CONSTRAINT data_operation_image_fk FOREIGN KEY (image_id) REFERENCES images(id),\n"
-
-// sharedMigrations is the registry of a database paired with the official
-// catalog: only transfer bookkeeping, without a cross-schema foreign key.
-func sharedMigrations() []migration {
-	if !strings.Contains(dataOperationsSQL, sharedFK) {
-		panic("shared migration derivation out of date")
-	}
-	return []migration{{version: 1, sql: strings.Replace(dataOperationsSQL, sharedFK, "", 1), verify: verifySharedTransferStructure}}
-}
-
-// VerifySharedSchema is VerifySchema for a database paired with the official catalog.
-func VerifySharedSchema(ctx context.Context, db *sql.DB) error {
-	if _, err := readHistory(ctx, db, sharedMigrations(), false); err != nil {
-		return err
-	}
-	return verifySharedTransferStructure(ctx, db)
-}
-
-// MigrateShared is Migrate for a database paired with the official catalog.
-func MigrateShared(ctx context.Context, db *sql.DB) error {
-	return migrateVersions(ctx, db, sharedMigrations())
-}
-
-func migrateVersions(ctx context.Context, db *sql.DB, registry []migration) error {
-	return migrateWith(ctx, db, registry, true)
-}
-
-// MigrateSharedOriginalAccount migrates the shared database with the
-// original's account, whose grants are not Glance Go's to restrict.
-func MigrateSharedOriginalAccount(ctx context.Context, db *sql.DB) error {
-	return migrateWith(ctx, db, sharedMigrations(), false)
-}
-
-func migrateWith(ctx context.Context, db *sql.DB, registry []migration, checkGrants bool) (result error) {
+func migrateVersions(ctx context.Context, db *sql.DB, registry []migration) (result error) {
 	if err := validateRegistry(registry); err != nil {
 		return err
 	}
@@ -149,11 +115,6 @@ func migrateWith(ctx context.Context, db *sql.DB, registry []migration, checkGra
 		return errors.New("cannot acquire migration connection")
 	}
 	defer conn.Close()
-	if checkGrants {
-		if err := checkAccount(ctx, conn, "migrate"); err != nil {
-			return err
-		}
-	}
 	// Check the actual pinned session, not only the DSN. Every history DML
 	// statement must be committed before subsequent DDL or a success result.
 	var autocommit int
@@ -163,10 +124,6 @@ func migrateWith(ctx context.Context, db *sql.DB, registry []migration, checkGra
 	var name string
 	if conn.QueryRowContext(ctx, "SELECT DATABASE()").Scan(&name) != nil || !AllowedDatabase(name) {
 		return errors.New("unsafe migration database")
-	}
-	// A shared database takes only the shared registry, and vice versa.
-	if Shared(name) != (registry[0].sql == sharedMigrations()[0].sql) {
-		return errors.New("migration registry does not match the database kind")
 	}
 	var locked sql.NullInt64
 	lockName := fmt.Sprintf("glance_go:%x", sha256.Sum256([]byte(name)))[:63]

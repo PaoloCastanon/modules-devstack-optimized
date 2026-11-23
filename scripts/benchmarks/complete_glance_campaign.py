@@ -86,7 +86,9 @@ def session(config, name, status):
     output = root / 'output'
     root.mkdir(parents=True, exist_ok=False)
     stage = name == 'pilot'
-    status.update(stage=name + '_running', completed_runs=0, required_runs=36 if stage else 108, accepted=False)
+    from glance_campaign import windows
+    protocol = json.loads(Path(config['protocol']).read_text())
+    status.update(stage=name + '_running', completed_runs=0, required_runs=windows(protocol, stage), accepted=False)
     save(Path(config['status_file']), status)
     start_vm(config)
     status.update(vm='running', last_run=None)

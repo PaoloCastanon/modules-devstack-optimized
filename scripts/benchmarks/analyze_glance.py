@@ -13,6 +13,43 @@ from placement_http import percentile
 from placement_resources import interval_summary
 
 
+
+
+def cgroup_memory(path, implementation, start, end):
+    """Unit memory from glance_memory.py (10 Hz cgroup v2) inside the window:
+    private anon mean/peak and page cache ('file') mean. Absent file: {}."""
+    if not path.exists():
+        return {}
+    anon, file = [], []
+    for line in path.read_text().splitlines():
+        row = json.loads(line)
+        value = row['groups'].get(implementation)
+        if value and start <= row['utc_ns'] <= end and 'anon' in value:
+            anon.append(value['anon'])
+            file.append(value.get('file', 0))
+    if len(anon) < 3:
+        return {}
+    return {'cgroup_anon_mean_bytes': statistics.mean(anon), 'cgroup_anon_peak_bytes': max(anon),
+            'cgroup_file_mean_bytes': statistics.mean(file), 'cgroup_samples': len(anon)}
+
+def memory_extras(records, implementation, start, end, warmup_start):
+    """RAM beyond PSS, from the same 1 Hz samples: the service's RSS (mean and
+    observed peak) inside the window, and the VM's RAM used beyond its idle
+    level before warm-up (idle MemAvailable minus the window's minimum)."""
+    def window(row):
+        return start <= row['read_finished_utc_ns'] <= end
+    rss = [sum(proc['rss_bytes'] for proc in row['groups'][implementation]['processes']) for row in records
+           if window(row) and row['groups'][implementation]['processes']
+           and all(proc.get('rss_bytes') is not None for proc in row['groups'][implementation]['processes'])]
+    idle = [row['vm_mem_available_kib'] * 1024 for row in records if row['read_finished_utc_ns'] < warmup_start and row.get('vm_mem_available_kib')]
+    busy = [row['vm_mem_available_kib'] * 1024 for row in records if window(row) and row.get('vm_mem_available_kib')]
+    out = {}
+    if rss:
+        out.update(rss_mean_bytes=statistics.mean(rss), rss_peak_observed_bytes=max(rss))
+    if idle and busy:
+        out.update(vm_mem_available_min_bytes=min(busy), vm_ram_used_extra_peak_bytes=max(0, statistics.mean(idle) - min(busy)))
+    return out
+
 def distribution(values):
     if not values:
         return None
@@ -100,6 +137,14 @@ def analyze(root):
             if len(idle) < 3:
                 raise ValueError('insufficient idle PSS baseline')
             resources.update(idle_pss_mean_bytes=statistics.mean(idle), idle_samples=len(idle))
+            resources.update(memory_extras(records, report['implementation'], start, end, warmup_start))
+            resources.update(cgroup_memory(root / 'lab' / (ident + '-memory.jsonl'), report['implementation'], start, end))
+            if 'memcached' in records[0]['groups']:
+                cache = [sum(proc['pss_bytes'] for proc in row['groups']['memcached']['processes']) for row in records
+                         if start <= row['read_finished_utc_ns'] <= end and row['groups']['memcached']['processes']
+                         and all(proc['pss_bytes'] is not None for proc in row['groups']['memcached']['processes'])]
+                if cache:
+                    resources['memcached_pss_mean_bytes'] = statistics.mean(cache)
             controls = {}
             for label in records[0]['groups']:
                 if label == report['implementation']:
@@ -113,6 +158,9 @@ def analyze(root):
                            **{k + '_ms': latencies[k] for k in ('p50', 'p95', 'p99')},
                            'latency_ms': latencies, 'per_operation_latency_ms': {k: distribution(v) for k, v in per_operation.items()},
                            'download_ttfb_ms': distribution(ttfb), 'requests': len(samples), 'cycles': len(cycles),
+                           # A client with the former 10 s timeout would have failed these.
+                           'requests_over_10s': sum(s['elapsed_ns'] > 10_000_000_000 for s in samples),
+                           'max_request_s': max(s['elapsed_ns'] for s in samples) / 1e9,
                            'actual_elapsed_s': m['elapsed_s'], 'resources': resources, 'controls': controls}
         except (OSError, ValueError, KeyError, TypeError, ZeroDivisionError) as error:
             errors.append({'run_id': ident, 'error': str(error) if isinstance(error, ValueError) else type(error).__name__})
@@ -122,14 +170,16 @@ def analyze(root):
     groups = []
     metrics = ['correct_ops_s', 'complete_cycles_s', 'validated_payload_mib_s', 'p50_ms', 'p95_ms', 'p99_ms']
     resource_metrics = ['cpu_seconds', 'cpu_fraction_of_four_cores', 'cpu_s_per_correct_request', 'pss_mean_bytes',
-                        'pss_peak_observed_bytes', 'idle_pss_mean_bytes', 'collector_core_fraction']
+                        'pss_peak_observed_bytes', 'idle_pss_mean_bytes', 'collector_core_fraction',
+                        'rss_mean_bytes', 'rss_peak_observed_bytes', 'vm_ram_used_extra_peak_bytes', 'vm_mem_available_min_bytes',
+                        'cgroup_anon_mean_bytes', 'cgroup_anon_peak_bytes', 'cgroup_file_mean_bytes', 'memcached_pss_mean_bytes']
     for scenario in p['scenarios']:
         for c in p['concurrency']:
             group = {'scenario': scenario['id'], 'concurrency': c, 'implementations': {}, 'paired_go_over_python': {}}
             for impl in ('python', 'go'):
                 rows = [r for r in runs.values() if r['scenario'] == scenario['id'] and r['concurrency'] == c and r['implementation'] == impl]
                 values = {k: [r[k] for r in rows] for k in metrics}
-                values.update({k: [r['resources'][k] for r in rows if r['resources'][k] is not None] for k in resource_metrics})
+                values.update({k: [r['resources'][k] for r in rows if r['resources'].get(k) is not None] for k in resource_metrics})
                 group['implementations'][impl] = {'runs': len(rows), **{k: bootstrap(v) for k, v in values.items() if v}}
             ratios = {}
             for pair in expected:
@@ -139,7 +189,7 @@ def analyze(root):
                 if not py or not go:
                     continue
                 for k in metrics + resource_metrics:
-                    a, b = (py[k], go[k]) if k in metrics else (py['resources'][k], go['resources'][k])
+                    a, b = (py[k], go[k]) if k in metrics else (py['resources'].get(k), go['resources'].get(k))
                     if a is not None and b is not None and a > 0:
                         ratios.setdefault(k, []).append(b / a)
             group['paired_go_over_python'] = {k: bootstrap(v) for k, v in ratios.items()}
@@ -149,7 +199,7 @@ def analyze(root):
             'runs_required': len(expected_ids), 'runs_observed': len(runs), 'errors': errors, 'runs': runs, 'groups': groups,
             'notification_policy': p.get('notification_policy', 'original'), 'go_notification_policy': p.get('go_notification_policy', 'noop'), 'protocol': p, 'measurement_head': manifest['git_base'], 'protocol_sha256': manifest['protocol_sha256'],
             'limitations': ['Notification policy: Python ' + p.get('notification_policy', 'original') + ', Go ' + p.get('go_notification_policy', 'noop') + '; Python without bus notifications (v3/v4); does not validate stock messagingv2 stability',
-                            'Three independent paired repetitions per cell; median and observed range, no statistical significance claim',
+                            'Independent paired repetitions per cell; median and observed range, no statistical significance claim',
                             'Closed-loop complete cycles including drain; upload cycle includes create/verify/delete and is not pure PUT throughput',
                             'Download checks every full payload; upload load verifies active metadata/hash, worker canaries round-trip outside measured windows',
                             'Public Apache path fixed; Python caches/workers/shared DB differ from Go isolated DB/store; no language-only attribution',

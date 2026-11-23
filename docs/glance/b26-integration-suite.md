@@ -89,7 +89,7 @@ Antes de publicar la salida en `evidence/`, hay que revisarla: no contiene token
 
 ## Recursos
 
-Corre dentro de la VM: un MySQL propio (buffer de 128 MiB), Glance Go y un
+Corre dentro de la VM: Glance Go sobre el catálogo, el MySQL y el store del original, y un
 servidor CirrOS con el flavor elegido. Hay que preferir el flavor más pequeño
 disponible. En un host de 7 GiB, cerrar el resto de aplicaciones antes de
 levantar la VM.

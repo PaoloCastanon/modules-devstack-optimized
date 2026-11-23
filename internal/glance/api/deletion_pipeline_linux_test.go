@@ -115,7 +115,7 @@ func deletionHTTPFixture(t *testing.T) (func(auth.Identity) http.Handler, *delet
 	if err := store.Initialize(root, scope); err != nil {
 		t.Fatal(err)
 	}
-	fs, err := store.NewFilesystem(root, scope)
+	fs, err := testStore(root, scope)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestDeleteHTTPActualCoordinatorAndFilesystem(t *testing.T) {
 				if w.Code != 204 {
 					t.Fatal(w.Code, w.Body.String())
 				}
-				key := filepath.Join(root, "objects", binaryImage+"-"+d.op.AttemptID+".blob")
+				key := filepath.Join(root+"-images", binaryImage)
 				if tc == "missing-blob" {
 					if err := os.Remove(key); err != nil {
 						t.Fatal(err)
@@ -203,7 +203,7 @@ func TestDeleteHTTPActualCoordinatorAndFilesystem(t *testing.T) {
 			if tc != "queued" && (d.op.Phase != model.DataCleaned || *d.op.CleanupTarget != "deleted") {
 				t.Fatal("cleanup incomplete")
 			}
-			entries, err := os.ReadDir(filepath.Join(root, "objects"))
+			entries, err := os.ReadDir(root + "-images")
 			if err != nil || len(entries) != 0 {
 				t.Fatal("objects remained", err)
 			}

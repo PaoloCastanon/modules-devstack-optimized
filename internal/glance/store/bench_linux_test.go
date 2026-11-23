@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/uuid"
@@ -91,8 +92,12 @@ func benchmarkUpload(b *testing.B, reread bool) {
 func BenchmarkUpload64MiBPublishRereads(b *testing.B)  { benchmarkUpload(b, true) }
 func BenchmarkUpload64MiBPublishFastPath(b *testing.B) { benchmarkUpload(b, false) }
 
-func newBenchFilesystem(root string) (*Filesystem, error) {
-	if err := os.Chmod(root, 0700); err != nil {
+func newBenchFilesystem(base string) (*Filesystem, error) {
+	root := filepath.Join(base, "root")
+	if err := os.Mkdir(root, 0700); err != nil {
+		return nil, err
+	}
+	if err := os.Mkdir(filepath.Join(base, "images"), 0755); err != nil {
 		return nil, err
 	}
 	scope := uuid.NewString()

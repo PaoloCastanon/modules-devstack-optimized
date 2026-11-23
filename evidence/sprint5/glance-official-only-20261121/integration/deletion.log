@@ -1,0 +1,4 @@
+=== RUN   TestMySQLCoordinatedDeletion
+--- PASS: TestMySQLCoordinatedDeletion (0.72s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql	1.736s

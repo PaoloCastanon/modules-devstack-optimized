@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -16,11 +15,10 @@ import (
 // Binary is operator policy. Neither paths, scope nor limits come from HTTP.
 type Binary struct {
 	Enabled bool
-	// Backend is "filesystem" (default) or "rbd" (binary built with -tags rbd).
-	Backend                   string
-	Root, Scope               string
-	RBDConf, RBDUser, RBDPool string
-	// OfficialStoreDir: published objects live in the original's directory.
+	// Root is Glance Go's private store root (lock and scope marker); the
+	// images themselves live in OfficialStoreDir, the original's
+	// filesystem_store_datadir, named <image-id> as glance_store writes them.
+	Root, Scope      string
 	OfficialStoreDir string
 	MaxUploadBytes   int64
 	MaxConcurrent    int
@@ -41,20 +39,8 @@ func loadBinary(c *Config, env func(string) string, mode string) error {
 		b.Enabled = v == "true"
 	}
 	b.Root, b.Scope = env("GLANCE_GO_STORE_ROOT"), env("GLANCE_GO_STORE_SCOPE")
-	b.Backend = env("GLANCE_GO_STORE_BACKEND")
-	if b.Backend == "" {
-		b.Backend = "filesystem"
-	}
-	b.RBDConf, b.RBDUser, b.RBDPool = env("GLANCE_GO_RBD_CONF"), env("GLANCE_GO_RBD_USER"), env("GLANCE_GO_RBD_POOL")
-	if b.Backend != "filesystem" && b.Backend != "rbd" {
-		return errors.New("GLANCE_GO_STORE_BACKEND must be filesystem or rbd")
-	}
 	if (mode == "serve" && b.Enabled) || mode == "store-init" {
-		if b.Backend == "rbd" {
-			if err := validateRBD(b); err != nil {
-				return err
-			}
-		} else if !filepath.IsAbs(b.Root) || filepath.Clean(b.Root) != b.Root || b.Root == "/" {
+		if !filepath.IsAbs(b.Root) || filepath.Clean(b.Root) != b.Root || b.Root == "/" {
 			return errors.New("GLANCE_GO_STORE_ROOT must be a clean absolute private path")
 		}
 		id, err := uuid.Parse(b.Scope)
@@ -100,11 +86,8 @@ func loadBinary(c *Config, env func(string) string, mode string) error {
 	// lab VM reached 745 MiB/s capped at 2, 990 at 4 (= GOMAXPROCS) and 968
 	// uncapped; 16 MiB was ~900 in all three (evidence/sprint5/
 	// glance-download-streams-20261120). The 2026-11-18 cap of
-	// max(2, GOMAXPROCS/2) predates that path. Filesystem store only: RBD
-	// reads wait on the network, so they keep no extra cap unless configured.
-	if b.Backend == "filesystem" {
-		b.MaxDownloadStreams = min(max(2, runtime.GOMAXPROCS(0)), b.MaxConcurrent)
-	}
+	// max(2, GOMAXPROCS/2) predates that path.
+	b.MaxDownloadStreams = min(max(2, runtime.GOMAXPROCS(0)), b.MaxConcurrent)
 	if v := env("GLANCE_GO_MAX_DOWNLOAD_STREAMS"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 || n > b.MaxConcurrent {
@@ -116,26 +99,9 @@ func loadBinary(c *Config, env func(string) string, mode string) error {
 		return errors.New("transfer timeouts must exceed dependency timeout")
 	}
 	// A root without the explicit switch must not silently look enabled.
-	if mode == "serve" && !b.Enabled && (strings.TrimSpace(b.Root) != "" || b.Scope != "" || b.RBDPool != "") {
+	if mode == "serve" && !b.Enabled && (strings.TrimSpace(b.Root) != "" || b.Scope != "") {
 		return errors.New("store configuration requires GLANCE_GO_BINARY_ENABLED=true")
 	}
 	c.Binary = b
-	return nil
-}
-
-var rbdIdentifier = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
-
-// validateRBD keeps the two backends unambiguous: an RBD store never also names
-// a filesystem root, and its cluster file, cephx user and pool are explicit.
-func validateRBD(b Binary) error {
-	if strings.TrimSpace(b.Root) != "" {
-		return errors.New("GLANCE_GO_STORE_ROOT must be empty with the rbd backend")
-	}
-	if !filepath.IsAbs(b.RBDConf) || filepath.Clean(b.RBDConf) != b.RBDConf {
-		return errors.New("GLANCE_GO_RBD_CONF must be a clean absolute path")
-	}
-	if !rbdIdentifier.MatchString(b.RBDUser) || !rbdIdentifier.MatchString(b.RBDPool) {
-		return errors.New("GLANCE_GO_RBD_USER and GLANCE_GO_RBD_POOL must be plain names")
-	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -33,7 +34,7 @@ func testConfig() config.Config {
 }
 
 func TestBackendChecksFailClosedInOrder(t *testing.T) {
-	for _, fail := range []string{"", "ping", "account", "old schema", "dirty schema"} {
+	for _, fail := range []string{"", "ping", "old schema", "dirty schema"} {
 		t.Run(fail, func(t *testing.T) {
 			var calls []string
 			step := func(name string) func(context.Context) error {
@@ -45,14 +46,11 @@ func TestBackendChecksFailClosedInOrder(t *testing.T) {
 					return nil
 				}
 			}
-			checks := startupChecks{ping: step("ping"), account: step("account"), schema: step("schema")}
+			checks := startupChecks{ping: step("ping"), schema: step("schema")}
 			err := verifyBackend(context.Background(), checks)
-			want := []string{"ping", "account", "schema"}
+			want := []string{"ping", "schema"}
 			if fail == "ping" {
 				want = want[:1]
-			}
-			if fail == "account" {
-				want = want[:2]
 			}
 			if !reflect.DeepEqual(calls, want) || (err == nil) != (fail == "") {
 				t.Fatal(calls, err)
@@ -73,6 +71,7 @@ func TestBinaryStartupRequiresBindingOwnershipAndRecovery(t *testing.T) {
 			if err := os.Chmod(c.Binary.Root, 0700); err != nil {
 				t.Fatal(err)
 			}
+			c.Binary.OfficialStoreDir = sharedImages(t, c.Binary.Root)
 			if which != "uninitialized" {
 				if err := store.Initialize(c.Binary.Root, c.Binary.Scope); err != nil {
 					t.Fatal(err)
@@ -97,7 +96,7 @@ func TestBinaryStartupRequiresBindingOwnershipAndRecovery(t *testing.T) {
 				}
 			}
 			if which == "occupied" {
-				fs, err := store.NewFilesystem(c.Binary.Root, c.Binary.Scope)
+				fs, err := testStore(c.Binary.Root, c.Binary.Scope)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -131,7 +130,7 @@ func TestBinaryStartupRequiresBindingOwnershipAndRecovery(t *testing.T) {
 				}
 			}
 			if which == "recovery failure" || which == "success" || which == "cancelled" {
-				fs, err := store.NewFilesystem(c.Binary.Root, c.Binary.Scope)
+				fs, err := testStore(c.Binary.Root, c.Binary.Scope)
 				if err != nil {
 					t.Fatal("flock leaked", err)
 				}
@@ -145,7 +144,7 @@ func TestBinaryStartupRequiresBindingOwnershipAndRecovery(t *testing.T) {
 
 func TestStoreOwnershipAcrossProcesses(t *testing.T) {
 	if os.Getenv("GLANCE_TEST_LOCK_CHILD") == "1" {
-		fs, err := store.NewFilesystem(os.Getenv("GLANCE_TEST_LOCK_ROOT"), os.Getenv("GLANCE_TEST_LOCK_SCOPE"))
+		fs, err := testStore(os.Getenv("GLANCE_TEST_LOCK_ROOT"), os.Getenv("GLANCE_TEST_LOCK_SCOPE"))
 		if fs != nil {
 			_ = fs.Close()
 		}
@@ -160,6 +159,7 @@ func TestStoreOwnershipAcrossProcesses(t *testing.T) {
 	if err := os.Chmod(c.Binary.Root, 0700); err != nil {
 		t.Fatal(err)
 	}
+	c.Binary.OfficialStoreDir = sharedImages(t, c.Binary.Root)
 	if err := store.Initialize(c.Binary.Root, c.Binary.Scope); err != nil {
 		t.Fatal(err)
 	}
@@ -186,11 +186,22 @@ func TestStoreOwnershipAcrossProcesses(t *testing.T) {
 	if err = b.close(); err != nil {
 		t.Fatal(err)
 	}
-	fs, err := store.NewFilesystem(c.Binary.Root, c.Binary.Scope)
+	fs, err := testStore(c.Binary.Root, c.Binary.Scope)
 	if err != nil {
 		t.Fatal("ownership not released after drain", err)
 	}
 	if err = fs.Close(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// sharedImages is the original's filesystem_store_datadir next to the root,
+// where testStore also looks.
+func sharedImages(t *testing.T, root string) string {
+	t.Helper()
+	dir := filepath.Clean(root) + "-images"
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }

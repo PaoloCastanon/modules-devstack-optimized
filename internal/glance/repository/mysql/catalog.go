@@ -166,10 +166,7 @@ func (r *Repository) insertChildren(ctx context.Context, tx *sql.Tx, id string, 
 		for _, key := range batch {
 			args = append(args, id, key, properties[key])
 		}
-		q := "INSERT INTO image_properties (image_id, name, value) VALUES " + valueRows("(?, ?, ?)", len(batch))
-		if r.official != nil {
-			q = "INSERT INTO image_properties (image_id, name, value, created_at, deleted) VALUES " + valueRows("(?, ?, ?, UTC_TIMESTAMP(), 0)", len(batch))
-		}
+		q := "INSERT INTO image_properties (image_id, name, value, created_at, deleted) VALUES " + valueRows("(?, ?, ?, UTC_TIMESTAMP(), 0)", len(batch))
 		if _, err := r.exec(ctx, tx, q, args...); err != nil {
 			return fmt.Errorf("insert image property: %w", err)
 		}
@@ -180,10 +177,7 @@ func (r *Repository) insertChildren(ctx context.Context, tx *sql.Tx, id string, 
 		for _, tag := range batch {
 			args = append(args, id, tag)
 		}
-		q := "INSERT INTO image_tags (image_id, value) VALUES " + valueRows("(?, ?)", len(batch))
-		if r.official != nil {
-			q = "INSERT INTO image_tags (image_id, value, created_at, deleted) VALUES " + valueRows("(?, ?, UTC_TIMESTAMP(), 0)", len(batch))
-		}
+		q := "INSERT INTO image_tags (image_id, value, created_at, deleted) VALUES " + valueRows("(?, ?, UTC_TIMESTAMP(), 0)", len(batch))
 		if _, err := r.exec(ctx, tx, q, args...); err != nil {
 			return fmt.Errorf("insert image tag: %w", err)
 		}
@@ -209,7 +203,7 @@ func (r *Repository) Update(ctx context.Context, id string, change func(model.Im
 }
 
 func (r *Repository) update(ctx context.Context, id string, change func(model.Image) (model.Image, error)) (result model.Image, err error) {
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -258,7 +252,7 @@ func (r *Repository) Delete(ctx context.Context, id string, now time.Time, check
 }
 
 func (r *Repository) deleteImage(ctx context.Context, id string, now time.Time, check func(model.Image) error) (err error) {
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -287,8 +281,8 @@ func (r *Repository) deleteImage(ctx context.Context, id string, now time.Time, 
 	if n != 1 {
 		return repository.ErrConflict
 	}
-	// Own catalog keeps properties/tags with the tombstone (UUID stays reserved);
-	// the official one soft-deletes them with the locations, as the original.
+	// Soft-delete properties, tags and locations with it, as the original's
+	// image_destroy; the UUID stays reserved by the tombstone.
 	if err = r.destroyChildren(ctx, tx, id, now); err != nil {
 		return err
 	}
@@ -411,7 +405,7 @@ func (r *Repository) List(ctx context.Context, o model.ListOptions) ([]model.Ima
 	if o.ProjectID == "" {
 		return nil, errors.New("verified project scope is required")
 	}
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	ctx, cancel := r.bound(ctx)
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
 	if err != nil {

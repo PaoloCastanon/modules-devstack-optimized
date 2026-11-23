@@ -39,12 +39,13 @@ def run(args):
         raise ValueError('supported isolated service domain required')
     if not root.is_absolute() or root != root.resolve() or not re.fullmatch(r'tt-placement-[a-z0-9-]+', root.name):
         raise ValueError('absolute canonical tt-placement runtime path required')
+    official = domain == 'glance'  # Glance Go only serves the original's catalog
     if args.action == 'prepare':
         for port in [args.mysql_port, args.listen_port]:
             probe_available_port(port)
         if args.mysql_port == args.listen_port or args.mysql_port == 3306:
             raise ValueError('distinct non-original loopback ports required')
-        if not args.binary.is_file() or not (args.auth_root / 'validator.json').is_file():
+        if not args.binary.is_file() or (not official and not (args.auth_root / 'validator.json').is_file()):
             raise ValueError('binary and validator required')
         root.mkdir(mode=0o700, parents=False, exist_ok=False)
         state = {'id': secrets.token_hex(5), 'owner_uid': os.getuid(), 'units': [], 'domain': domain,
@@ -75,6 +76,8 @@ def run(args):
                  '--collect', '--property=Restart=on-failure', '--property=RestartSec=1',
                  *properties, *values])
 
+    if args.action == 'prepare' and official:
+        return prepare_official(args, root, state, save, checkpoint, start_unit)
     if args.action == 'prepare':
         import pymysql
         # Confine only this instance; leave DevStack's mysqld profile unchanged.
@@ -159,35 +162,6 @@ def run(args):
                     prefix + 'DATABASE_DSN_FILE': str(root / 'app.dsn'),
                     prefix + 'KEYSTONE_AUTH_URL': args.keystone_url,
                     prefix + 'KEYSTONE_CREDENTIAL_FILE': str(args.auth_root / 'validator.json')}
-        if domain == 'glance':
-            import uuid
-            own_env = {**env, **settings}
-            result = subprocess.run([str(root / domain), 'store-scope'], env=own_env, check=True, capture_output=True, text=True)
-            scope = result.stdout.strip()
-            if str(uuid.UUID(scope)) != scope or uuid.UUID(scope).version != 5:
-                raise ValueError('verified store scope required')
-            (root / 'store').mkdir(mode=0o700)
-            settings.update({'GLANCE_GO_BINARY_ENABLED': 'true', 'GLANCE_GO_STORE_ROOT': str(root / 'store'),
-                             'GLANCE_GO_STORE_SCOPE': scope, 'GLANCE_GO_MAX_CONCURRENT_TRANSFERS': '16',
-                             'GLANCE_GO_UPLOAD_TIMEOUT': '120s', 'GLANCE_GO_DOWNLOAD_TIMEOUT': '120s'})
-            with (root / 'store-init.log').open('w') as log:
-                subprocess.run([str(root / domain), 'store-init'], env={**env, **settings}, check=True, stdout=log, stderr=subprocess.STDOUT)
-            state['notifications'] = 'noop'
-            if getattr(args, 'notifications', 'noop') == 'original':
-                # Same [oslo_messaging_notifications] as the replaced Glance; the
-                # broker URL (credentials) only goes to a private file.
-                raw = subprocess.run(['sudo', '-n', 'cat', '/etc/glance/glance-api.conf'], check=True,
-                                     capture_output=True, text=True).stdout
-                found = glance_notification_settings(raw)
-                if found['driver'] == 'messagingv2':
-                    secret = root / 'transport.url'
-                    secret.touch(mode=0o600)
-                    secret.write_text(found['transport_url'] + '\n')
-                    settings.update({'GLANCE_GO_NOTIFICATION_DRIVER': 'messagingv2', 'GLANCE_GO_TRANSPORT_URL_FILE': str(secret),
-                                     'GLANCE_GO_NOTIFICATION_TOPICS': ','.join(found['topics']),
-                                     'GLANCE_GO_DEFAULT_PUBLISHER_ID': found['publisher_id'],
-                                     'GLANCE_GO_DISABLED_NOTIFICATIONS': ','.join(found['disabled'])})
-                    state['notifications'] = 'messagingv2'
         save('serve.env', ''.join(key + '=' + value + '\n' for key, value in settings.items()))
         state['go_unit'] = 'tt-placement-b13-go-' + state['id']
         start_unit(state['go_unit'], [str(root / domain), 'serve'], ['--property=EnvironmentFile=' + str(root / 'serve.env')])
@@ -243,6 +217,66 @@ def run(args):
         command(['sudo', 'rm', '--', state['apparmor_file']])
     shutil.rmtree(root)
     print(json.dumps({'own_units_stopped': True, 'own_datadir_private_files_removed': True}))
+    return 0
+
+
+def prepare_official(args, root, state, save, checkpoint, start_unit):
+    """Glance Go on the ORIGINAL catalog, as the permanent replacement: a
+    private copy of the original's glance-api.conf (same MySQL account and
+    server, same glance database, same filesystem store, same Keystone user),
+    with the notification driver set to the campaign policy. Only Go's own
+    transfer bookkeeping lives in glance_go_shared on that server; the private
+    root holds the store lock/scope and the config copy. No MySQL is started."""
+    import uuid
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'benchmarks'))
+    raw = subprocess.run(['sudo', '-n', 'cat', '/etc/glance/glance-api.conf'], check=True, capture_output=True, text=True).stdout
+    if args.notifications == 'noop':
+        from glance_notifications import noop_config
+        raw = noop_config(raw)
+    save('glance-api.conf', raw)
+    state.update(catalog='official', db_unit=None, schema='glance', notifications=glance_notification_settings(raw)['driver'])
+    checkpoint()
+    shutil.copy(args.binary, root / 'glance')
+    (root / 'glance').chmod(0o700)
+    base = {k: v for k, v in os.environ.items() if not k.startswith('GLANCE_GO_')}
+    conf = {'GLANCE_GO_CONFIG_FILE': str(root / 'glance-api.conf')}
+    with (root / 'migrate.log').open('w') as log:
+        subprocess.run([str(root / 'glance'), 'migrate'], env={**base, **conf}, check=True, stdout=log, stderr=subprocess.STDOUT)
+    (root / 'store').mkdir(mode=0o700)
+    settings = {**conf, 'GLANCE_GO_LISTEN_ADDR': '127.0.0.1:' + str(args.listen_port), 'GLANCE_GO_PUBLIC_BASE_URL': args.public_url,
+                'GLANCE_GO_BINARY_ENABLED': 'true', 'GLANCE_GO_STORE_ROOT': str(root / 'store'),
+                'GLANCE_GO_MAX_CONCURRENT_TRANSFERS': '16', 'GLANCE_GO_UPLOAD_TIMEOUT': '120s', 'GLANCE_GO_DOWNLOAD_TIMEOUT': '120s'}
+    scope = subprocess.run([str(root / 'glance'), 'store-scope'], env={**base, **settings}, check=True, capture_output=True, text=True).stdout.strip()
+    if str(uuid.UUID(scope)) != scope:
+        raise ValueError('verified store scope required')
+    settings['GLANCE_GO_STORE_SCOPE'] = scope
+    with (root / 'store-init.log').open('w') as log:
+        subprocess.run([str(root / 'glance'), 'store-init'], env={**base, **settings}, check=True, stdout=log, stderr=subprocess.STDOUT)
+    save('serve.env', ''.join(k + '=' + v + '\n' for k, v in settings.items()))
+    state['go_unit'] = 'tt-placement-b13-go-' + state['id']
+    start_unit(state['go_unit'], [str(root / 'glance'), 'serve'], ['--property=EnvironmentFile=' + str(root / 'serve.env')])
+    from urllib.request import urlopen
+    from urllib.error import HTTPError
+    for _ in range(100):
+        try:
+            with urlopen('http://127.0.0.1:' + str(args.listen_port) + '/v2/images', timeout=1):
+                break
+        except HTTPError as error:
+            if error.code == 401:
+                break
+        except OSError:
+            pass
+        time.sleep(.2)
+    else:
+        raise RuntimeError('Go readiness failed')
+    state['prepared'] = True
+    checkpoint()
+    report = {'prepared': True, 'db_unit': None, 'go_unit': state['go_unit'], 'schema': 'glance', 'catalog': 'official',
+              'listen_port': args.listen_port, 'binary_sha256': hashlib.sha256((root / 'glance').read_bytes()).hexdigest(),
+              'separate_mysql_datadir': None, 'runtime_has_ddl': False, 'domain': 'glance', 'separate_store': False,
+              'notifications': state['notifications']}
+    save('public-report.json', report)
+    print(json.dumps(report))
     return 0
 
 

@@ -1,0 +1,7 @@
+=== RUN   TestB25MySQLFilesystemHTTP
+    operational_integration_test.go:86: MySQL effective version: 8.0.46-0ubuntu0.24.04.4 scope: d5678e22-0c0a-574a-a8be-133679dca567 catalog: glance_official_test_e2e
+    operational_integration_test.go:131: AUTH: EXPLICIT TEST DOUBLE, not real Keystone
+    operational_integration_test.go:217: test image: 439ae1d2-7138-474c-b1c7-ef0a52465df8
+--- PASS: TestB25MySQLFilesystemHTTP (0.50s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/cmd/glance	1.522s

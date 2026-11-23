@@ -4,9 +4,7 @@ package mysql_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -46,9 +44,7 @@ func TestMySQLPersistenceAndTransactions(t *testing.T) {
 	if db.PingContext(ctx) != nil {
 		t.Fatal("isolated MySQL unavailable")
 	}
-	if err = mysql.CheckAccount(ctx, db, "migrate"); err != nil {
-		t.Fatal(err)
-	}
+	official := mysql.PairedOfficialSchema(t, dsn)
 	var tables int
 	if err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()").Scan(&tables); err != nil || tables != 0 {
 		t.Fatal("integration database must be empty before this suite")
@@ -92,17 +88,13 @@ func TestMySQLPersistenceAndTransactions(t *testing.T) {
 	if err = mysql.VerifySchema(ctx, db); err != nil {
 		t.Fatal("migration history was not durable across connections")
 	}
-	// The same account has CREATE privileges and must not be accepted by serve.
-	if err = mysql.CheckAccount(ctx, db, "serve"); err == nil {
-		t.Fatal("serve accepted the migration account")
-	}
-	now := time.Now().UTC().Truncate(time.Microsecond)
+	now := time.Now().UTC().Truncate(time.Second) // the original's DATETIME columns hold whole seconds
 	name := ""
 	image, err := model.New(model.CreateInput{Name: &name, Tags: []string{"a", "b"}, Properties: map[string]string{"description": "fixture", "owner_specified.openstack.object": ""}}, "integration-project", now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := mysql.New(db, 3*time.Second)
+	repo := mysql.IntegrationRepo(t, db, 3*time.Second, official)
 	if err = repo.Create(ctx, image); err != nil {
 		t.Fatal("create failed")
 	}
@@ -139,12 +131,12 @@ func TestMySQLPersistenceAndTransactions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo = mysql.New(db, 3*time.Second)
+	repo = mysql.IntegrationRepo(t, db, 3*time.Second, official)
 	stored, err = repo.Get(ctx, image.ID)
 	if err != nil || stored.ID != image.ID || len(stored.Tags) != 2 {
 		t.Fatal("persistence across connections failed")
 	}
-	if _, err = db.ExecContext(ctx, "UPDATE images SET deleted=TRUE, deleted_at=UTC_TIMESTAMP(6) WHERE id=?", image.ID); err != nil {
+	if _, err = db.ExecContext(ctx, "UPDATE `"+official+"`.images SET deleted=TRUE, deleted_at=UTC_TIMESTAMP(6) WHERE id=?", image.ID); err != nil {
 		t.Fatal("soft delete fixture failed")
 	}
 	if _, err = repo.Get(ctx, image.ID); !errors.Is(err, repository.ErrNotFound) {
@@ -180,61 +172,6 @@ func TestMySQLPersistenceAndTransactions(t *testing.T) {
 	// No database, user, table or preexisting data is automatically dropped.
 }
 
-// Independently provisioned fixture servers/accounts only. This test reads
-// privileges; it never creates roles or changes global server configuration.
-func TestMySQLAccountBoundaryFixtures(t *testing.T) {
-	if os.Getenv("GLANCE_GO_MYSQL_TEST") != "1" {
-		t.Fatal("explicit isolated MySQL opt-in required")
-	}
-	data, err := config.ReadSecret(os.Getenv("GLANCE_GO_TEST_ACCOUNTS_FILE"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var fixtures []struct {
-		Name           string `json:"name"`
-		DSNFile        string `json:"dsn_file"`
-		Reject         bool   `json:"reject"`
-		PartialRevokes bool   `json:"partial_revokes"`
-		MandatoryRoles string `json:"mandatory_roles"`
-		ActiveRoles    string `json:"active_roles"`
-	}
-	if json.Unmarshal(data, &fixtures) != nil || len(fixtures) == 0 {
-		t.Fatal("nonempty private account fixture manifest required")
-	}
-	for i, f := range fixtures {
-		// Index-only subtest names avoid leaking account metadata from a private file.
-		t.Run(fmt.Sprintf("fixture-%d", i), func(t *testing.T) {
-			secret, err := config.ReadSecret(f.DSNFile)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dsn := strings.TrimSpace(string(secret))
-			if mysql.ValidateTestDSN(dsn) != nil {
-				t.Fatal("unsafe account fixture DSN")
-			}
-			db, err := mysql.Open(dsn)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer db.Close()
-			db.SetMaxOpenConns(1)
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			var partial bool
-			var mandatory, active string
-			if db.QueryRowContext(ctx, "SELECT @@GLOBAL.partial_revokes, @@GLOBAL.mandatory_roles, CURRENT_ROLE()").Scan(&partial, &mandatory, &active) != nil {
-				t.Fatal("cannot verify fixture preconditions")
-			}
-			if partial != f.PartialRevokes || mandatory != f.MandatoryRoles || active != f.ActiveRoles {
-				t.Fatal("fixture server state differs from manifest")
-			}
-			if rejected := mysql.CheckAccount(ctx, db, "serve") != nil; rejected != f.Reject {
-				t.Fatal("account boundary differs from expected policy")
-			}
-		})
-	}
-}
-
 // Reproduces partial DDL on a separate empty disposable schema. It intentionally
 // leaves a colliding fixture table and dirty history for manual review.
 func TestMySQLPartialDDLRemainsDirtyAcrossConnections(t *testing.T) {
@@ -260,14 +197,11 @@ func TestMySQLPartialDDLRemainsDirtyAcrossConnections(t *testing.T) {
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err = mysql.CheckAccount(ctx, db, "migrate"); err != nil {
-		t.Fatal(err)
-	}
 	var tables int
 	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()").Scan(&tables) != nil || tables != 0 {
 		t.Fatal("partial migration fixture requires an empty schema")
 	}
-	if _, err = db.ExecContext(ctx, "CREATE TABLE image_tags (fixture INT) ENGINE=InnoDB"); err != nil {
+	if _, err = db.ExecContext(ctx, "CREATE TABLE image_data_operations (fixture INT) ENGINE=InnoDB"); err != nil {
 		t.Fatal("cannot create isolated collision fixture")
 	}
 	if mysql.Migrate(ctx, db) == nil {
@@ -319,11 +253,8 @@ func TestMySQLHistoryReadOnlyVerification(t *testing.T) {
 	if db.QueryRowContext(ctx, "SELECT DATABASE(), @@GLOBAL.server_uuid").Scan(&name, &serverUUID) != nil {
 		t.Fatal("cannot identify history verification database")
 	}
-	if !strings.HasPrefix(name, "glance_go_test_history_") || serverUUID != expectedUUID {
+	if !strings.HasPrefix(name, "glance_go_shared_test_history_") || serverUUID != expectedUUID {
 		t.Fatal("history verification target differs from the authorized fixture")
-	}
-	if err = mysql.CheckAccount(ctx, db, "serve"); err != nil {
-		t.Fatal(err)
 	}
 	if err = mysql.VerifySchema(ctx, db); err != nil {
 		t.Fatal(err)

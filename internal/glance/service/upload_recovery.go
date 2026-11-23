@@ -122,11 +122,19 @@ func (u *UploadCoordinator) RecoverUploads(ctx context.Context) (report UploadRe
 			}
 			after = candidate.ImageID
 			report.Examined++
-			s, err := u.readState(ctx, candidate.ImageID)
-			if err != nil {
+			key := store.Key{ImageID: candidate.ImageID, AttemptID: candidate.AttemptID}
+			s, err := u.transfers.DataState(ctx, candidate.ImageID)
+			if errors.Is(err, repository.ErrNotFound) {
+				// The original purged the image row (glance-manage db purge).
+				if err = u.forgetPurged(ctx, key); err != nil {
+					return report, err
+				}
+				report.Cleaned++
+				continue
+			}
+			if s, err = checkedState(s, err, candidate.ImageID); err != nil {
 				return report, err
 			}
-			key := store.Key{ImageID: candidate.ImageID, AttemptID: candidate.AttemptID}
 			if s.Operation == nil || s.Operation.AttemptID != key.AttemptID {
 				return report, ErrUploadReconciliation
 			}
@@ -137,10 +145,15 @@ func (u *UploadCoordinator) RecoverUploads(ctx context.Context) (report UploadRe
 						return report, err
 					}
 					report.Cleaned++
-				case cleanupFence(s, key, "deleted", model.DataCleaned):
+				case cleanupFence(s, key, "deleted", model.DataCleaned), s.Operation.Phase == model.DataCleaned:
 					report.Kept++
 				default:
-					return report, ErrUploadReconciliation
+					// Deleted by the original, which removed the file with the
+					// image: finish the bookkeeping as Go's own deletion does.
+					if err = u.releaseForeignDeletion(ctx, key); err != nil {
+						return report, err
+					}
+					report.Cleaned++
 				}
 				continue
 			}
@@ -189,4 +202,34 @@ func (u *UploadCoordinator) RecoverUploads(ctx context.Context) (report UploadRe
 			return report, ctx.Err()
 		}
 	}
+}
+
+// purgedData is implemented by the MySQL repository: it removes the
+// bookkeeping of an image whose row the original purged.
+type purgedData interface {
+	ForgetPurgedData(ctx context.Context, id, attempt string) error
+}
+
+// forgetPurged removes a file left under the purged image's ID, if any, and
+// then its orphaned bookkeeping row. The ID names nothing else.
+func (u *UploadCoordinator) forgetPurged(ctx context.Context, key store.Key) error {
+	forget, ok := u.transfers.(purgedData)
+	if !ok || u.bytes.Delete(ctx, key) != nil || forget.ForgetPurgedData(ctx, key.ImageID, key.AttemptID) != nil {
+		return ErrUploadReconciliation
+	}
+	return nil
+}
+
+// releaseForeignDeletion moves an operation of an image the original deleted
+// to cleanup(deleted) and completes it, deleting any remaining file.
+func (u *UploadCoordinator) releaseForeignDeletion(ctx context.Context, key store.Key) error {
+	code := "deleted"
+	if err := u.transfers.BeginDataCleanup(ctx, key.ImageID, key.AttemptID, "deleted", &code, u.now()); err != nil && !errors.Is(err, repository.ErrCommitUncertain) {
+		return ErrUploadReconciliation
+	}
+	s, err := u.readState(ctx, key.ImageID)
+	if err != nil {
+		return err
+	}
+	return u.finishCleanup(ctx, s, "deleted")
 }

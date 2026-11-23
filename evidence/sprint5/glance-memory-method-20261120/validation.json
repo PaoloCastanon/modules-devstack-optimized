@@ -1,0 +1,29 @@
+{
+ "python": {
+  "pids": 3,
+  "pss_collector_mib": 233.9,
+  "pss_smem_mib": 233.6,
+  "rss_sum_mib": 302.0,
+  "pss_anon_sum_mib": 229.7,
+  "cgroup_anon_mib": 229.7,
+  "cgroup_file_mib": 8.3
+ },
+ "go": {
+  "pids": 1,
+  "pss_collector_mib": 16.0,
+  "pss_smem_mib": 16.2,
+  "rss_sum_mib": 16.0,
+  "pss_anon_sum_mib": 7.8,
+  "cgroup_anon_mib": 8.0,
+  "cgroup_file_mib": 0.0
+ },
+ "memcached": {
+  "pids": 1,
+  "pss_collector_mib": 10.0,
+  "pss_smem_mib": 10.0,
+  "rss_sum_mib": 13.3,
+  "pss_anon_sum_mib": 9.6,
+  "cgroup_anon_mib": 9.6,
+  "cgroup_file_mib": 3.4
+ }
+}

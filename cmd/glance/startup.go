@@ -21,8 +21,8 @@ type binaryRepository interface {
 // Private startup seams test ordering/failures; production always supplies the
 // real MySQL guards and Filesystem. No flag selects a fake repository or auth.
 type startupChecks struct {
-	ping, account, schema func(context.Context) error
-	scope                 func(context.Context) (string, error)
+	ping, schema func(context.Context) error
+	scope        func(context.Context) (string, error)
 }
 
 func verifyBackend(ctx context.Context, checks startupChecks) error {
@@ -30,7 +30,7 @@ func verifyBackend(ctx context.Context, checks startupChecks) error {
 		run     func(context.Context) error
 		message string
 	}{
-		{checks.ping, "database connection failed"}, {checks.account, "runtime database account rejected"}, {checks.schema, "schema verification failed; run explicit migrations"},
+		{checks.ping, "database connection failed"}, {checks.schema, "schema verification failed; run explicit migrations"},
 	} {
 		if err := step.run(ctx); err != nil {
 			return errors.New(step.message)

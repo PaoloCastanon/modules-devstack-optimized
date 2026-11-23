@@ -51,3 +51,14 @@ func (r *Repository) query(ctx context.Context, tx *sql.Tx, q string, args ...an
 	}
 	return tx.QueryContext(ctx, r.sql(q), args...)
 }
+
+// bound gives a repository operation the deadline of the request that issued
+// it (HTTP request, upload, recovery or resolution); like oslo.db, there is no
+// separate per-query timeout. Only callers without a deadline (startup checks)
+// get r.timeout.
+func (r *Repository) bound(ctx context.Context) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); ok {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, r.timeout)
+}

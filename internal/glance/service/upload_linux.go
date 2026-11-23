@@ -12,7 +12,7 @@ import (
 var uploadFilesystems sync.Map
 
 // NewUploadCoordinator takes exclusive ownership of an already opened store
-// backend (Filesystem holds the kernel root flock; RBD a RADOS lock). A second
+// backend (Filesystem holds the kernel root flock). A second
 // coordinator on that instance is refused. The caller must not use/close it
 // while owned.
 // Root initialization, scope/database binding and SQL configuration are explicit

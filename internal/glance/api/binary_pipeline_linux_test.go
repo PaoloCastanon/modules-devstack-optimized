@@ -159,7 +159,7 @@ func pipelineHarness(t *testing.T, ready bool, who auth.Identity, max int64) (ht
 	if err := store.Initialize(root, scope); err != nil {
 		t.Fatal(err)
 	}
-	fs, err := store.NewFilesystem(root, scope)
+	fs, err := testStore(root, scope)
 	if err != nil {
 		t.Fatal(err)
 	}

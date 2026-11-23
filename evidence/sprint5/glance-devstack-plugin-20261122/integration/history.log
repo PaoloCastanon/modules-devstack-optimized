@@ -1,0 +1,4 @@
+=== RUN   TestMySQLHistoryReadOnlyVerification
+--- PASS: TestMySQLHistoryReadOnlyVerification (0.11s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql	1.127s

@@ -45,112 +45,27 @@ func TestInjectedWriteFailures(t *testing.T) {
 	}
 }
 
-func TestInjectedStageAndPublicationBoundaries(t *testing.T) {
-	for _, point := range []string{"stage-file-sync", "stage-link", "stage-dir-sync", "stage-unlink", "stage-cleanup-sync", "publish-file-sync", "publish-link", "publish-dir-sync", "publish-unlink", "publish-cleanup-sync"} {
-		t.Run(point, func(t *testing.T) {
-			s, _, _ := fixture(t)
-			k := key()
-			i := digest([]byte("complete"))
-			publishing := strings.HasPrefix(point, "publish-")
-			if publishing {
-				if _, err := s.Stage(context.Background(), k, strings.NewReader("complete"), 20, nil); err != nil {
-					t.Fatal(err)
-				}
-			}
-			real := realOps()
-			fired := false
-			dirSyncs := 0
-			s.ops.sync = func(f *os.File) error {
-				if f == s.staging {
-					dirSyncs++
-				}
-				fail := (point == "stage-file-sync" || point == "publish-file-sync") && f != s.staging && f != s.objects
-				fail = fail || point == "stage-dir-sync" && f == s.staging && dirSyncs == 1
-				fail = fail || point == "stage-cleanup-sync" && f == s.staging && dirSyncs == 2
-				fail = fail || point == "publish-dir-sync" && f == s.objects
-				fail = fail || point == "publish-cleanup-sync" && f == s.staging
-				if fail {
-					fired = true
-					return syscall.EIO
-				}
-				return real.sync(f)
-			}
-			s.ops.link = func(f, d *os.File, name string) error {
-				if point == "stage-link" || point == "publish-link" {
-					fired = true
-					return syscall.EIO
-				}
-				return real.link(f, d, name)
-			}
-			s.ops.unlink = func(d *os.File, name string) error {
-				if point == "stage-unlink" || point == "publish-unlink" {
-					fired = true
-					return syscall.EIO
-				}
-				return real.unlink(d, name)
-			}
-			var err error
-			if publishing {
-				err = s.Publish(context.Background(), k, i)
-			} else {
-				_, err = s.Stage(context.Background(), k, strings.NewReader("complete"), 20, nil)
-			}
-			if !fired || !errors.Is(err, syscall.EIO) {
-				t.Fatal("fault not exercised", fired, err)
-			}
-			s.ops = real
-			f, got, openErr := s.Open(context.Background(), k)
-			if point == "publish-dir-sync" || point == "publish-unlink" || point == "publish-cleanup-sync" {
-				if openErr != nil || got != i {
-					t.Fatal("uncertain outcome lost complete file", got, openErr)
-				}
-				f.Close()
-				if err = s.Publish(context.Background(), k, i); !errors.Is(err, ErrExists) {
-					t.Fatal("uncertain publish overwrote object", err)
-				}
-			} else if !errors.Is(openErr, ErrNotFound) {
-				t.Fatal("failure published bytes", openErr)
-			}
-			// Recovery policy is NOT implemented: test explicitly authorizes Delete
-			// only for its own fixture, then verifies repeated cleanup is harmless.
-			if err = s.Delete(context.Background(), k); err != nil {
-				t.Fatal(err)
-			}
-			if err = s.Delete(context.Background(), k); err != nil {
-				t.Fatal(err)
-			}
-		})
+// Delete unlinks <image-id> as glance_store does: a failed unlink is reported
+// and retried; no directory fsync is ever issued (it stalled under writeback).
+func TestInjectedDeleteFailureRetriesWithoutDirectorySync(t *testing.T) {
+	s, _, _ := fixture(t)
+	k := key()
+	publish(t, s, k, []byte("content"))
+	real := realOps()
+	var synced int
+	s.ops.sync = func(f *os.File) error { synced++; return real.sync(f) }
+	s.ops.unlink = func(d *os.File, name string) error { return syscall.EIO }
+	if err := s.Delete(context.Background(), k); !errors.Is(err, syscall.EIO) {
+		t.Fatal(err)
 	}
-}
-
-func TestInjectedDeleteFailureAndDirectorySyncRetry(t *testing.T) {
-	for _, point := range []string{"unlink", "objects-sync", "staging-sync"} {
-		t.Run(point, func(t *testing.T) {
-			s, _, _ := fixture(t)
-			k := key()
-			publish(t, s, k, []byte("content"))
-			real := realOps()
-			s.ops.unlink = func(d *os.File, name string) error {
-				if point == "unlink" && d == s.objects {
-					return syscall.EIO
-				}
-				return real.unlink(d, name)
-			}
-			s.ops.sync = func(f *os.File) error {
-				if point == "objects-sync" && f == s.objects || point == "staging-sync" && f == s.staging {
-					return syscall.EIO
-				}
-				return real.sync(f)
-			}
-			if err := s.Delete(context.Background(), k); !errors.Is(err, syscall.EIO) {
-				t.Fatal(err)
-			}
-			s.ops = real
-			var synced int
-			s.ops.sync = func(f *os.File) error { synced++; return real.sync(f) }
-			if err := s.Delete(context.Background(), k); err != nil || synced != 2 {
-				t.Fatal("retry did not sync both directories", synced, err)
-			}
-		})
+	s.ops.unlink = real.unlink
+	if err := s.Delete(context.Background(), k); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Delete(context.Background(), k); err != nil { // already gone
+		t.Fatal(err)
+	}
+	if synced != 0 {
+		t.Fatal("directory fsync on delete", synced)
 	}
 }

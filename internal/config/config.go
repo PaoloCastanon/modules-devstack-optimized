@@ -38,12 +38,9 @@ type Config struct {
 	// Notifications is Glance only and read only by serve.
 	Notifications Notifications
 	// OfficialCatalog is the original Glance database Glance Go serves from
-	// (GLANCE_GO_CATALOG=official), "" for its own catalog. Its files are then
-	// in Binary.OfficialStoreDir, the original's filesystem_store_datadir.
+	// (read from its glance-api.conf). Its files are in
+	// Binary.OfficialStoreDir, the original's filesystem_store_datadir.
 	OfficialCatalog string
-	// OriginalAccount: the database account is the original's own (read from
-	// its glance-api.conf); its broad privileges are expected, not refused.
-	OriginalAccount bool
 }
 
 // ReadSecret rejects group/world-readable files and never returns their contents in errors.
@@ -157,7 +154,12 @@ func load(getenv func(string) string, mode, prefix, defaultAddress string) (Conf
 	if prefix == "GLANCE_GO_" { // Placement must never read Glance's namespace
 		path = getenv("GLANCE_GO_CONFIG_FILE")
 	}
-	if path != "" {
+	if prefix == "GLANCE_GO_" {
+		// Glance Go always serves the original's catalog, MySQL account, store
+		// and Keystone user, read from its glance-api.conf. There is no own mode.
+		if path == "" {
+			return Config{}, errors.New("GLANCE_GO_CONFIG_FILE (the original's glance-api.conf) is required")
+		}
 		if original, err = readOriginalConfig(path); err != nil {
 			return Config{}, err
 		}
@@ -180,15 +182,8 @@ func load(getenv func(string) string, mode, prefix, defaultAddress string) (Conf
 		if err := loadBinary(&c, getenv, mode); err != nil {
 			return Config{}, err
 		}
-		if original == nil {
-			if err := loadCatalog(&c, getenv); err != nil {
-				return Config{}, err
-			}
-		}
-		if original != nil {
-			if err := applyOriginalConfig(&c, original, getenv, mode); err != nil {
-				return Config{}, err
-			}
+		if err := applyOriginalConfig(&c, original, getenv, mode); err != nil {
+			return Config{}, err
 		}
 	}
 	if prefix == "PLACEMENT_GO_" {
@@ -206,11 +201,6 @@ func load(getenv func(string) string, mode, prefix, defaultAddress string) (Conf
 	}
 	if original != nil {
 		return c, nil // notifications and Keystone came from the original's file
-	}
-	if prefix == "GLANCE_GO_" {
-		if err := loadNotifications(&c, getenv); err != nil {
-			return Config{}, err
-		}
 	}
 	c.KeystoneURL = strings.TrimRight(getenv(prefix+"KEYSTONE_AUTH_URL"), "/")
 	if err := ValidateURL(c.KeystoneURL); err != nil {

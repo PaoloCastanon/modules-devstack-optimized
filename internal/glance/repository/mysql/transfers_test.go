@@ -87,7 +87,7 @@ func TestTransferTransitionsBindAndCommit(t *testing.T) {
 		{"reuse-cleaned", "queued", false, dataFixture(model.DataCleaned), []string{reserveImageSQL, reuseOperationSQL}, func(r *Repository) error { _, e := r.ReserveData(ctx, catalogID, attemptB, nil, dataNow); return e }},
 		{"stage", "saving", false, dataFixture(model.DataReserved), []string{stageOperationSQL}, func(r *Repository) error { return r.StageData(ctx, catalogID, attemptA, receipt(), dataNow) }},
 		{"publish", "saving", false, dataFixture(model.DataStaged), []string{publishOperationSQL}, func(r *Repository) error { return r.PublishData(ctx, catalogID, attemptA, dataNow) }},
-		{"commit", "saving", false, dataFixture(model.DataPublished), []string{commitImageSQL, commitOperationSQL}, func(r *Repository) error { return r.CommitData(ctx, catalogID, attemptA, dataNow) }},
+		{"commit", "saving", false, dataFixture(model.DataPublished), []string{commitImageSQL, commitLocationSQL, commitOperationSQL}, func(r *Repository) error { return r.CommitData(ctx, catalogID, attemptA, dataNow) }},
 		{"begin-cleanup", "saving", false, dataFixture(model.DataPublished), []string{cleanupOperationSQL}, func(r *Repository) error {
 			return r.BeginDataCleanup(ctx, catalogID, attemptA, "queued", str("recovery"), dataNow)
 		}},
@@ -117,7 +117,7 @@ func TestTransferTransitionsBindAndCommit(t *testing.T) {
 					if q == commitImageSQL && (strings.Contains(q, "name=") || strings.Contains(q, "tags") || strings.Contains(q, "properties")) {
 						t.Error("finalization overwrites editable metadata")
 					}
-					if q != reserveImageSQL && q != commitImageSQL && q != restoreImageSQL {
+					if q != reserveImageSQL && q != commitImageSQL && q != commitLocationSQL && q != restoreImageSQL {
 						attempt := attemptA
 						if tc.name == "reserve" || tc.name == "reuse-cleaned" {
 							attempt = attemptB
@@ -136,7 +136,7 @@ func TestTransferTransitionsBindAndCommit(t *testing.T) {
 				steps = append(steps, step)
 			}
 			steps = append(steps, execute("COMMIT"))
-			if err := tc.call(New(scriptDB(t, steps), time.Second)); err != nil {
+			if err := tc.call(testRepo(scriptDB(t, steps), time.Second)); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -171,7 +171,7 @@ func TestTransferFencesRejectWithoutWrites(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			steps := append(transferSteps(tc.status, tc.deleted, tc.o), execute("ROLLBACK"))
-			if err := tc.call(New(scriptDB(t, steps), time.Second)); err == nil {
+			if err := tc.call(testRepo(scriptDB(t, steps), time.Second)); err == nil {
 				t.Fatal("invalid state/fence accepted")
 			}
 		})
@@ -180,7 +180,7 @@ func TestTransferFencesRejectWithoutWrites(t *testing.T) {
 		o := dataFixture(model.DataReserved)
 		o.ExpectedSize = i64(21)
 		steps := append(transferSteps("saving", false, o), execute("ROLLBACK"))
-		if New(scriptDB(t, steps), time.Second).StageData(ctx, catalogID, attemptA, receipt(), dataNow) == nil {
+		if testRepo(scriptDB(t, steps), time.Second).StageData(ctx, catalogID, attemptA, receipt(), dataNow) == nil {
 			t.Fatal("mismatch accepted")
 		}
 	})
@@ -201,20 +201,20 @@ func TestCleanupPreservesTombstoneAndAllowsOnlyTerminalDestinations(t *testing.T
 				steps = append(steps, execute(restoreImageSQL))
 			}
 			steps = append(steps, execute(cleanedOperationSQL), execute("COMMIT"))
-			if err := New(scriptDB(t, steps), time.Second).CompleteDataCleanup(ctx, catalogID, attemptA, dataNow); err != nil {
+			if err := testRepo(scriptDB(t, steps), time.Second).CompleteDataCleanup(ctx, catalogID, attemptA, dataNow); err != nil {
 				t.Fatal(err)
 			}
 		})
 	}
 	t.Run("repeated-cleanup-intent", func(t *testing.T) {
 		steps := append(transferSteps("saving", false, dataFixture(model.DataCleanup)), execute("COMMIT"))
-		if err := New(scriptDB(t, steps), time.Second).BeginDataCleanup(ctx, catalogID, attemptA, "queued", nil, dataNow); err != nil {
+		if err := testRepo(scriptDB(t, steps), time.Second).BeginDataCleanup(ctx, catalogID, attemptA, "queued", nil, dataNow); err != nil {
 			t.Fatal(err)
 		}
 	})
 	t.Run("delete-supersedes-recovery", func(t *testing.T) {
 		steps := append(transferSteps("deleted", true, dataFixture(model.DataCleanup)), execute(cleanupOperationSQL), execute("COMMIT"))
-		if err := New(scriptDB(t, steps), time.Second).BeginDataCleanup(ctx, catalogID, attemptA, "deleted", nil, dataNow); err != nil {
+		if err := testRepo(scriptDB(t, steps), time.Second).BeginDataCleanup(ctx, catalogID, attemptA, "deleted", nil, dataNow); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -223,29 +223,29 @@ func TestCleanupPreservesTombstoneAndAllowsOnlyTerminalDestinations(t *testing.T
 func TestTransferSQLFailuresAndUncertainCommits(t *testing.T) {
 	t.Run("deadlock is retried", func(t *testing.T) {
 		attempt := func() []sqlStep {
-			return append(transferSteps("saving", false, dataFixture(model.DataPublished)), execute(commitImageSQL), execute(commitOperationSQL), execute("COMMIT"))
+			return append(transferSteps("saving", false, dataFixture(model.DataPublished)), execute(commitImageSQL), execute(commitLocationSQL), execute(commitOperationSQL), execute("COMMIT"))
 		}
 		first := attempt()
 		first[3].err = &mysqldriver.MySQLError{Number: 1213}
 		steps := append(append(first[:4], execute("ROLLBACK")), attempt()...)
-		if err := New(scriptDB(t, steps), time.Second).CommitData(context.Background(), catalogID, attemptA, dataNow); err != nil {
+		if err := testRepo(scriptDB(t, steps), time.Second).CommitData(context.Background(), catalogID, attemptA, dataNow); err != nil {
 			t.Fatal("deadlock victim not re-run", err)
 		}
 	})
 	for _, tc := range []string{"begin", "image-read", "operation-read", "image-update", "operation-update", "commit", "zero-CAS"} {
 		t.Run(tc, func(t *testing.T) {
-			steps := append(transferSteps("saving", false, dataFixture(model.DataPublished)), execute(commitImageSQL), execute(commitOperationSQL), execute("COMMIT"))
-			at := map[string]int{"begin": 0, "image-read": 1, "operation-read": 2, "image-update": 3, "operation-update": 4, "commit": 5, "zero-CAS": 4}[tc]
+			steps := append(transferSteps("saving", false, dataFixture(model.DataPublished)), execute(commitImageSQL), execute(commitLocationSQL), execute(commitOperationSQL), execute("COMMIT"))
+			at := map[string]int{"begin": 0, "image-read": 1, "operation-read": 2, "image-update": 3, "operation-update": 5, "commit": 6, "zero-CAS": 5}[tc]
 			if tc == "zero-CAS" {
 				steps[at].affected = 0
 			} else {
 				steps[at].err = errors.New("private db failure")
 			}
 			steps = steps[:at+1]
-			if at > 0 && at < 5 {
+			if at > 0 && at < 6 {
 				steps = append(steps, execute("ROLLBACK"))
 			}
-			err := New(scriptDB(t, steps), time.Second).CommitData(context.Background(), catalogID, attemptA, dataNow)
+			err := testRepo(scriptDB(t, steps), time.Second).CommitData(context.Background(), catalogID, attemptA, dataNow)
 			if err == nil {
 				t.Fatal("SQL failure reported success")
 			}
@@ -261,7 +261,7 @@ func TestTransferSQLFailuresAndUncertainCommits(t *testing.T) {
 		finish := execute("COMMIT")
 		finish.err = errors.New("commit ack lost")
 		steps := append(transferSteps("queued", false, nil), execute(reserveImageSQL), execute(reserveOperationSQL), finish)
-		o, err := New(scriptDB(t, steps), time.Second).ReserveData(context.Background(), catalogID, attemptB, nil, dataNow)
+		o, err := testRepo(scriptDB(t, steps), time.Second).ReserveData(context.Background(), catalogID, attemptB, nil, dataNow)
 		if !errors.Is(err, repository.ErrCommitUncertain) || o.AttemptID != attemptB {
 			t.Fatal(o, err)
 		}
@@ -271,23 +271,23 @@ func TestTransferSQLFailuresAndUncertainCommits(t *testing.T) {
 func TestAuthoritativeDataReadAndRecoveryInventory(t *testing.T) {
 	o := dataFixture(model.DataCommitted)
 	steps := append(transferSteps("active", false, o), execute("COMMIT"))
-	state, err := New(scriptDB(t, steps), time.Second).DataState(context.Background(), catalogID)
+	state, err := testRepo(scriptDB(t, steps), time.Second).DataState(context.Background(), catalogID)
 	if err != nil || state.Status != "active" || !reflect.DeepEqual(state.Operation, o) {
 		t.Fatal(state, err)
 	}
-	query := "SELECT " + dataColumns + " FROM image_data_operations WHERE image_id>? ORDER BY image_id LIMIT ?"
+	query := recoveryCandidatesSQL
 	step := sqlStep{query: query, rows: [][]driver.Value{operationRow(o)}, checkArgs: func(a []driver.NamedValue) {
 		if len(a) != 2 || a[0].Value != "" || a[1].Value != int64(10) {
 			t.Error(a)
 		}
 	}}
-	records, err := New(scriptDB(t, []sqlStep{step}), time.Second).ListDataOperations(context.Background(), "", 10)
+	records, err := testRepo(scriptDB(t, []sqlStep{step}), time.Second).ListDataOperations(context.Background(), "", 10)
 	if err != nil || len(records) != 1 || !reflect.DeepEqual(records[0], *o) {
 		t.Fatal(records, err)
 	}
 	t.Run("missing-image", func(t *testing.T) {
 		steps := []sqlStep{execute("BEGIN"), {query: lockDataImage}, execute("ROLLBACK")}
-		if _, err := New(scriptDB(t, steps), time.Second).DataState(context.Background(), catalogID); !errors.Is(err, repository.ErrNotFound) {
+		if _, err := testRepo(scriptDB(t, steps), time.Second).DataState(context.Background(), catalogID); !errors.Is(err, repository.ErrNotFound) {
 			t.Fatal(err)
 		}
 	})
@@ -295,7 +295,7 @@ func TestAuthoritativeDataReadAndRecoveryInventory(t *testing.T) {
 
 func TestTransferInputRejectionDoesNotOpenDatabase(t *testing.T) {
 	// A nil pool ensures these failures occur before SQL, not after a mutation.
-	r := New(nil, time.Second)
+	r := testRepo(nil, time.Second)
 	ctx := context.Background()
 	calls := []transferCall{
 		func(r *Repository) error { _, e := r.ReserveData(ctx, "bad", attemptA, nil, dataNow); return e },
@@ -358,7 +358,7 @@ func TestTransferOperationFailuresRollbackWithoutConfirmingCleanup(t *testing.T)
 				} else {
 					steps = append(steps, execute("ROLLBACK"))
 				}
-				err := tc.call(New(scriptDB(t, steps), time.Second))
+				err := tc.call(testRepo(scriptDB(t, steps), time.Second))
 				if err == nil {
 					t.Fatal("failure acknowledged as success")
 				}
@@ -371,7 +371,7 @@ func TestTransferOperationFailuresRollbackWithoutConfirmingCleanup(t *testing.T)
 }
 
 func TestRecoveryInventoryFailsClosed(t *testing.T) {
-	q := "SELECT " + dataColumns + " FROM image_data_operations WHERE image_id>? ORDER BY image_id LIMIT ?"
+	q := recoveryCandidatesSQL
 	for _, label := range []string{"empty", "query-error", "cursor-error", "bad-receipt"} {
 		t.Run(label, func(t *testing.T) {
 			step := sqlStep{query: q}
@@ -385,7 +385,7 @@ func TestRecoveryInventoryFailsClosed(t *testing.T) {
 				o.SHA512 = str("invalid")
 				step.rows = [][]driver.Value{operationRow(o)}
 			}
-			got, err := New(scriptDB(t, []sqlStep{step}), time.Second).ListDataOperations(context.Background(), "", 10)
+			got, err := testRepo(scriptDB(t, []sqlStep{step}), time.Second).ListDataOperations(context.Background(), "", 10)
 			if label == "empty" {
 				if err != nil || got == nil || len(got) != 0 {
 					t.Fatal(got, err)
@@ -394,5 +394,80 @@ func TestRecoveryInventoryFailsClosed(t *testing.T) {
 				t.Fatal("failed inventory reported success")
 			}
 		})
+	}
+}
+
+const commitLocationSQL = "INSERT INTO image_locations (image_id, value, meta_data, status, created_at, updated_at, deleted) VALUES (?, ?, '{}', 'active', ?, ?, 0)"
+
+func TestForgetPurgedDataOnlyForMissingImages(t *testing.T) {
+	count := "SELECT COUNT(*) FROM images WHERE id=? FOR UPDATE"
+	forget := "DELETE FROM image_data_operations WHERE image_id=? AND attempt_id=?"
+	steps := []sqlStep{execute("BEGIN"), query(count, int64(0)), execute(forget), execute("COMMIT")}
+	if err := testRepo(scriptDB(t, steps), time.Second).ForgetPurgedData(context.Background(), catalogID, attemptA); err != nil {
+		t.Fatal(err)
+	}
+	live := []sqlStep{execute("BEGIN"), query(count, int64(1)), execute("ROLLBACK")}
+	if err := testRepo(scriptDB(t, live), time.Second).ForgetPurgedData(context.Background(), catalogID, attemptA); !errors.Is(err, repository.ErrConflict) {
+		t.Fatal("live image bookkeeping forgotten", err)
+	}
+	if testRepo(nil, time.Second).ForgetPurgedData(context.Background(), "bad", attemptA) == nil {
+		t.Fatal("invalid ID accepted")
+	}
+}
+
+// Like oslo.db, a statement waits for a slow MySQL (a commit stalled by disk
+// writeback in the v6 campaign) within the deadline of the request that
+// issued it; r.timeout only bounds callers without a deadline.
+func TestSlowCommitWaitsWithinTheRequestDeadline(t *testing.T) {
+	steps := func() []sqlStep {
+		s := append(transferSteps("saving", false, dataFixture(model.DataPublished)), execute(commitImageSQL), execute(commitLocationSQL), execute(commitOperationSQL), execute("COMMIT"))
+		s[3].delay = 300 * time.Millisecond
+		return s
+	}
+	request, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := testRepo(scriptDB(t, steps()), 100*time.Millisecond).CommitData(request, catalogID, attemptA, dataNow); err != nil {
+		t.Fatal("slow commit failed inside the request deadline", err)
+	}
+	// The request deadline itself still applies: see TestBound… (database/sql
+	// rolls back asynchronously on expiry, which this script double cannot order).
+}
+
+func TestBoundUsesTheCallerDeadlineOrTheRepositoryTimeout(t *testing.T) {
+	r := testRepo(nil, 50*time.Millisecond)
+	ctx, cancel := r.bound(context.Background())
+	deadline, ok := ctx.Deadline()
+	cancel()
+	if !ok || time.Until(deadline) > 50*time.Millisecond {
+		t.Fatal("no deadline for a caller without one")
+	}
+	parent, stop := context.WithTimeout(context.Background(), time.Hour)
+	defer stop()
+	ctx, cancel = r.bound(parent)
+	defer cancel()
+	if d, _ := ctx.Deadline(); d.Before(time.Now().Add(59 * time.Minute)) {
+		t.Fatal("caller deadline shortened")
+	}
+}
+
+const finishOperationSQL = "UPDATE image_data_operations SET phase='committed', size=?, virtual_size=?, checksum=?, os_hash_value=?, updated_at=? WHERE image_id=? AND attempt_id=? AND phase='reserved'"
+
+// FinishData: one transaction from reserved to committed, as the original's
+// image_repo.save after glance_store.add.
+func TestFinishDataIsOneTransactionFromReserved(t *testing.T) {
+	ok := append(transferSteps("saving", false, dataFixture(model.DataReserved)),
+		execute(commitImageSQL), execute(commitLocationSQL), execute(finishOperationSQL), execute("COMMIT"))
+	if err := testRepo(scriptDB(t, ok), time.Second).FinishData(context.Background(), catalogID, attemptA, receipt(), dataNow); err != nil {
+		t.Fatal(err)
+	}
+	for _, phase := range []model.DataPhase{model.DataStaged, model.DataCommitted, model.DataCleaned} {
+		steps := append(transferSteps("saving", false, dataFixture(phase)), execute("ROLLBACK"))
+		if err := testRepo(scriptDB(t, steps), time.Second).FinishData(context.Background(), catalogID, attemptA, receipt(), dataNow); !errors.Is(err, repository.ErrConflict) {
+			t.Fatal(phase, err)
+		}
+	}
+	queued := append(transferSteps("queued", false, dataFixture(model.DataReserved)), execute("ROLLBACK"))
+	if err := testRepo(scriptDB(t, queued), time.Second).FinishData(context.Background(), catalogID, attemptA, receipt(), dataNow); !errors.Is(err, repository.ErrConflict) {
+		t.Fatal("finished an image that is not saving", err)
 	}
 }

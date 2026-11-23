@@ -145,18 +145,10 @@ GOMAXPROCS=2 GOTOOLCHAIN=local go vet -p 1 ./...
 GOMAXPROCS=2 GOTOOLCHAIN=local go test -race -p 1 ./...
 ```
 
-La suite opt-in nueva `TestMySQLCatalogOperations` requiere una DB **nueva vacía**
-`glance_go_test_<sufijo>`, fuera de la VM original, con cuenta exclusiva y grants
-directos SELECT/INSERT/UPDATE/DELETE/CREATE/ALTER/INDEX/REFERENCES solo sobre ella.
-No ejecutar sobre los esquemas de A ni sobre el esquema dirty. No aprovisiona
-cuentas, no cambia grants y deja los datos para revisión. Su autenticación de
-políticas usa identidades de fixture explícitas; no demuestra Keystone real.
-
-```sh
-GLANCE_GO_MYSQL_TEST=1 \
-GLANCE_GO_TEST_DSN_FILE=/absolute/private/new-catalog-test.dsn \
-make GLANCE_TOOLCHAIN=local glance-test-mysql-catalog
-```
+La suite `TestMySQLCatalogOperations` corre con `make glance-test-integration`
+sobre una copia vacía del catálogo del original (DDL real de la VM) y su base de
+contabilidad nueva. Su autenticación de políticas usa identidades de fixture
+explícitas; no demuestra Keystone real.
 
 Comprueba filtros, orden/páginas y visibilidad reales, PATCH válido, fallo de la
 segunda operación sin cambio persistido, fallo SQL de hijo después del UPDATE,

@@ -1021,7 +1021,7 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - Proyección de diseño y esfuerzo (≈24 SP) de un store Ceph RBD; no implementado.
   Hallazgo: `Filesystem.Open` relee y hashea el objeto antes del primer byte, lo
   que es coherente con el TTFB y la CPU de las descargas de 16/64 MiB en v3.
-  [Proyección](../docs/glance/ceph-rbd-projection.md).
+  Proyección: `docs/glance/ceph-rbd-projection.md` (retirada el 2026-11-21 junto con RBD).
 - Primera corrida real (VM local, 6 GiB): pasan 7/10 casos. Nova falla al crear
   el servidor (HTTP 500, `MissingAuthPlugin`): keystoneauth necesita el
   descubrimiento de versiones de `/image/`, y Glance Go no lo tenía (respondía
@@ -1055,7 +1055,7 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   rechazo del borrado con un clon COW) y la B25 de punta a punta con disco y con
   RBD. El pool queda vacío al final.
   [Evidencia](../evidence/sprint5/glance-rbd-20261118/README.md),
-  [uso](../docs/glance/ceph-rbd.md).
+  Uso: `docs/glance/ceph-rbd.md` (retirado el 2026-11-21 junto con RBD).
 - **E2E conjunto:** `glance_suite.py --with-placement-go`. Dos corridas
   consecutivas de cada modo sobre `f7ea161`: solo Glance Go 10/10 y Glance Go +
   Placement Go 14/14, con limpieza completa. Nova publicó su proveedor, programó
@@ -1272,3 +1272,163 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
 - **Laboratorio:** original sin cambios, recursos propios retirados, timers apt
   reactivados y VM apagada.
   [Evidencia](../evidence/sprint5/benchmarks/placement-compact-v2-nova-20261120/README.md).
+- 2026-11-20, método de RAM de las campañas de Glance:
+  - **Cambios:** se agrega `glance_memory.py` (cgroup v2 `memory.stat`
+    `anon`/`file` a 10 Hz por unidad) y memcached como grupo de control. El
+    análisis informa `cgroup_anon_mean/peak`, `cgroup_file_mean` y
+    `memcached_pss_mean`. La PSS sigue como métrica principal y la RSS queda
+    como cota.
+  - **Validación en la VM con carga:** la PSS del colector coincide con
+    `smem` (≤0,3 MiB) y el `anon` del cgroup con la suma de `Pss_Anon`. La
+    suma de RSS sobreestima al original en ~68 MiB.
+  - [Evidencia](../evidence/sprint5/glance-memory-method-20261120/README.md).
+- 2026-11-21, protocolo v5: el timeout de los pedidos de metadatos sube de
+  10 a 120 s, igual al de los binarios. Antes estaba fijo en
+  `glance_http.py`; ahora se toma del protocolo.
+  - **Motivo:** los intentos 1 y 3 del piloto se cortaron al subir 64 MiB
+    con 16 clientes. Un `GET` chico del original esperó 10,05 s detrás de
+    las subidas, con los 2 workers de uWSGI saturados (~78 MiB/s para 16
+    clientes, frente a 311 de Glance Go).
+  - **Efecto:** esa espera queda registrada como latencia, y cada ventana
+    cuenta `requests_over_10s` y `max_request_s`. Cualquier error HTTP,
+    bytes incorrectos o una limpieza fallida siguen invalidando la ventana.
+- 2026-11-21, campaña Glance compact v5 en el PC de Juan: **aceptada 360/360**.
+  - **Volumen:** 2 465 173 solicitudes medidas, 0 errores.
+  - **Condiciones:** los dos por Apache `/image`; 9 cargas × 1/4/8/16 clientes
+    × 5 pares.
+  - **Resultado:** Glance Go fue mejor en las 36 celdas, de 1,10× (bajar
+    64 MiB, 1 cliente) a 40,3× (ciclo de metadatos, 16 clientes). En todas,
+    el rango de los 5 pares queda sobre 1×.
+  - **Memoria:** PSS de 233–238 MiB en el original frente a 16–39 MiB en
+    Glance Go; `anon` del cgroup, 229–234 frente a 7–31 MiB.
+  - **Saturación del original:** solo una ventana tuvo pedidos de más de
+    10 s (el original subiendo 64 MiB con 16 clientes: 2 pedidos, el más
+    lento de 10,4 s).
+  - **Fallos de entorno corregidos antes de esta corrida (driver local):**
+    Keystone sin responder tras el arranque, el salto de NTP al arrancar y
+    una deriva de ~25 ppm entre el PC y la VM. La VM ahora sigue el reloj
+    del PC con chrony y `ptp_kvm`, con un desfase de 0,00–0,01 ms. Se fue
+    directo a la oficial, porque el piloto ya había pasado 72/72.
+  - Revisión medida `7e922cd`, binario `67e58def…`.
+    [Resultados](../docs/benchmarks/glance-results-v5-pc-juan-20261121.md).
+    La evidencia cruda queda fuera del repositorio (en el PC de Juan).
+- 2026-11-21, protocolo Glance compact v6: la matriz y la ruta de la v5,
+  ahora con las mismas condiciones de datos para los dos.
+  - **Glance Go en la campaña:** corre en modo oficial
+    (`placement_runtime.py --catalog official`, una rama solo de Glance), con
+    una copia privada del `glance-api.conf` del original: el mismo servidor
+    MySQL, la misma base `glance`, el mismo store y el mismo usuario de
+    Keystone. No levanta su propio MySQL.
+  - **Notificaciones:** apagadas (`noop`) en los dos.
+  - **Prueba en la VM:** el runtime sirve el catálogo oficial y se cierra
+    limpio. 130 pruebas y `make check` OK.
+- 2026-11-21, estado inicial de la v6: catálogo oficial purgado con la
+  herramienta del original (`glance-manage db purge` y
+  `purge_images_table`, `--age_in_days 0`).
+  - **Limpieza:** se eliminaron 24 157 imágenes borradas de campañas
+    anteriores. Quedan 2 activas (CirrOS y mi-cirros), con 2 archivos en el
+    store.
+  - **Hallazgo:** después de purgar, Glance Go no arrancaba ("startup
+    recovery failed"). Tenía 74 registros de carga (`cleaned`/`deleted`) de
+    imágenes que ya no existían. Se borraron y la recuperación volvió a
+    funcionar (2 revisados, 2 conservados).
+  - **Pendiente:** que la recuperación tolere imágenes que el original ya
+    purgó.
+- 2026-11-21, piloto v6, intento 1: se detuvo en la segunda ventana (409 al
+  sembrar en Glance Go).
+  - **Causa:** los dos servicios de un par usaban los mismos ID de imagen.
+    Con el catálogo compartido, el ID que el original borró de forma lógica
+    queda reservado.
+  - **Corrección:** con `go_catalog=official`, cada implementación recibe su
+    propio espacio de ID dentro del par. La equivalencia de la siembra
+    compara todo salvo el ID.
+- 2026-11-21, Glance Go solo en modo oficial (`5422f4c`, rama
+  `feat/glance-official-only`): se quitan el catálogo propio y el store Ceph
+  RBD. Glance Go siempre lee el `glance-api.conf` del original (base `glance`,
+  cuenta MySQL, `filesystem_store_datadir`, usuario de Keystone); su única
+  tabla, `image_data_operations`, sigue en `glance_go_shared` con el mismo
+  checksum de migración que la ya instalada.
+  - **Pruebas:** `go test -race` de Glance, config y auth; `go vet` y
+    `go test` de todo el repo; gate sin el `go-check` de Placement OK.
+    Integración nueva contra el DDL real del original en la VM
+    (`make glance-test-integration`, con `-race`): 9/9 suites.
+  - **VM:** B26 10/10 (12/12 casos) y conjunta con Placement Go 2/2 (16/16);
+    `glance_replace.py install` con el binario nuevo (`c2c7c2e9…`) y E2E
+    compartido 10/10 rondas.
+  - **Hallazgos corregidos:** PATCH con 409 sobre el esquema real (los
+    `DATETIME` del original tienen segundos; ahora se cuentan filas
+    encontradas, como SQLAlchemy) y la recuperación que no toleraba imágenes
+    borradas o purgadas por el original. Verificado en vivo: tras purgar
+    5 402 imágenes borradas, Glance Go arrancó solo (76 filas huérfanas
+    olvidadas, 2 conservadas).
+    [Evidencia](../evidence/sprint5/glance-official-only-20261121/README.md).
+- 2026-11-22, v6 oficial con `ebc4204`: se detuvo en la ventana 232/360
+  (`upload-64m-c16-r01-go`), con 9 subidas en 503 de 549 solicitudes.
+  - **Causa:** 16 subidas de 64 MiB saturaron el disco de la VM (iowait
+    47–59 %) y MySQL, que comparte el disco, tardó más de 5 s en confirmar.
+    Glance Go cortaba cada consulta a los 5 s (`ReadTimeout` del driver y
+    `DependencyTimeout` por operación): `i/o timeout` en el log, 1
+    `transfer_dependency` y 8 `transfer_cancelled`. El original, sin esos
+    topes (pymysql, oslo.db), pasó la misma carga sin errores en 39,6 s.
+  - **Corrección:** como el original, sin timeout por consulta; cada consulta
+    usa el plazo de la petición que la originó, y la conexión, 10 s.
+    Prueba nueva: una confirmación que tarda más que el antiguo tope termina
+    bien dentro del plazo de la petición.
+  - **Prueba de carga dirigida** (16 clientes en ciclo POST + PUT 64 MiB +
+    DELETE durante 180 s contra `/image`, Glance Go permanente): ya sin
+    timeouts de MySQL, pero el DELETE tardaba hasta el plazo de 15 s (409/503).
+    Dos causas más, corregidas como en el original:
+    - **Deadlocks:** `UPDATE image_locations … WHERE image_id=? AND deleted=0`
+      dejaba a MySQL usar `ix_image_locations_deleted` y bloquear filas de otras
+      imágenes. Ahora, como `_image_locations_delete_all`, se leen los `id` sin
+      bloquear y se actualiza cada ubicación por clave primaria.
+    - **fsync del directorio al borrar:** `glance_store` solo hace `unlink`;
+      el fsync esperaba el journal de ext4 con la escritura pendiente.
+    - **Resultado:** 580 ciclos, 0 errores, 0 deadlocks, 0 timeouts; DELETE
+      p50 143 ms y p99 513 ms (antes 1,7 s y 15 s); PUT p50 4,8 s.
+  - **Verificación con el binario final** (`f47d772f…`): `make check`,
+    integración 9/9 con `-race`, B26 3/3 y E2E compartido 3/3.
+- 2026-11-22, Glance Go como servicio de DevStack: plugin `glance-go`
+  (`enable_plugin`, [uso](../docs/glance/devstack-plugin.md)) que compila Glance
+  Go con Go 1.27.4 (sha256 verificado), lo arranca como `devstack@g-go` con
+  `run_process`, apunta `/image` con `write_local_proxy_http_config` y detiene
+  g-api. Reemplaza al instalador propio y a las instancias temporales.
+  - **Suite nueva** `glance_devstack_suite.py`: B26 y el E2E del catálogo
+    compartido sobre `devstack@g-go`; notificaciones contra una línea base del
+    original. 13/13 corridas, 11/11 casos.
+  - **Arranque:** la recuperación lista solo lo pendiente (13 s → 35 ms).
+  - Integración 9/9 con `-race` y `make check` OK. Falta un `stack.sh` limpio.
+    [Evidencia](../evidence/sprint5/glance-devstack-plugin-20261122/README.md).
+- 2026-11-22, optimizaciones (regla: igual al original; si no, no más lento;
+  y aun así más rápido si se puede, sin quitar funciones). Medición pareada
+  directa en la VM, mismo catálogo y disco (original por su puerto de uWSGI):
+  - **Subida en paralelo:** MD5, SHA-512 y la escritura en goroutines propias
+    con doble búfer (antes SHA-512 y escritura en serie). Los mismos dos hashes
+    que el original. 64 MiB: 173,6 → 138,4 ms (C=1) y 3237 → 1864 ms (C=16).
+  - **Subida en dos commits, como `image_data.upload`:** reserva (`saving`) y
+    `FinishData` (recibo, ubicación y `active` en una transacción) tras escribir
+    y verificar el archivo; antes eran cuatro commits con relecturas.
+    1 MiB: 33,6 → 21,3 ms (C=1) y 143 → 100 ms (C=16).
+  - Contra el original, Go queda entre ×2,9 (subir 64 MiB, C=16, límite del
+    disco) y ×47 (subir 1 MiB, C=16). Integración 9/9 con `-race`, suite
+    unificada 3/3.
+  - **Diferencia declarada:** el original aplica las cuotas de Keystone
+    (`use_keystone_limits`, 100 imágenes y 2000 MiB por proyecto en DevStack);
+    Glance Go no, porque está fuera del alcance de las 7 operaciones.
+- 2026-11-22, campaña Glance compact v6 oficial: **aceptada 360/360**
+  (revisión `a69474d`, binario `a082d95d…`, Go 1.27.4).
+  - **Entorno:** DevStack reinstalado desde cero con `enable_plugin glance-go`
+    (`clean.sh` + `stack.sh`, rc 0) y suite unificada 3/3 antes de medir.
+    Dos arreglos de entorno: `clean.sh` se colgó en `ovs-vsctl` con
+    `ovs-vswitchd` detenido (se arrancó), y el kernel nuevo no traía
+    `ptp_kvm` (se instaló `linux-modules-extra`). Un defecto del plugin: si se
+    agrega a un DevStack ya instalado, `unstack.sh` no detiene g-go; ahora el
+    plugin reemplaza siempre el g-go previo (`a69474d`).
+  - **Interrupción:** el PC se quedó sin memoria en la ventana 231 y Claude Code
+    detuvo el proceso; se reanudó desde el par 116, repetido entero con ID
+    nuevos; los recursos de las primeras 230 ventanas se recuperaron de la VM.
+  - **Resultado:** Glance Go gana en las 36 celdas, de ×1,09 (bajar 64 MiB,
+    C=1) a ×39,6 (subir 1 MiB, C=16); PSS 16–53 MiB frente a 233–239 MiB.
+    El original subió un 30–37 % más lento que en la v5 en el DevStack
+    reinstalado: los factores se comparan dentro de cada campaña.
+    [Resultados](../docs/benchmarks/glance-results-v6-pc-juan-20261122.md).

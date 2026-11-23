@@ -58,23 +58,23 @@ func TestDatabaseScopeBindsServerAndSchema(t *testing.T) {
 		defer db.Close()
 		return databaseScope(context.Background(), db)
 	}
-	a, err := get(server, "glance_go", false)
+	a, err := get(server, "glance_go_shared", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := get(server, "glance_go", false)
+	b, err := get(server, "glance_go_shared", false)
 	if err != nil || a != b {
 		t.Fatal("scope not stable")
 	}
-	b, err = get(server, "glance_go_test_other", false)
+	b, err = get(server, "glance_go_shared_test_other", false)
 	if err != nil || a == b {
 		t.Fatal("schema not bound")
 	}
-	b, err = get("00000000-0000-4000-8000-000000000002", "glance_go", false)
+	b, err = get("00000000-0000-4000-8000-000000000002", "glance_go_shared", false)
 	if err != nil || a == b {
 		t.Fatal("server not bound")
 	}
-	for _, c := range []identityConnector{{server: "bad", name: "glance_go"}, {server: server, name: "glance"}, {server: server, name: "glance_go", fail: true}, {server: "00000000-0000-0000-0000-000000000000", name: "glance_go"}} {
+	for _, c := range []identityConnector{{server: "bad", name: "glance_go_shared"}, {server: server, name: "glance"}, {server: server, name: "glance_go_shared", fail: true}, {server: "00000000-0000-0000-0000-000000000000", name: "glance_go_shared"}} {
 		if _, err = get(c.server, c.name, c.fail); err == nil || strings.Contains(err.Error(), "SECRET") {
 			t.Fatal("unverified binding accepted", err)
 		}

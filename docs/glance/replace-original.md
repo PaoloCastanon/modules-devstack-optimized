@@ -21,8 +21,9 @@ de Apache.
 
 ## Qué hace `install`
 
-Desde el 2026-11-20, Glance Go usa **el mismo catálogo y los mismos archivos
-que el Glance original** (`GLANCE_GO_CATALOG=official`). Los dos ven las mismas
+Glance Go usa **el mismo catálogo y los mismos archivos que el Glance
+original**; desde el 2026-11-21 es su único modo (el catálogo propio y el store
+Ceph RBD se retiraron). Los dos ven las mismas
 imágenes: lo que sube uno lo descarga el otro, y lo que borra uno desaparece
 en el otro. Al cambiar con `use-go` o `use-original` no se copia nada.
 
@@ -46,19 +47,13 @@ se *adoptan* como cargas confirmadas si su hash es SHA-512 y tienen una sola
 ubicación local, la de su ID. Al arrancar, Glance Go verifica
 `glance.alembic_version` (`2024_1_contract01`): con otra revisión no arranca.
 
-El modo propio (sin `GLANCE_GO_CONFIG_FILE`) conserva las protecciones de
-Glance Go, porque lo usan la suite B26 y las campañas:
-- cuentas MySQL dedicadas, con permisos mínimos;
-- credencial de aplicación sin `admin`;
-- staging con `link` atómico y fsync.
+Como el catálogo es compartido, el original puede borrar o purgar
+(`glance-manage db purge`) imágenes que subió Glance Go. Al arrancar, Glance Go
+completa esa limpieza en su contabilidad en vez de negarse a servir. La suite
+B26 y las campañas también usan este modo.
 
-Si antes había una instalación con catálogo propio (base `glance_go`), las
-imágenes que solo tenía ella se copian primero al catálogo oficial, con el
-mismo ID, el mismo dueño y los hashes verificados. Los datos viejos quedan
-sin usar y no se borran.
-
-El modo propio (`GLANCE_GO_CATALOG=own`, por defecto) sigue igual: lo usan la
-suite B26 y las campañas, con su propia base y su propio store.
+La base `glance_go` de la instalación anterior con catálogo propio queda en la
+VM sin usar; Glance Go ya no la lee.
 
 **Límites:** el catálogo compartido solo admite el store filesystem. Las
 imágenes del original con otro algoritmo de hash, o con ubicaciones remotas o
@@ -74,5 +69,5 @@ alcance.
   - el cambio funciona en los dos sentidos y sobrevive al reinicio.
 - [Catálogo compartido](../../evidence/sprint5/glance-shared-catalog-20261120/README.md):
   - `scripts/integration/glance_shared_e2e.py` pasó **10/10 rondas**;
-  - la suite B26 se corrió 10 veces en modo propio;
+  - la suite B26 se corrió 10 veces con el catálogo propio de entonces;
   - con la misma configuración, la misma cuenta y la escritura directa, se repitió todo: 10/10 y 10/10.

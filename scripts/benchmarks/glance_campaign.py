@@ -29,7 +29,34 @@ def save(path, value):
     temp.replace(path)
 
 
+def windows(p, pilot=False):
+    return len(p['scenarios']) * len(p['concurrency']) * 2 * (1 if pilot else p['repetitions'])
+
+
 def validate_protocol(p):
+    if p['protocol'] == 'glance-compact-v6':
+        # v6: v5 matrix and route, under the same conditions for both: Glance Go
+        # serves the original's catalog, MySQL server and store (as the permanent
+        # replacement), and both run with notifications off (noop).
+        base = {**p, 'protocol': 'glance-compact-v5', 'go_notification_policy': 'original'}
+        base.pop('go_catalog', None)
+        validate_protocol(base)
+        if p.get('go_catalog') != 'official' or p.get('go_notification_policy') != 'noop' or p.get('notification_policy') != 'noop':
+            raise ValueError('v6 requires the official catalog for Go and noop notifications for both')
+        return windows(p)
+    if p['protocol'] == 'glance-compact-v5':
+        # v5: the matrix of the Placement campaign (C=1/4/8/16, 5 repetitions)
+        # and both implementations measured through Apache's /image.
+        if ([s['id'] for s in p['scenarios']] != SCENARIOS or p['concurrency'] != [1, 4, 8, 16] or p['repetitions'] != 5
+                or p['warmup_s'] != 10 or p['measurement_s'] != 30 or p['catalog_seed_count'] != 100
+                or p['required_official_windows'] != windows(p)
+                or p['pilot'] != {'concurrency': [1, 4, 8, 16], 'repetitions': 1, 'warmup_s': 1, 'measurement_s': 4, 'required_windows': windows(p, True)}
+                or p['payload_sizes_bytes'] != [1048576, 16777216, 67108864] or p.get('route') != 'public-both'
+                or p.get('notification_policy') != 'noop' or p.get('go_notification_policy') != 'original'
+                or p.get('maximum_open_fd_growth_per_window') != 256
+                or p['metadata_request_timeout_s'] != 120 or p['binary_request_timeout_s'] != 120):
+            raise ValueError('unsupported or incomplete frozen compact Glance v5 matrix')
+        return windows(p)
     if (p['protocol'] not in ('glance-compact-v2', 'glance-compact-v3', 'glance-compact-v4') or [s['id'] for s in p['scenarios']] != SCENARIOS
             or p['concurrency'] != [1, 16] or p['repetitions'] != 3 or p['warmup_s'] != 10 or p['measurement_s'] != 30
             or p['required_official_windows'] != 108 or p['catalog_seed_count'] != 100
@@ -110,6 +137,12 @@ def run(args):
     p = json.loads(args.protocol.read_text()); validate_protocol(p)
     args.notification_policy = p.get('notification_policy', 'original')
     args.go_notification_policy = p.get('go_notification_policy', 'noop')
+    args.go_route = 'public' if p.get('route') == 'public-both' else 'direct'
+    # Glance Go only serves the original's catalog. Protocols before v6 ran it
+    # on its own catalog: they are reproduced with their own frozen revision.
+    if p.get('go_catalog') != 'official':
+        raise ValueError('this revision runs Glance Go only on the original catalog (protocol v6 or later)')
+    args.go_catalog = 'official'
     storage_check(args.storage_path, p['host_free_minimum_bytes'])
     args.output.mkdir(parents=True, exist_ok=False)
     args.private_root.mkdir(mode=0o700, exist_ok=False)
@@ -132,8 +165,15 @@ def run(args):
             for implementation in pair['order']:
                 run_id = pair['pair_id'] + '-' + implementation
                 print(json.dumps({'event': 'preparing', 'pair': i + 1, 'pairs': len(plan), 'run_id': run_id}), flush=True)
-                config = remote.call('seed', values={**pair, 'implementation': implementation, 'run_id': run_id})
-                equivalent = {'images': config['seed_snapshot'], 'payload': config.get('payload')}
+                values = {**pair, 'implementation': implementation, 'run_id': run_id}
+                # One catalog for both: the original soft-deletes, so an ID it used
+                # stays reserved. Each implementation gets its own IDs in the pair.
+                values['namespace'] = str(uuid.uuid5(uuid.UUID(pair['namespace']), implementation))
+                config = remote.call('seed', values=values)
+                images = config['seed_snapshot']
+                # IDs and the tag derived from them differ by design; every other field must match
+                images = sorted(({k: v for k, v in i.items() if k not in ('id', 'tags')} for i in images), key=lambda i: i['name'])
+                equivalent = {'images': images, 'payload': config.get('payload')}
                 if baseline is not None and equivalent != baseline:
                     save(args.output / (run_id + '-inequivalent.json'), equivalent)
                     raise ValueError('paired metadata/hash seeds differ')
@@ -143,6 +183,9 @@ def run(args):
                     if config['payload'] != hashes[size]:
                         raise ValueError('host/VM payload hashes differ')
                     config['payload_file'] = str(payloads[size])
+                # Client timeouts come from the frozen protocol (v4 and earlier: 10 s / 120 s).
+                config['metadata_timeout_s'] = p['metadata_request_timeout_s']
+                config['binary_timeout_s'] = p['binary_request_timeout_s']
                 save(args.output / (run_id + '-seed.json'), config)
                 clocks = {'before': remote.clock()}
                 remote.call('start-collector', run_id=run_id)

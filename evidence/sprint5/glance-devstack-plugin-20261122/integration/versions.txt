@@ -1,0 +1,5 @@
+git_head=1cb474f9b6088d0e26ba6daea948b0eeec487b9e
+git_dirty=1
+official_revision=2024_1_contract01
+go=go version go1.24.4 linux/amd64
+race=-race

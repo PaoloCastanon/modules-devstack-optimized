@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -24,6 +25,8 @@ import (
 
 // SharedDatabase is where Glance Go keeps its bookkeeping next to the catalog.
 const SharedDatabase = "glance_go_shared"
+
+var officialCatalogName = regexp.MustCompile(`^(glance|glance_official_test_[a-z0-9_]+)$`)
 
 type osloFile map[string]map[string]string
 
@@ -127,9 +130,6 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 			return errors.New("GLANCE_GO_" + key + " conflicts with GLANCE_GO_CONFIG_FILE, which provides it")
 		}
 	}
-	if v := env("GLANCE_GO_CATALOG"); v != "" && v != "official" {
-		return errors.New("GLANCE_GO_CONFIG_FILE implies GLANCE_GO_CATALOG=official")
-	}
 	dsn, catalog, err := databaseDSN(f.get("database", "connection"))
 	if err != nil {
 		return err
@@ -137,13 +137,10 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 	if !officialCatalogName.MatchString(catalog) {
 		return errors.New("the original [database] connection must name the glance database")
 	}
-	c.DatabaseDSN, c.OfficialCatalog, c.OriginalAccount = dsn, catalog, true
+	c.DatabaseDSN, c.OfficialCatalog = dsn, catalog
 	dir := strings.TrimRight(f.get("glance_store", "filesystem_store_datadir"), "/")
 	if dir == "" || dir[0] != '/' {
 		return errors.New("the original [glance_store] filesystem_store_datadir must be absolute")
-	}
-	if c.Binary.Backend != "" && c.Binary.Backend != "filesystem" {
-		return errors.New("the official catalog is supported only with the filesystem store")
 	}
 	c.Binary.OfficialStoreDir = dir
 	if v := f.get("keystone_authtoken", "token_cache_time"); v != "" {

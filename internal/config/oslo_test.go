@@ -46,8 +46,8 @@ func TestOriginalGlanceAPIConfIsReadLikeTheOriginal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !c.OriginalAccount || c.OfficialCatalog != "glance" || c.Binary.OfficialStoreDir != "/opt/stack/data/glance/images" {
-		t.Fatal("catalog", c.OriginalAccount, c.OfficialCatalog, c.Binary.OfficialStoreDir)
+	if c.OfficialCatalog != "glance" || c.Binary.OfficialStoreDir != "/opt/stack/data/glance/images" {
+		t.Fatal("catalog", c.OfficialCatalog, c.Binary.OfficialStoreDir)
 	}
 	if !strings.HasPrefix(c.DatabaseDSN, "root:p@ss@tcp(127.0.0.1:3306)/glance_go_shared") {
 		t.Fatal("same account on the shared database expected, got", c.DatabaseDSN)
@@ -69,7 +69,6 @@ func TestOriginalGlanceAPIConfRefusesAmbiguityAndUnsafeFiles(t *testing.T) {
 		{"GLANCE_GO_DATABASE_DSN_FILE": "/x"},
 		{"GLANCE_GO_KEYSTONE_AUTH_URL": "http://k/v3"},
 		{"GLANCE_GO_NOTIFICATION_DRIVER": "noop"},
-		{"GLANCE_GO_CATALOG": "own"},
 	} {
 		extra["GLANCE_GO_CONFIG_FILE"] = path
 		if _, err := Load(func(k string) string { return extra[k] }, "serve"); err == nil {

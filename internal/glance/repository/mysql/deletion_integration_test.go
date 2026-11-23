@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/PaoloCastanon/modules-devstack-optimized/internal/config"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql"
@@ -25,39 +24,12 @@ func TestMySQLCoordinatedDeletion(t *testing.T) {
 	if os.Getenv("GLANCE_GO_MYSQL_TEST") != "1" {
 		t.Fatal("explicit disposable MySQL opt-in required")
 	}
-	secret, err := config.ReadSecret(os.Getenv("GLANCE_GO_TEST_DSN_FILE"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	dsn := strings.TrimSpace(string(secret))
-	if err = mysql.ValidateTestDSN(dsn); err != nil {
-		t.Fatal(err)
-	}
-	db, err := mysql.Open(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if db != nil {
-			_ = db.Close()
-		}
-	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	if err = mysql.CheckAccount(ctx, db, "migrate"); err != nil {
-		t.Fatal(err)
-	}
-	var tables int
-	if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()").Scan(&tables) != nil || tables != 0 {
-		t.Fatal("deletion suite requires a NEW EMPTY independent schema")
-	}
-	if err = mysql.Migrate(ctx, db); err != nil {
-		t.Fatal(err)
-	}
-	if err = mysql.VerifySchema(ctx, db); err != nil {
-		t.Fatal(err)
-	}
-	r := mysql.New(db, 3*time.Second)
+	db, dsn, official := mysql.IntegrationFixture(t, ctx)
+	defer func() { _ = db.Close() }()
+	var err error
+	r := mysql.IntegrationRepo(t, db, 3*time.Second, official)
 	if err := r.PrepareStatements(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +122,7 @@ func TestMySQLCoordinatedDeletion(t *testing.T) {
 			t.Fatal("tombstone UUID reused", e)
 		}
 		var tags, props int
-		if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM image_tags WHERE image_id=?", i.ID).Scan(&tags) != nil || db.QueryRowContext(ctx, "SELECT COUNT(*) FROM image_properties WHERE image_id=?", i.ID).Scan(&props) != nil || tags != 1 || props != 1 {
+		if db.QueryRowContext(ctx, "SELECT COUNT(*) FROM `"+official+"`.image_tags WHERE image_id=?", i.ID).Scan(&tags) != nil || db.QueryRowContext(ctx, "SELECT COUNT(*) FROM `"+official+"`.image_properties WHERE image_id=?", i.ID).Scan(&props) != nil || tags != 1 || props != 1 {
 			t.Fatal("tombstone children removed")
 		}
 	}
@@ -161,7 +133,7 @@ func TestMySQLCoordinatedDeletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r = mysql.New(db, 3*time.Second)
+	r = mysql.IntegrationRepo(t, db, 3*time.Second, official)
 	for _, id := range ids {
 		s, e := r.DataState(ctx, id)
 		if e != nil || !s.Deleted || s.Operation != nil && s.Operation.Phase != model.DataCleaned {

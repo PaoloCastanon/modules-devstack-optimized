@@ -47,6 +47,33 @@ func (d deletionSQLDouble) TombstoneData(ctx context.Context, id string, attempt
 	})
 	return
 }
+
+// BeginDataCleanup adds the tombstone target, as the MySQL repository: any
+// unfinished phase of a deleted image may move to cleanup(deleted).
+func (d deletionSQLDouble) BeginDataCleanup(ctx context.Context, id, attempt, target string, code *string, at time.Time) error {
+	if target != "deleted" {
+		return d.uploadSQLDouble.BeginDataCleanup(ctx, id, attempt, target, code, at)
+	}
+	return d.run(ctx, "BeginCleanup", func() error {
+		if d.op == nil || id != d.image.ID || d.op.AttemptID != attempt || d.op.Phase == model.DataCleaned || d.image.Status != "deleted" {
+			return repository.ErrConflict
+		}
+		d.op.Phase, d.op.CleanupTarget, d.op.LastErrorCode, d.op.UpdatedAt = model.DataCleanup, uploadPtr("deleted"), code, at
+		return nil
+	})
+}
+
+// ForgetPurgedData: the image row is gone (purged by the original).
+func (d deletionSQLDouble) ForgetPurgedData(ctx context.Context, id, attempt string) error {
+	return d.run(ctx, "ForgetPurged", func() error {
+		if d.op == nil || id != d.op.ImageID || d.op.AttemptID != attempt || d.image.ID == id {
+			return repository.ErrConflict
+		}
+		d.op = nil
+		return nil
+	})
+}
+
 func (d deletionSQLDouble) CompleteDataCleanup(ctx context.Context, id, attempt string, at time.Time) error {
 	return d.run(ctx, "CompleteCleanup", func() error {
 		if d.op == nil || id != d.image.ID || d.op.AttemptID != attempt || d.op.Phase != model.DataCleanup || d.op.CleanupTarget == nil {
@@ -491,7 +518,7 @@ func TestDeletionRecoveryRepeatedRestartsAndTerminalCleanup(t *testing.T) {
 }
 
 func TestDeletionRecoveryFailsClosedOnOwnershipOrSQLContradictions(t *testing.T) {
-	for _, tc := range []string{"old-inventory", "wrong-target", "deleted-published", "active-cleanup", "sql-unavailable", "state-after-unlink", "receipt-mismatch", "active-with-cleanup-target", "reserved-with-cleanup-target"} {
+	for _, tc := range []string{"old-inventory", "active-cleanup", "sql-unavailable", "state-after-unlink", "receipt-mismatch", "active-with-cleanup-target", "reserved-with-cleanup-target"} {
 		t.Run(tc, func(t *testing.T) {
 			u, d, fs, log := deletionFixture(t)
 			seedDeleted(d, model.DataCommitted)
@@ -500,10 +527,6 @@ func TestDeletionRecoveryFailsClosedOnOwnershipOrSQLContradictions(t *testing.T)
 			case "old-inventory":
 				d.inventory = []model.DataOperation{*d.op}
 				d.op.AttemptID = "00000000-0000-4000-8000-000000000099"
-			case "wrong-target":
-				d.op.CleanupTarget = uploadPtr("queued")
-			case "deleted-published":
-				d.op.Phase = model.DataPublished
 			case "active-cleanup":
 				d.image.Status = "active"
 			case "sql-unavailable":
@@ -572,6 +595,56 @@ func TestDeleteCancellationAfterTombstoneAndEmptyUncertainCommit(t *testing.T) {
 						t.Fatal("empty or unsupported deletion touched files")
 					}
 				}
+			}
+		})
+	}
+}
+
+// The original shares the catalog: it may delete an image Glance Go uploaded
+// (removing the file itself) or purge its row later. Recovery finishes that
+// bookkeeping instead of refusing to start.
+func TestRecoveryReleasesImagesTheOriginalDeletedOrPurged(t *testing.T) {
+	for _, tc := range []string{"deleted-committed", "deleted-published", "deleted-during-cleanup", "purged"} {
+		t.Run(tc, func(t *testing.T) {
+			u, d, fs, log := deletionFixture(t)
+			switch tc {
+			case "deleted-committed":
+				uploadSeed(d, model.DataCommitted)
+				d.image.Status = "deleted"
+			case "deleted-published":
+				uploadSeed(d, model.DataPublished)
+				d.image.Status = "deleted"
+				fs.blob = append([]byte{}, uploadPayload...) // left behind
+			case "deleted-during-cleanup":
+				uploadSeed(d, model.DataCleanup)
+				d.image.Status = "deleted"
+			case "purged":
+				uploadSeed(d, model.DataCleaned)
+				d.inventory = []model.DataOperation{*d.op}
+				d.image.ID = "00000000-0000-4000-8000-0000000000ff" // the row is gone
+			}
+			u = restartDeletion(t, u, d, fs)
+			log.reset()
+			report, err := u.RecoverUploads(context.Background())
+			if err != nil || report.Cleaned != 1 || !u.ready {
+				t.Fatal(report, err, log.snapshot())
+			}
+			if fs.blob != nil {
+				t.Fatal("file left behind")
+			}
+			if tc == "purged" {
+				if d.op != nil {
+					t.Fatal("orphaned bookkeeping kept")
+				}
+				return
+			}
+			if d.op.Phase != model.DataCleaned || *d.op.CleanupTarget != "deleted" {
+				t.Fatal("bookkeeping not released", d.op)
+			}
+			// A second start keeps the released state.
+			u = restartDeletion(t, u, d, fs)
+			if report, err = u.RecoverUploads(context.Background()); err != nil || report.Kept != 1 {
+				t.Fatal(report, err)
 			}
 		})
 	}

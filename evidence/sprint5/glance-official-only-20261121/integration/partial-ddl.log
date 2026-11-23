@@ -1,0 +1,4 @@
+=== RUN   TestMySQLPartialDDLRemainsDirtyAcrossConnections
+--- PASS: TestMySQLPartialDDLRemainsDirtyAcrossConnections (0.26s)
+PASS
+ok  	github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql	1.275s

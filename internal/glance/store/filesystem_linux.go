@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"os"
 	"path/filepath"
@@ -59,26 +58,16 @@ type Filesystem struct {
 	keys    map[string]*keyLock
 	staged  map[string]stagedIdentity // guarded by keysMu
 	ops     fileOps
-	// flat: objects is the official Glance filesystem_store_datadir and each
-	// published image is <image-id>, the name glance_store uses (one attempt
-	// per image there). Staging stays private in root.
-	flat bool
 }
 
 // final is the published name for a staged key name (<image>-<attempt>).
-func (s *Filesystem) final(name string) string {
-	if s.flat {
-		return name[:36]
-	}
-	return name + ".blob"
-}
+// final is the published name for a key name (<image>-<attempt>): the image
+// ID, as glance_store names files in filesystem_store_datadir.
+func (s *Filesystem) final(name string) string { return name[:36] }
 
 // checkObject verifies a published file. The official store creates 0644
 // files, so flat mode also accepts group/other read bits (never write/exec).
 func (s *Filesystem) checkObject(f *os.File) error {
-	if !s.flat {
-		return checkEntry(f, false, s.root)
-	}
 	var stat, anchor syscall.Stat_t
 	if syscall.Fstat(int(f.Fd()), &stat) != nil || syscall.Fstat(int(s.root.Fd()), &anchor) != nil {
 		return ErrUnsafe
@@ -201,9 +190,9 @@ func Initialize(rootPath, scope string) error {
 	return opError("initialize sync", err)
 }
 
-// NewFilesystem opens only an explicitly initialized root with the expected
+// openPrivateRoot opens only an explicitly initialized root with the expected
 // scope marker and takes a non-blocking process lock. No SQL or service starts.
-func NewFilesystem(rootPath, scope string) (*Filesystem, error) {
+func openPrivateRoot(rootPath, scope string) (*Filesystem, error) {
 	id, err := canonicalID(scope)
 	if err != nil {
 		return nil, ErrUnsafe
@@ -264,7 +253,7 @@ func NewFilesystem(rootPath, scope string) (*Filesystem, error) {
 // directory must be owned by this user, not group/other writable, and on the
 // root's filesystem so publication stays an atomic hard link.
 func NewSharedFilesystem(rootPath, scope, objectsPath string) (*Filesystem, error) {
-	s, err := NewFilesystem(rootPath, scope)
+	s, err := openPrivateRoot(rootPath, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +271,7 @@ func NewSharedFilesystem(rootPath, scope, objectsPath string) (*Filesystem, erro
 		return nil, err
 	}
 	_ = s.objects.Close()
-	s.objects, s.flat = dir, true
+	s.objects = dir
 	return s, nil
 }
 
@@ -453,18 +442,6 @@ func (s *Filesystem) Close() error {
 	return result
 }
 
-func (s *Filesystem) noFinal(name string) error {
-	f, err := openEntry(s.objects, s.final(name), syscall.O_RDONLY, 0)
-	if err == nil {
-		_ = f.Close()
-		return ErrExists
-	}
-	if errors.Is(err, syscall.ENOENT) {
-		return nil
-	}
-	return opError("check final", err)
-}
-
 func (s *Filesystem) Stage(ctx context.Context, key Key, src io.Reader, limit int64, expected *int64) (info Info, result error) {
 	if src == nil || limit < 0 || (expected != nil && *expected < 0) {
 		return Info{}, ErrInvalidSize
@@ -485,100 +462,84 @@ func (s *Filesystem) Stage(ctx context.Context, key Key, src io.Reader, limit in
 	if err = ctx.Err(); err != nil {
 		return Info{}, err
 	}
-	if s.flat {
-		return s.stageDirect(ctx, name, src, limit, declared)
-	}
-	if err = s.noFinal(name); err != nil {
-		return Info{}, err
-	}
-	ready, err := openEntry(s.staging, name+".ready", syscall.O_RDONLY, 0)
-	if err == nil {
-		_ = ready.Close()
-		return Info{}, ErrExists
-	}
-	if !errors.Is(err, syscall.ENOENT) {
-		return Info{}, opError("check staged", err)
-	}
-	f, err := openEntry(s.staging, name+".part", syscall.O_WRONLY|syscall.O_CREAT|syscall.O_EXCL, 0600)
-	if err != nil {
-		return Info{}, opError("create stage", err)
-	}
-	defer func() {
-		if e := f.Close(); e != nil {
-			result = errors.Join(result, opError("close stage", e))
-			info = Info{}
-		}
-	}()
-	if err = checkEntry(f, false, s.root); err != nil {
-		return Info{}, err
-	}
-	info, err = measure(ctx, src, func(b []byte) (int, error) { return s.ops.write(f, b) }, limit, declared)
-	if err != nil {
-		return Info{}, opError("stage stream", err)
-	}
-	if err = s.ops.sync(f); err != nil {
-		return Info{}, opError("sync stage", err)
-	}
-	if err = ctx.Err(); err != nil {
-		return Info{}, err
-	}
-	if err = s.ops.link(f, s.staging, name+".ready"); err != nil {
-		return Info{}, opError("complete stage", err)
-	}
-	if err = s.ops.sync(s.staging); err != nil {
-		return Info{}, opError("sync complete stage", err)
-	}
-	if err = s.ops.unlink(s.staging, name+".part"); err != nil {
-		return Info{}, opError("unlink part", err)
-	}
-	if err = s.ops.sync(s.staging); err != nil {
-		return Info{}, opError("sync stage cleanup", err)
-	}
-	// After the last link/unlink: those change ctime too.
-	if id, ok := fileIdentity(f, info); ok {
-		s.rememberStaged(name, id)
-	}
-	return info, nil
+	return s.stageDirect(ctx, name, src, limit, declared)
 }
 
-// md5Worker hashes MD5 on its own goroutine while the caller computes SHA-512
-// and writes the same chunk (the two digests are independent). It never reads
-// the source; each chunk is joined before its buffer is reused, and the
-// goroutine exits before measure returns, so nothing is left behind.
-type md5Worker struct {
+// stage runs one per-chunk step (MD5, SHA-512 or the file write) on its own
+// goroutine. measure feeds every chunk to all stages, so the two digests and
+// the write proceed in parallel, while the next network read fills the other
+// buffer. A buffer is reused only after every stage finished with it, and
+// all goroutines exit before measure returns.
+type stage struct {
 	in   chan []byte
-	done chan struct{}
-	h    hash.Hash
+	done chan error
 }
 
-func newMD5Worker() *md5Worker {
-	w := &md5Worker{in: make(chan []byte), done: make(chan struct{}), h: md5.New()}
+func newStage(run func([]byte) error) *stage {
+	s := &stage{in: make(chan []byte), done: make(chan error)}
 	go func() {
-		for chunk := range w.in {
-			_, _ = w.h.Write(chunk)
-			w.done <- struct{}{}
+		for chunk := range s.in {
+			s.done <- run(chunk)
 		}
-		close(w.done)
 	}()
-	return w
+	return s
 }
 
-func (w *md5Worker) submit(chunk []byte) { w.in <- chunk }
-func (w *md5Worker) wait()               { <-w.done }
+type pipeline struct {
+	stages  []*stage
+	pending bool
+}
 
-// stop ends the goroutine; it must not be called while a chunk is pending.
-func (w *md5Worker) stop() {
-	close(w.in)
-	<-w.done
+func (p *pipeline) submit(chunk []byte) {
+	for _, s := range p.stages {
+		s.in <- chunk
+	}
+	p.pending = true
+}
+
+// wait joins the chunk in flight and returns the first stage error.
+func (p *pipeline) wait() error {
+	if !p.pending {
+		return nil
+	}
+	var first error
+	for _, s := range p.stages {
+		if err := <-s.done; err != nil && first == nil {
+			first = err
+		}
+	}
+	p.pending = false
+	return first
+}
+
+func (p *pipeline) stop() {
+	_ = p.wait()
+	for _, s := range p.stages {
+		close(s.in)
+	}
 }
 
 func measure(ctx context.Context, src io.Reader, write func([]byte) (int, error), limit int64, expected *int64) (Info, error) {
-	h := sha512.New()
-	m := newMD5Worker()
-	defer m.stop()
-	buf := make([]byte, BufferSize)
+	md, sh := md5.New(), sha512.New()
+	stages := []*stage{
+		newStage(func(b []byte) error { _, _ = md.Write(b); return nil }),
+		newStage(func(b []byte) error { _, _ = sh.Write(b); return nil }),
+	}
+	if write != nil {
+		stages = append(stages, newStage(func(b []byte) error {
+			n, err := write(b)
+			if err == nil && n != len(b) {
+				err = io.ErrShortWrite
+			}
+			return err
+		}))
+	}
+	p := &pipeline{stages: stages}
+	defer p.stop()
+	// Two buffers: the read of chunk n+1 overlaps the stages of chunk n.
+	bufs := [2][]byte{make([]byte, BufferSize), make([]byte, BufferSize)}
 	var size int64
-	emptyReads := 0
+	emptyReads, turn := 0, 0
 	for {
 		if err := ctx.Err(); err != nil {
 			return Info{}, err
@@ -587,6 +548,7 @@ func measure(ctx context.Context, src io.Reader, write func([]byte) (int, error)
 		if expected != nil && *expected-size < remaining {
 			remaining = *expected - size
 		}
+		buf := bufs[turn]
 		chunk := buf
 		if remaining < int64(len(buf)) {
 			chunk = buf[:remaining+1] // one extra byte, without overflowing int64
@@ -606,22 +568,14 @@ func measure(ctx context.Context, src io.Reader, write func([]byte) (int, error)
 		}
 		if n > 0 {
 			emptyReads = 0
-			data := chunk[:n]
-			m.submit(data)
-			var writeErr error
-			if write != nil {
-				written, err := write(data)
-				if err == nil && written != n {
-					err = io.ErrShortWrite
-				}
-				writeErr = err
+			// The previous chunk (other buffer) must be fully hashed and
+			// written before this one is handed to the stages.
+			if err := p.wait(); err != nil {
+				return Info{}, err
 			}
-			_, _ = h.Write(data)
-			m.wait() // buf is reused by the next Read
-			if writeErr != nil {
-				return Info{}, writeErr
-			}
+			p.submit(chunk[:n])
 			size += int64(n)
+			turn ^= 1
 		} else if readErr == nil {
 			emptyReads++
 			if emptyReads >= 100 {
@@ -635,13 +589,16 @@ func measure(ctx context.Context, src io.Reader, write func([]byte) (int, error)
 			break
 		}
 	}
+	if err := p.wait(); err != nil {
+		return Info{}, err
+	}
 	if err := ctx.Err(); err != nil {
 		return Info{}, err
 	}
 	if expected != nil && size != *expected {
 		return Info{}, ErrSizeMismatch
 	}
-	return Info{Size: size, Checksum: hex.EncodeToString(m.h.Sum(nil)), SHA512: hex.EncodeToString(h.Sum(nil))}, nil
+	return Info{Size: size, Checksum: hex.EncodeToString(md.Sum(nil)), SHA512: hex.EncodeToString(sh.Sum(nil))}, nil
 }
 
 func (s *Filesystem) Publish(ctx context.Context, key Key, expected Info) error {
@@ -656,52 +613,7 @@ func (s *Filesystem) Publish(ctx context.Context, key Key, expected Info) error 
 	if err = ctx.Err(); err != nil {
 		return err
 	}
-	if s.flat {
-		return s.publishDirect(ctx, name, expected)
-	}
-	if err = s.noFinal(name); err != nil {
-		return err
-	}
-	f, err := openEntry(s.staging, name+".ready", syscall.O_RDONLY, 0)
-	if errors.Is(err, syscall.ENOENT) {
-		return ErrIncomplete
-	}
-	if err != nil {
-		return opError("open ready", err)
-	}
-	defer f.Close()
-	if err = checkEntry(f, false, s.root); err != nil {
-		return err
-	}
-	if !s.unchangedSinceStage(name, f, expected) {
-		actual, err := measure(ctx, f, nil, expected.Size, &expected.Size)
-		if err != nil {
-			return errors.Join(ErrIntegrity, opError("verify ready", err))
-		}
-		if actual != expected {
-			return ErrIntegrity
-		}
-	}
-	if err = s.ops.sync(f); err != nil {
-		return opError("sync publish file", err)
-	}
-	if err = ctx.Err(); err != nil {
-		return err
-	}
-	if err = s.ops.link(f, s.objects, s.final(name)); err != nil {
-		return opError("publish", err)
-	}
-	// Destination is durable BEFORE removing either staging name. Any error
-	// preserves enough evidence for caller-driven outcome resolution/recovery.
-	if err = s.ops.sync(s.objects); err != nil {
-		return opError("sync published directory", err)
-	}
-	for _, suffix := range []string{".ready", ".part"} {
-		if err = s.ops.unlink(s.staging, name+suffix); err != nil && !errors.Is(err, syscall.ENOENT) {
-			return opError("remove published stage", err)
-		}
-	}
-	return opError("sync published cleanup", s.ops.sync(s.staging))
+	return s.publishDirect(ctx, name, expected)
 }
 
 func (s *Filesystem) Open(ctx context.Context, key Key) (ReadSeekCloser, Info, error) {
@@ -784,26 +696,13 @@ func (s *Filesystem) Delete(ctx context.Context, key Key) error {
 		return err
 	}
 	s.forgetStaged(name)
-	var result error
-	for _, item := range []struct {
-		dir    *os.File
-		suffix string
-	}{{s.objects, ""}, {s.staging, ".ready"}, {s.staging, ".part"}} {
-		if err = ctx.Err(); err != nil {
-			result = errors.Join(result, err)
-			break
-		}
-		target := name + item.suffix
-		if item.dir == s.objects {
-			target = s.final(name)
-		}
-		if err = s.ops.unlink(item.dir, target); err != nil && !errors.Is(err, syscall.ENOENT) {
-			result = errors.Join(result, opError("delete", err))
-		}
+	// As glance_store's filesystem driver: unlink <image-id>, no directory
+	// fsync. Under heavy writeback an ext4 directory fsync waits for the whole
+	// journal and took longer than the request deadline (DELETE 409/503).
+	if err = s.ops.unlink(s.objects, s.final(name)); err != nil && !errors.Is(err, syscall.ENOENT) {
+		return opError("delete", err)
 	}
-	// Even an ENOENT retry must sync: a previous unlink may have succeeded while
-	// its directory sync failed. Never enumerate or remove any unrelated name.
-	return errors.Join(result, opError("sync deleted objects", s.ops.sync(s.objects)), opError("sync deleted stages", s.ops.sync(s.staging)))
+	return nil
 }
 
 func validHash(value string, length int) bool {

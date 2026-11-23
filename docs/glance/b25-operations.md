@@ -78,20 +78,16 @@ transferencia infinitos ni buffers proporcionales a Content-Length.
 
 ### Preparación explícita del operador (NO ejecutada en esta acción)
 
-Sólo en un MySQL independiente y previamente autorizado. Aprovisionamiento y
-migraciones reales requieren autorización específica. No tocar VM/DevStack.
-Archivos DSN separados y privados para migración/runtime; no guardar secretos en
-el entorno de comandos ni mostrar su contenido. Desde la raíz del proyecto:
+Glance Go sirve el catálogo y el store del original y lee su
+`glance-api.conf`. Desde la raíz del proyecto, en la VM:
 
 ```sh
 GOMAXPROCS=2 GOTOOLCHAIN=local make GLANCE_TOOLCHAIN=local glance-build
-# Configurar privadamente las variables B20; DSN migrador con DDL sólo en su DB.
-GLANCE_GO_DATABASE_DSN_FILE=/private/migrator.dsn bin/glance migrate
-# Cambiar a la cuenta runtime, sin DDL. No imprimir el archivo DSN.
-export GLANCE_GO_DATABASE_DSN_FILE=/private/runtime.dsn
+export GLANCE_GO_CONFIG_FILE=/etc/glance/glance-api.conf
+bin/glance migrate          # crea/verifica glance_go_shared (no toca glance)
 bin/glance store-scope
-# Copiar el UUID verificado a STORE_SCOPE. Preparar un root NUEVO y VACÍO, 0700,
-# separado de Python; autorizar la ruta exacta antes de crearlo.
+# Raíz privada NUEVA y VACÍA, 0700, para el lock y la marca de alcance; los
+# archivos van a filesystem_store_datadir del original.
 export GLANCE_GO_STORE_ROOT=/private/authorized-new-root
 export GLANCE_GO_STORE_SCOPE=UUID_VERIFICADO
 bin/glance store-init
@@ -156,49 +152,19 @@ Errores JSON 401, schema owner no anulable, 503 de blob perdido, exclusión de
 writer vivo y reglas estrictas de tamaños siguen siendo diferencias declaradas
 frente al Python fijado. No hay nueva captura ni declaración de equivalencia.
 
-## Integración real opt-in: autorización independiente
+## Integración MySQL
 
-**No ejecutada.** Preparar exactamente tres esquemas NUEVOS independientes
-`glance_go_test_b25_<id>_{upgrade,sql,http}` en un servidor MySQL 8 autorizado,
-sin bases originales, sin IP/alias/túnel de MySQL DevStack. No compartir esquemas.
-Los tests abortan si no están vacíos. Reutilizar un servidor necesita confirmar
-su identidad/aislamiento, recursos y autorización; no se inicia automáticamente.
-
-Operaciones que deben autorizarse: crear esos esquemas; cuentas nuevas migradoras
-por esquema con SELECT/INSERT/UPDATE/DELETE/CREATE/ALTER/INDEX/REFERENCES y runtime
-HTTP sólo SELECT/INSERT/UPDATE/DELETE; grants directos literales (escapar `_` si
-partial_revokes=OFF), sin roles/globales. Preparar archivos 0600 fuera de Git.
-Comprobar roles, autocommit real, TLS (TCP loopback/socket o verificado remoto),
-`innodb_flush_log_at_trx_commit`, `sync_binlog`, versión exacta, engines y límites.
-Los tests no modifican configuración global ni cuentas/grants previos.
-
-Cada comando siguiente escribe sólo sobre SU nuevo esquema mediante el DSN
-privado. Las rutas son ejemplos a sustituir después de autorizar recursos exactos:
-
-```sh
-# Esquema upgrade: crea v1 y añade 002; conserva metadata/historia y rechaza
-# checksum modificado y dirty. DEJA dirty a propósito: nunca usarlo para API.
-GLANCE_GO_B25_MYSQL_TEST=1 GLANCE_GO_TEST_DSN_FILE=/private/upgrade-migrator.dsn \
-  make GLANCE_TOOLCHAIN=local glance-test-b25-upgrade
-# Esquema sql: CAS Stage/Publish/Commit concurrentes, finalizador/DELETE,
-# CHECK real que falla + rollback SQL, reapertura. Recibos sintéticos, sin bytes.
-GLANCE_GO_B25_MYSQL_TEST=1 GLANCE_GO_TEST_DSN_FILE=/private/sql-migrator.dsn \
-  make GLANCE_TOOLCHAIN=local glance-test-b25-sql
-# Esquema http: migración inicial 000/001/002 + idempotencia y runtime sin DDL;
-# root EXISTENTE vacío 0700 autorizado. SQL y FS reales, AUTH DOBLE explícito.
-GLANCE_GO_B25_MYSQL_TEST=1 GLANCE_GO_TEST_DSN_FILE=/private/http-migrator.dsn \
-  GLANCE_GO_TEST_RUNTIME_DSN_FILE=/private/http-runtime.dsn \
-  GLANCE_GO_B25_TEST_ROOT=/private/authorized-http-root \
-  make GLANCE_TOOLCHAIN=local glance-test-b25-pipeline
-```
+Las suites MySQL de B25 (fences y contención SQL, y la de punta a punta HTTP +
+coordinador + MySQL + store) corren con `make glance-test-integration`, cada una
+sobre su propio par desechable creado desde el DDL real del original (ver
+[development.md](development.md#integración-mysql-make-glance-test-integration)).
 
 El último test usa arranque real de componentes, coordinador/API/store/SQL reales,
 POST, PUT, GET, PATCH atómico, DELETE/tombstone/cleaned, pool nuevo y recovery.
 La reapertura **no es un reinicio de proceso o servidor**. Conserva SQL/root;
 detiene sólo su servidor HTTP. `t.TempDir` sólo se usa en tests locales normales.
 Para Keystone REAL agregar `GLANCE_GO_B25_KEYSTONE_TEST=1`,
-GLANCE_GO_KEYSTONE_AUTH_URL, GLANCE_GO_KEYSTONE_CREDENTIAL_FILE privado con la
-app credential service preexistente autorizada sin admin/access_rules y
+GLANCE_GO_CONFIG_FILE (usuario de servicio del original) y
 GLANCE_GO_TEST_CLIENT_TOKEN_FILE privado con token vigente member+reader de
 proyecto. No emite ni renueva tokens, no crea identidades; fallo aborta, no cae
 a un autenticador falso. Se requiere otra base/root HTTP nuevos para reejecutar.

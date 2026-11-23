@@ -5,23 +5,7 @@ import (
 	"testing"
 )
 
-func officialRepo(t *testing.T) *Repository {
-	t.Helper()
-	r := New(nil, 0)
-	if err := r.UseOfficialCatalog("glance", "/opt/stack/data/glance/images"); err != nil {
-		t.Fatal(err)
-	}
-	return r
-}
-
-func TestOwnCatalogSQLIsUnchanged(t *testing.T) {
-	r := New(nil, 0)
-	for _, q := range []string{readImageQuery, oneImagePropsQuery, tombstoneDataSQL, readDataOperation} {
-		if r.sql(q) != q {
-			t.Fatalf("own catalog rewrote %q", q)
-		}
-	}
-}
+func officialRepo(t *testing.T) *Repository { t.Helper(); return testRepo(nil, 0) }
 
 func TestOfficialCatalogQualifiesTablesAndSkipsDeletedChildren(t *testing.T) {
 	r := officialRepo(t)
@@ -59,49 +43,23 @@ func TestOfficialCatalogQualifiesTablesAndSkipsDeletedChildren(t *testing.T) {
 }
 
 func TestOfficialCatalogConfigurationIsValidated(t *testing.T) {
-	for _, c := range [][2]string{{"nova", "/d"}, {"glance", "relative"}, {"glance", "/d/../e"}} {
-		if New(nil, 0).UseOfficialCatalog(c[0], c[1]) == nil {
+	for _, c := range [][2]string{{"nova", "/d"}, {"glance_go_shared", "/d"}, {"glance", "relative"}, {"glance", "/d/../e"}} {
+		if _, err := New(nil, 0, c[0], c[1]); err == nil {
 			t.Fatalf("accepted %v", c)
 		}
+	}
+	if _, err := New(nil, 0, "glance_official_test_a", "/srv/images"); err != nil {
+		t.Fatal(err)
 	}
 	if OfficialAttempt("84acf0aa-128f-4d38-a3fc-ba5a1eac1740") != OfficialAttempt("84acf0aa-128f-4d38-a3fc-ba5a1eac1740") {
 		t.Fatal("adopted attempt must be deterministic")
 	}
 }
 
-func TestSharedAccountGrants(t *testing.T) {
-	ok := []string{
-		"GRANT SELECT, INSERT, UPDATE, DELETE ON `glance`.* TO `glance_go_app`@`127.0.0.1`",
-		"GRANT SELECT, INSERT, UPDATE, DELETE ON `glance\\_go\\_shared`.* TO `glance_go_app`@`127.0.0.1`",
-	}
-	for _, g := range ok {
-		if !allowedGrant(g, SharedDatabase, "serve", false) {
-			t.Fatalf("refused %q", g)
-		}
-	}
-	bad := []string{
-		"GRANT ALTER ON `glance`.* TO `x`@`127.0.0.1`",
-		"GRANT SELECT ON `nova`.* TO `x`@`127.0.0.1`",
-	}
-	for _, g := range bad {
-		if allowedGrant(g, SharedDatabase, "serve", false) {
-			t.Fatalf("accepted %q", g)
-		}
-	}
-	if allowedGrant(ok[0], "glance_go", "serve", false) {
-		t.Fatal("own database must not accept official grants")
-	}
-	if allowedGrant(ok[0], SharedDatabase, "migrate", false) {
-		t.Fatal("migration account must not touch the official catalog")
-	}
-}
-
-func TestSharedMigrationDropsOnlyTheForeignKey(t *testing.T) {
-	m := sharedMigrations()
-	if len(m) != 1 || strings.Contains(m[0].sql, "REFERENCES images") || !strings.Contains(m[0].sql, "CREATE TABLE image_data_operations") {
-		t.Fatal("unexpected shared registry")
-	}
-	if validateRegistry(m) != nil || m[0].checksum() == migrations()[1].checksum() {
-		t.Fatal("shared registry must be valid and distinct")
+// The only own table has no foreign key: images lives in the original's database.
+func TestOnlyMigrationIsBookkeepingWithoutForeignKey(t *testing.T) {
+	m := migrations()
+	if len(m) != 1 || strings.Contains(m[0].sql, "REFERENCES") || !strings.Contains(m[0].sql, "CREATE TABLE image_data_operations") || validateRegistry(m) != nil {
+		t.Fatal("unexpected registry")
 	}
 }
