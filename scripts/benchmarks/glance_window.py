@@ -164,8 +164,13 @@ def run(config, token, output, *, duration=30, warmup=10, abort_check=None):
                                 call('stage', 'PUT', base + '/stage', 204, file=upload, kind='application/octet-stream', ident=ident)
                                 call('import', 'POST', base + '/import', 202, body={'method': {'name': 'glance-direct'}}, ident=ident)
                                 while True:
+                                    # Glance Go releases the import lock to 'queued' for an instant
+                                    # before it reserves the upload (the original goes importing ->
+                                    # active): 'queued' is an in-flight state only while the image
+                                    # still holds os_glance_import_task.
                                     state = call('import-wait', 'GET', base, 200,
-                                                 validate=lambda value: value.get('status') in ('uploading', 'importing', 'saving', 'active'), ident=ident)
+                                                 validate=lambda value: value.get('status') in ('uploading', 'importing', 'saving', 'active')
+                                                 or (value.get('status') == 'queued' and bool(value.get('os_glance_import_task'))), ident=ident)
                                     if state.get('status') == 'active' and not state.get('os_glance_import_task'):
                                         break
                                     time.sleep(config['import_poll_pause_s'])

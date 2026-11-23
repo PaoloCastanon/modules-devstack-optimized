@@ -435,7 +435,7 @@ class GlanceV7Tests(unittest.TestCase):
         import glance_window
         data = b'x' * 4096
         digest = {'size': len(data), 'md5': hashlib.md5(data).hexdigest(), 'sha512': hashlib.sha512(data).hexdigest(), 'sha256': hashlib.sha256(data).hexdigest()}
-        images, polls = {}, {}
+        images, polls, quirk = {}, {}, {'queued': True, 'lock': True}
         seed = {'id': str(uuid.uuid4()), 'name': 'seed', 'tags': ['owned'], 'owner': 'project', 'status': 'active',
                 'disk_format': 'raw', 'container_format': 'bare', 'visibility': 'private'}
         class Handler(BaseHTTPRequestHandler):
@@ -461,6 +461,9 @@ class GlanceV7Tests(unittest.TestCase):
                 image = images[ident]
                 if image['status'] == 'importing':
                     polls[ident] = polls.get(ident, 0) + 1
+                    if polls[ident] == 1 and quirk['queued']:
+                        # Go's instant between releasing the import lock and reserving the upload
+                        return self.reply(200, {**image, 'status': 'queued', 'os_glance_import_task': 'task'} if quirk['lock'] else {**image, 'status': 'queued'})
                     if polls[ident] >= 2:
                         image.update(status='active', size=len(data), checksum=digest['md5'], os_hash_algo='sha512', os_hash_value=digest['sha512'])
                 self.reply(200, image)
@@ -486,5 +489,10 @@ class GlanceV7Tests(unittest.TestCase):
                     self.assertTrue(result['valid'], scenario)
                     self.assertGreater(result['measurement']['cycles'], 0)
                 self.assertFalse(images)
+                # 'queued' without the import lock is not an in-flight state
+                quirk['lock'] = False
+                config = {**base, 'run_id': 'fixture-nolock', 'scenario': 'import-direct-16m', 'namespace': str(uuid.uuid4()), 'images': [seed]}
+                result = glance_window.run(config, 'PRIVATE-TOKEN', Path(folder) / 'nolock', duration=.05, warmup=0)
+                self.assertFalse(result['valid'])
         finally:
             server.shutdown(); server.server_close(); thread.join()
