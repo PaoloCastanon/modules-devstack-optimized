@@ -64,6 +64,7 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 	mux.HandleFunc("/v2/images", h.create)
 	mux.HandleFunc("/v2/images/{id}", h.show)
 	mux.HandleFunc("/v2/schemas/{name}", h.schema)
+	mux.HandleFunc("/v2/schemas/{group}/{name}", h.schema)
 	mux.HandleFunc("/v2/images/{id}/members", h.members)
 	mux.HandleFunc("/v2/images/{id}/members/{member}", h.imageMember)
 	mux.HandleFunc("/v2/images/{id}/tags/{tag}", h.tag)
@@ -170,8 +171,13 @@ func logRoute(path string) string {
 	if path == "/v2/images" || path == "/" || path == "/versions" || path == "/v2/info/usage" || path == "/v2/info/stores" || path == "/v2/info/stores/detail" || path == "/v2/info/import" || path == "/v2/tasks" || path == "/v2/cache" {
 		return path
 	}
-	if rest, ok := strings.CutPrefix(path, "/v2/schemas/"); ok && rest != "" && !strings.Contains(rest, "/") {
-		return "/v2/schemas/{name}"
+	if rest, ok := strings.CutPrefix(path, "/v2/schemas/"); ok && rest != "" {
+		if strings.HasPrefix(rest, "metadefs/") && strings.Count(rest, "/") == 1 {
+			return "/v2/schemas/metadefs/{name}"
+		}
+		if !strings.Contains(rest, "/") {
+			return "/v2/schemas/{name}"
+		}
 	}
 	if rest, ok := strings.CutPrefix(path, "/v2/images/"); ok && strings.HasSuffix(rest, "/file") {
 		id := strings.TrimSuffix(rest, "/file")

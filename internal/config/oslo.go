@@ -259,8 +259,7 @@ func readLimits(c *Config, f osloFile) error {
 	return nil
 }
 
-// readImport: the original's import options and defaults. copy-image needs
-// several stores (enabled_backends), which this single-store service lacks.
+// readImport: the original's import options and defaults.
 func readImport(c *Config, f osloFile) error {
 	staging := firstOf(f.get("DEFAULT", "node_staging_uri"), "file:///tmp/staging/")
 	dir, ok := strings.CutPrefix(staging, "file://")
@@ -277,9 +276,10 @@ func readImport(c *Config, f osloFile) error {
 	for _, m := range methods {
 		m = strings.Trim(strings.TrimSpace(m), "'\"[]")
 		switch m {
-		case "glance-direct", "web-download", "glance-download":
+		// copy-image is advertised as the original does, though it needs
+		// several stores to be used.
+		case "glance-direct", "web-download", "glance-download", "copy-image":
 			c.Import.Methods = append(c.Import.Methods, m)
-		case "copy-image": // only with several stores
 		default:
 			if m != "" {
 				return errors.New("invalid [DEFAULT] enabled_import_methods")

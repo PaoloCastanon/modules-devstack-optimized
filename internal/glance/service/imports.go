@@ -220,7 +220,7 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 	if !slices.Contains(m.cfg.Methods, method) || method == "glance-download" {
 		return model.Task{}, model.Fail(model.Invalid, "Import method "+method+" is not valid for this image.")
 	}
-	if len(req.Stores) > 0 || req.AllStores {
+	if len(req.Stores) > 0 || req.AllStores || method == "copy-image" {
 		return model.Task{}, model.Fail(model.Invalid, "Multiple stores are not supported at this site.")
 	}
 	from := []string{"uploading"}

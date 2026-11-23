@@ -210,18 +210,3 @@ func (h *Handler) imageTasks(w http.ResponseWriter, r *http.Request) {
 	}
 	h.json(w, 200, map[string]any{"tasks": out})
 }
-
-func taskSchema() map[string]any {
-	str := func(t ...string) map[string]any {
-		if len(t) == 0 {
-			return map[string]any{"type": "string"}
-		}
-		return map[string]any{"type": t}
-	}
-	props := map[string]any{"id": str(), "type": map[string]any{"type": "string", "enum": []string{"import", "api_image_import"}},
-		"status": map[string]any{"type": "string", "enum": []string{"pending", "processing", "success", "failure"}},
-		"input":  map[string]any{"type": []string{"null", "object"}}, "result": map[string]any{"type": []string{"null", "object"}},
-		"owner": str(), "message": str(), "image_id": str("null", "string"), "request_id": str("null", "string"), "user_id": str("null", "string"),
-		"expires_at": str("null", "string"), "created_at": str(), "updated_at": str(), "self": str(), "schema": str()}
-	return map[string]any{"name": "task", "properties": props}
-}

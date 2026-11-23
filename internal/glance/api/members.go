@@ -169,13 +169,3 @@ func (h *Handler) action(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(204)
 }
-
-func memberSchema() map[string]any {
-	str := func() map[string]any { return map[string]any{"type": "string"} }
-	props := map[string]any{"image_id": str(), "member_id": str(), "created_at": str(), "updated_at": str(), "schema": map[string]any{"type": "string", "readOnly": true},
-		"status": map[string]any{"type": "string", "enum": []string{"pending", "accepted", "rejected"}}}
-	for _, k := range []string{"image_id", "member_id", "created_at", "updated_at"} {
-		props[k].(map[string]any)["readOnly"] = true
-	}
-	return map[string]any{"name": "member", "properties": props}
-}
