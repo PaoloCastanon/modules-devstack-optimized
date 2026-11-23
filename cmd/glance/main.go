@@ -16,6 +16,7 @@ import (
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/config"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/api"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/metadefs"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/quota"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/service"
@@ -150,6 +151,7 @@ func run(args []string, logger *slog.Logger) (result error) {
 	transport.MaxIdleConnsPerHost = 32
 	client := &http.Client{Timeout: c.DependencyTimeout, Transport: transport}
 	authenticator := auth.NewKeystone(c.KeystoneURL, client, c.Credential, auth.WithTokenCache(c.TokenCacheTime, 10000))
+	model.Quotas.Members, model.Quotas.Properties, model.Quotas.Tags = c.MemberQuota, c.PropertyQuota, c.TagQuota
 	catalog := service.New(r, time.Now)
 	catalog.SetNotifier(notifier)
 	if c.Limits.Enabled {

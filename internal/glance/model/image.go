@@ -140,7 +140,7 @@ func New(input CreateInput, owner string, now time.Time) (Image, error) {
 			seen[tag] = true
 		}
 	}
-	if len(image.Tags) > 128 || len(input.Properties) > 128 {
+	if Over(len(image.Tags), Quotas.Tags) || Over(len(input.Properties), Quotas.Properties) {
 		return Image{}, Fail(LimitExceeded, "Image metadata quota exceeded.")
 	}
 	for key, value := range input.Properties {

@@ -196,6 +196,28 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 	if err := readCache(c, f); err != nil {
 		return err
 	}
+	c.MemberQuota, c.PropertyQuota, c.TagQuota = 128, 128, 128
+	for key, dst := range map[string]*int{"image_member_quota": &c.MemberQuota, "image_property_quota": &c.PropertyQuota, "image_tag_quota": &c.TagQuota} {
+		if v := f.get("DEFAULT", key); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < -1 {
+				return errors.New("invalid [DEFAULT] " + key)
+			}
+			*dst = n
+		}
+	}
+	// image_size_cap (1 TiB by default) bounds uploads, unless
+	// GLANCE_GO_MAX_UPLOAD_BYTES sets the bound explicitly.
+	if env("GLANCE_GO_MAX_UPLOAD_BYTES") == "" {
+		c.Binary.MaxUploadBytes = 1 << 40
+		if v := f.get("DEFAULT", "image_size_cap"); v != "" {
+			n, err := strconv.ParseInt(v, 10, 64)
+			if err != nil || n < 1 || n > 1<<40 {
+				return errors.New("invalid [DEFAULT] image_size_cap (1..1099511627776)")
+			}
+			c.Binary.MaxUploadBytes = n
+		}
+	}
 	c.ImageFormat = ImageFormatSettings{RequireMatch: true, GPTNonfatal: f.list("image_format", "gpt_safety_checks_nonfatal")}
 	if v := f.get("image_format", "require_image_format_match"); v != "" {
 		b, ok := osloBool(v)

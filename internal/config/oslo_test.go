@@ -131,3 +131,16 @@ func TestOriginalKeystoneLimits(t *testing.T) {
 		}
 	}
 }
+
+func TestOriginalImageSizeCapAndQuotas(t *testing.T) {
+	conf := strings.Replace(devstackConf, "[DEFAULT]\n", "[DEFAULT]\nimage_size_cap = 5368709120\nimage_member_quota = 5\nimage_tag_quota = -1\n", 1)
+	env := map[string]string{"GLANCE_GO_CONFIG_FILE": originalConf(t, conf, 0644)}
+	c, err := Load(func(k string) string { return env[k] }, "serve")
+	if err != nil || c.Binary.MaxUploadBytes != 5<<30 || c.MemberQuota != 5 || c.TagQuota != -1 || c.PropertyQuota != 128 || !c.ImageFormat.RequireMatch {
+		t.Fatal(c.Binary.MaxUploadBytes, c.MemberQuota, c.TagQuota, c.PropertyQuota, err)
+	}
+	env["GLANCE_GO_MAX_UPLOAD_BYTES"] = "1024"
+	if c, err = Load(func(k string) string { return env[k] }, "serve"); err != nil || c.Binary.MaxUploadBytes != 1024 {
+		t.Fatal("explicit bound ignored", c.Binary.MaxUploadBytes, err)
+	}
+}

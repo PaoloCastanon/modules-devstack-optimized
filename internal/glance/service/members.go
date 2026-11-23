@@ -162,7 +162,7 @@ func (s *Service) CreateMember(ctx context.Context, who auth.Identity, imageID, 
 		if image.Visibility != "shared" {
 			return model.Fail(model.Forbidden, "Only shared images have members.")
 		}
-		if count >= model.MaxImageMembers {
+		if model.Over(count+1, model.Quotas.Members) {
 			return model.Fail(model.LimitExceeded, "The limit of image members has been exceeded.")
 		}
 		return nil
@@ -231,7 +231,7 @@ func (s *Service) AddTag(ctx context.Context, who auth.Identity, imageID, tag st
 				return nil
 			}
 		}
-		if len(image.Tags) >= 128 {
+		if model.Over(len(image.Tags)+1, model.Quotas.Tags) {
 			return model.Fail(model.LimitExceeded, "Image tag quota exceeded.")
 		}
 		image.Tags = append(image.Tags, tag)

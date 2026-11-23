@@ -50,6 +50,8 @@ type Config struct {
 	Cache CacheSettings
 	// ImageFormat is [image_format]: upload content inspection.
 	ImageFormat ImageFormatSettings
+	// Quotas are image_member_quota, image_property_quota, image_tag_quota.
+	MemberQuota, PropertyQuota, TagQuota int
 }
 
 // ImageFormatSettings: require_image_format_match (default True) and
