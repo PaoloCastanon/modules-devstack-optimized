@@ -7,6 +7,7 @@ import (
 	"mime"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/service"
@@ -290,25 +291,48 @@ func WithLocationViews(directURL, multiple bool) Option {
 	}
 }
 
-// withLocations is the original's _format_image location part.
-func (h *Handler) withLocations(r *http.Request, rep map[string]any) map[string]any {
-	if (!h.directURL && !h.multipleLocations) || h.imports == nil {
-		return rep
+// decorate is the original's _format_image location part: locations
+// (show_multiple_locations), direct_url (show_image_direct_url) and, with
+// enabled_backends, stores. One query serves the whole page, as the
+// original loads locations with the images.
+func (h *Handler) decorate(r *http.Request, reps ...map[string]any) {
+	views := (h.directURL || h.multipleLocations) && h.imports != nil
+	if !views && h.multi == nil {
+		return
 	}
-	id, _ := rep["id"].(string)
-	list, err := h.imports.ImageLocationList(r.Context(), id)
-	if err != nil {
-		list = nil
-	}
-	if h.multipleLocations {
-		out := make([]map[string]any, 0, len(list))
-		for _, l := range list {
-			out = append(out, map[string]any{"url": l.URL, "metadata": json.RawMessage(l.Metadata)})
+	ids := make([]string, 0, len(reps))
+	for _, rep := range reps {
+		if id, _ := rep["id"].(string); id != "" {
+			ids = append(ids, id)
 		}
-		rep["locations"] = out
 	}
-	if h.directURL && len(list) > 0 {
-		rep["direct_url"] = list[0].URL
+	var all map[string][]model.Location
+	var err error
+	if h.imports != nil {
+		all, err = h.imports.LocationsFor(r.Context(), ids)
+	} else {
+		all, err = h.multi.LocationsFor(r.Context(), ids)
 	}
-	return rep
+	if err != nil {
+		all = nil
+	}
+	for _, rep := range reps {
+		id, _ := rep["id"].(string)
+		list := all[id]
+		if views && h.multipleLocations {
+			out := make([]map[string]any, 0, len(list))
+			for _, l := range list {
+				out = append(out, map[string]any{"url": l.URL, "metadata": json.RawMessage(l.Metadata)})
+			}
+			rep["locations"] = out
+		}
+		if views && h.directURL && len(list) > 0 {
+			rep["direct_url"] = list[0].URL
+		}
+		if h.multi != nil {
+			if stores := service.StoresOf(list); len(stores) > 0 {
+				rep["stores"] = strings.Join(stores, ",")
+			}
+		}
+	}
 }

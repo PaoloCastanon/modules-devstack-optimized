@@ -85,6 +85,10 @@ func (r ruleCheck) eval(t, c map[string]any, e *Enforcer, d int) bool {
 
 var substitution = regexp.MustCompile(`%\(([^)]+)\)s`)
 
+// Lazy is a target value computed only when a rule reads it, as the
+// original's ImageTarget resolves member_id in __getitem__.
+type Lazy func() any
+
 // expand is Python's "match % target": a missing key fails the check.
 func expand(match string, target map[string]any) (string, bool) {
 	ok := true
@@ -93,6 +97,9 @@ func expand(match string, target map[string]any) (string, bool) {
 		if !found {
 			ok = false
 			return ""
+		}
+		if lazy, isLazy := v.(Lazy); isLazy {
+			v = lazy()
 		}
 		return fmt.Sprint(v)
 	})

@@ -420,7 +420,9 @@ func (h *Handler) show(w http.ResponseWriter, r *http.Request) {
 		h.failure(w, err)
 		return
 	}
-	h.json(w, 200, h.withStores(r, h.withLocations(r, representation(image))))
+	rep := representation(image)
+	h.decorate(r, rep)
+	h.json(w, 200, rep)
 }
 
 func (h *Handler) json(w http.ResponseWriter, status int, value any) {

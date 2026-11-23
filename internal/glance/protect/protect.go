@@ -14,6 +14,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/policy"
 )
@@ -31,6 +32,39 @@ type Rules struct {
 	rules    []rule
 	policies bool
 	enforcer *policy.Enforcer
+	// matches caches name -> index of the first matching rule (-1: none).
+	// The rules never change after Load, so the answer is the same; the
+	// cache is bounded because property names come from users.
+	mu      sync.RWMutex
+	matches map[string]int
+}
+
+const maxCachedNames = 4096
+
+// match is the index of the first rule whose expression matches name.
+func (r *Rules) match(name string) int {
+	r.mu.RLock()
+	n, ok := r.matches[name]
+	r.mu.RUnlock()
+	if ok {
+		return n
+	}
+	n = -1
+	for k := range r.rules {
+		if r.rules[k].exp.FindStringIndex(name) != nil {
+			n = k
+			break
+		}
+	}
+	r.mu.Lock()
+	if r.matches == nil {
+		r.matches = map[string]int{}
+	}
+	if len(r.matches) < maxCachedNames {
+		r.matches[name] = n
+	}
+	r.mu.Unlock()
+	return n
 }
 
 // Load reads the file with format "roles" or "policies".
@@ -97,16 +131,11 @@ func (r *Rules) Allowed(name, op string, roles []string, creds policy.Credential
 	if r == nil || len(r.rules) == 0 {
 		return true
 	}
-	var match *rule
-	for n := range r.rules {
-		if r.rules[n].exp.FindStringIndex(name) != nil {
-			match = &r.rules[n]
-			break
-		}
-	}
-	if match == nil {
+	k := r.match(name)
+	if k < 0 {
 		return false
 	}
+	match := &r.rules[k]
 	perms := match.perms[op]
 	if len(perms) == 0 {
 		return false

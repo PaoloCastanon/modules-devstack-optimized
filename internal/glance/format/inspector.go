@@ -57,11 +57,19 @@ func (r *region) complete() bool {
 	return r.length == int64(len(r.data))
 }
 
+// capture appends only the bytes the region keeps: the result is the
+// original's "data += chunk[gap:]; data = data[:length]" (and, for an end
+// region, "data = data[-length:]") without copying whole chunks.
 func (r *region) capture(chunk []byte, pos int64) {
 	if r.end {
-		r.data = append(r.data, chunk...)
-		if int64(len(r.data)) > r.length {
-			r.data = append([]byte(nil), r.data[int64(len(r.data))-r.length:]...)
+		if int64(len(chunk)) >= r.length {
+			r.data = append(r.data[:0], chunk[int64(len(chunk))-r.length:]...)
+		} else {
+			if extra := int64(len(r.data)+len(chunk)) - r.length; extra > 0 {
+				n := copy(r.data, r.data[extra:])
+				r.data = r.data[:n]
+			}
+			r.data = append(r.data, chunk...)
 		}
 		r.offset = pos - int64(len(r.data))
 		return
@@ -72,8 +80,8 @@ func (r *region) capture(chunk []byte, pos int64) {
 		if start < r.offset {
 			gap = r.offset - start
 		}
-		if gap < int64(len(chunk)) {
-			r.data = append(r.data, chunk[gap:]...)
+		if room := r.length - int64(len(r.data)); gap < int64(len(chunk)) && room > 0 {
+			r.data = append(r.data, chunk[gap:gap+min(int64(len(chunk))-gap, room)]...)
 		}
 		if int64(len(r.data)) > r.length {
 			r.data = r.data[:r.length]
@@ -90,6 +98,17 @@ type inspector struct {
 	checks   []check
 	finished bool
 	impl     impl
+	// idle: every region is complete and none captures the end, so later
+	// chunks only move total (postProcess and regionComplete would repeat
+	// the same outcome on the same data).
+	idle        bool
+	scratch     []regionState
+	nameScratch []string
+}
+
+type regionState struct {
+	r        *region
+	complete bool
 }
 
 type check struct {
@@ -154,29 +173,53 @@ func (i *inspector) eatChunk(chunk []byte) (err error) {
 			err = fmt.Errorf("%v", p)
 		}
 	}()
-	pre := map[*region]bool{}
-	preComplete := map[*region]bool{}
-	for _, r := range i.regions {
-		pre[r] = true
-		if r.complete() {
-			preComplete[r] = true
+	if i.idle {
+		i.total += int64(len(chunk))
+		return nil
+	}
+	pre := i.scratch[:0]
+	for _, name := range i.names {
+		r := i.regions[name]
+		pre = append(pre, regionState{r, r.complete()})
+	}
+	i.scratch = pre
+	state := func(r *region) (seen, complete bool) {
+		for _, p := range pre {
+			if p.r == r {
+				return true, p.complete
+			}
 		}
+		return false, false
 	}
 	i.total += int64(len(chunk))
 	i.capture(chunk, nil)
 	i.impl.postProcess()
-	only := map[string]bool{}
-	for name, r := range i.regions {
-		if !pre[r] {
+	var only map[string]bool
+	for _, name := range i.names {
+		if seen, _ := state(i.regions[name]); !seen {
+			if only == nil {
+				only = map[string]bool{}
+			}
 			only[name] = true
 		}
 	}
 	if len(only) > 0 {
 		i.capture(chunk, only)
 	}
-	for _, name := range append([]string(nil), i.names...) {
-		if r := i.regions[name]; r != nil && r.complete() && !preComplete[r] {
-			i.impl.regionComplete(name)
+	// A copy: regionComplete may add or remove regions.
+	i.nameScratch = append(i.nameScratch[:0], i.names...)
+	for _, name := range i.nameScratch {
+		if r := i.regions[name]; r != nil && r.complete() {
+			if _, was := state(r); !was {
+				i.impl.regionComplete(name)
+			}
+		}
+	}
+	i.idle = true
+	for _, r := range i.regions {
+		if r.end || !r.complete() {
+			i.idle = false
+			break
 		}
 	}
 	return nil

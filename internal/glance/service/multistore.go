@@ -40,6 +40,11 @@ func (u *UploadCoordinator) knownStore(name string) bool {
 	return name == u.defaultBackend || u.backends[name]
 }
 
+// LocationsFor is the images' active locations in one query.
+func (u *UploadCoordinator) LocationsFor(ctx context.Context, ids []string) (map[string][]model.Location, error) {
+	return locationsFor(ctx, u.transfers, ids)
+}
+
 // ImageStores are the stores holding the image's data, in location order.
 func (u *UploadCoordinator) ImageStores(ctx context.Context, id string) ([]string, error) {
 	l, ok := u.transfers.(storeLocations)
@@ -50,6 +55,11 @@ func (u *UploadCoordinator) ImageStores(ctx context.Context, id string) ([]strin
 	if err != nil {
 		return nil, err
 	}
+	return StoresOf(list), nil
+}
+
+// StoresOf are the stores of locations (meta_data "store"), in order.
+func StoresOf(list []model.Location) []string {
 	var out []string
 	for _, loc := range list {
 		var meta map[string]any
@@ -58,7 +68,7 @@ func (u *UploadCoordinator) ImageStores(ctx context.Context, id string) ([]strin
 			out = append(out, s)
 		}
 	}
-	return out, nil
+	return out
 }
 
 // CopyToStore copies an active image's file to another store and adds its
