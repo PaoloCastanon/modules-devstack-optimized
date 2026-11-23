@@ -231,7 +231,7 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 		}
 	}
 	c.Notifications = n
-	if err := readLimits(c, f); err != nil {
+	if err := readLimits(c, f, env); err != nil {
 		return err
 	}
 	if err := readImport(c, f, env); err != nil {
@@ -325,7 +325,7 @@ func osloBool(v string) (bool, bool) {
 
 // readLimits: [DEFAULT] use_keystone_limits and [oslo_limit], as oslo.limit
 // (password auth; endpoint_id names the Glance endpoint).
-func readLimits(c *Config, f osloFile) error {
+func readLimits(c *Config, f osloFile, env func(string) string) error {
 	enabled, ok := osloBool(f.get("DEFAULT", "use_keystone_limits"))
 	if !ok {
 		return errors.New("invalid [DEFAULT] use_keystone_limits")
@@ -346,7 +346,14 @@ func readLimits(c *Config, f osloFile) error {
 	}
 	c.Limits = KeystoneLimits{Enabled: true, URL: url, EndpointID: l("endpoint_id"), Username: l("username"), Password: l("password"),
 		UserDomainName: firstOf(l("user_domain_name"), "Default"), SystemScope: l("system_scope"), ProjectName: l("project_name"),
-		ProjectDomainName: firstOf(l("project_domain_name"), "Default"), Region: l("endpoint_region_name")}
+		ProjectDomainName: firstOf(l("project_domain_name"), "Default"), Region: l("endpoint_region_name"), CacheTTL: 5 * time.Second}
+	if v := env("GLANCE_GO_LIMITS_CACHE_SECONDS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 || n > 3600 {
+			return errors.New("GLANCE_GO_LIMITS_CACHE_SECONDS must be 0-3600")
+		}
+		c.Limits.CacheTTL = time.Duration(n) * time.Second
+	}
 	if c.Limits.EndpointID == "" || c.Limits.Username == "" || c.Limits.Password == "" || c.Limits.SystemScope == "" && c.Limits.ProjectName == "" {
 		return errors.New("[oslo_limit] needs endpoint_id, username, password and system_scope or project_name")
 	}

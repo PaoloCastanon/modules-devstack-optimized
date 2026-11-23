@@ -68,9 +68,14 @@ func (r *Repository) CacheInsert(ctx context.Context, node int64, imageID string
 
 // CacheHit is update_hit_count.
 func (r *Repository) CacheHit(ctx context.Context, node int64, imageID string, now time.Time) error {
+	return r.CacheHits(ctx, node, imageID, 1, now)
+}
+
+// CacheHits is update_hit_count for n accesses at once.
+func (r *Repository) CacheHits(ctx context.Context, node int64, imageID string, n int64, now time.Time) error {
 	ctx, cancel := r.bound(ctx)
 	defer cancel()
-	_, err := r.db.ExecContext(ctx, r.sql("UPDATE cached_images SET hits=hits+1, last_accessed=? WHERE image_id=? AND node_reference_id=?"), now.UTC().Truncate(time.Second), imageID, node)
+	_, err := r.db.ExecContext(ctx, r.sql("UPDATE cached_images SET hits=hits+?, last_accessed=? WHERE image_id=? AND node_reference_id=?"), n, now.UTC().Truncate(time.Second), imageID, node)
 	return err
 }
 
