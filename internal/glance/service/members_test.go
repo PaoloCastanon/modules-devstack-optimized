@@ -194,9 +194,13 @@ func TestDeactivateReactivate(t *testing.T) {
 	ctx := context.Background()
 	admin, owner := project("x", "admin"), project("owner", "member", "reader")
 	s, repo := sharedFixture("private", "active")
-	if err := s.Deactivate(ctx, owner, sharedID); domainKind(err) != model.Forbidden {
-		t.Fatal("owner deactivated", err)
+	if err := s.Deactivate(ctx, project("other", "member", "reader"), sharedID); domainKind(err) != model.NotFound {
+		t.Fatal("another project deactivated", err)
 	}
+	if err := s.Deactivate(ctx, owner, sharedID); err != nil || repo.image.Status != "deactivated" {
+		t.Fatal("owner member could not deactivate (original default)", err)
+	}
+	repo.image.Status = "active"
 	for range 2 { // the second call is a no-op, as the original
 		if err := s.Deactivate(ctx, admin, sharedID); err != nil || repo.image.Status != "deactivated" {
 			t.Fatal(repo.image.Status, err)

@@ -116,7 +116,8 @@ func TestMembersTagsAndActionsRoutes(t *testing.T) {
 	expect("DELETE", base+"/tags/x", "", 204)
 	expect("DELETE", base+"/tags/x", "", 404)
 	expect("GET", base+"/tags/x", "", 405)
-	expect("POST", base+"/actions/deactivate", "", 403)
+	as("other", "member", "reader")
+	expect("POST", base+"/actions/deactivate", "", 404)
 	as("p", "admin")
 	expect("POST", base+"/actions/deactivate", "", 204)
 	if repo.image.Status != "deactivated" {

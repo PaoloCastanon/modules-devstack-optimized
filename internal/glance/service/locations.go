@@ -48,7 +48,7 @@ func (m *Importer) Locations(ctx context.Context, who auth.Identity, value strin
 	if err != nil {
 		return nil, err
 	}
-	if !who.HasRole("service") {
+	if !who.HasRole("service") && !who.HasRole("admin") { // rule:service_api
 		return nil, model.Fail(model.Forbidden, "You are not authorized to complete fetch_image_location action.")
 	}
 	return repo.ImageLocations(ctx, image.ID)
@@ -73,7 +73,7 @@ func (m *Importer) AddLocation(ctx context.Context, who auth.Identity, value, ur
 		return model.Fail(model.Conflict, "It's not allowed to add locations if image status is "+image.Status+".")
 	}
 	service := who.HasRole("service")
-	if !service && (!who.HasRole("member") || image.Owner != who.ProjectID) {
+	if !service && !who.HasRole("admin") && (!who.HasRole("member") || image.Owner != who.ProjectID) {
 		return model.Fail(model.Forbidden, "You are not authorized to complete add_image_location action.")
 	}
 	if !service {

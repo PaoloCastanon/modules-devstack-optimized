@@ -17,7 +17,7 @@ import (
 //   get_member(s):             admin, the owner or that member (reader)
 //   modify_member:             admin or the member project itself
 //   add/delete tag:            modify_image (admin or the owner, member role)
-//   deactivate, reactivate:    admin
+//   deactivate, reactivate:    admin or a member of the owner project
 
 var errNoMembers = errors.New("image members are not available")
 
@@ -279,8 +279,9 @@ func (s *Service) action(ctx context.Context, who auth.Identity, imageID, name, 
 		if err := s.visible(ctx, who, image); err != nil {
 			return model.Image{}, err
 		}
-		if !who.HasRole("admin") {
-			return model.Image{}, model.Fail(model.Forbidden, "You are not authorized to "+name+" this image.")
+		// The original's default: admin, or a member of the owner project.
+		if !who.HasRole("admin") && (!who.HasRole("member") || image.Owner != who.ProjectID) {
+			return model.Image{}, model.Fail(model.Forbidden, "You are not authorized to complete "+name+" action.")
 		}
 		switch image.Status {
 		case to: // already there: no change, as the original
