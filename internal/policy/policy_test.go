@@ -75,3 +75,19 @@ func TestOverridesFromYAMLAndJSON(t *testing.T) {
 		t.Fatal("broken rule accepted")
 	}
 }
+
+func TestLazyTargetValueOnlyWhenRead(t *testing.T) {
+	e, err := New(map[string]string{"a": "role:member", "b": "project_id:%(member_id)s"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	target := map[string]any{"member_id": Lazy(func() any { calls++; return "p" })}
+	creds := Credentials{Roles: []string{"member"}, ProjectID: "p"}
+	if !e.Allowed("a", target, creds) || calls != 0 {
+		t.Fatal("lazy value computed by a rule that does not read it", calls)
+	}
+	if !e.Allowed("b", target, creds) || calls != 1 {
+		t.Fatal("lazy value not used", calls)
+	}
+}

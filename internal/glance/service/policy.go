@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
@@ -54,10 +55,13 @@ func (s *Service) imageTarget(ctx context.Context, who auth.Identity, image mode
 	}
 	t["id"], t["project_id"], t["owner"], t["visibility"], t["status"] = image.ID, image.Owner, image.Owner, image.Visibility, image.Status
 	t["protected"] = fmt.Sprint(image.Protected)
-	t["member_id"] = ""
-	if member, err := s.member(ctx, who, image); err == nil && member {
-		t["member_id"] = who.ProjectID
-	}
+	// member_id costs a query: resolved only if a rule reads it, once.
+	t["member_id"] = policy.Lazy(sync.OnceValue(func() any {
+		if member, err := s.member(ctx, who, image); err == nil && member {
+			return who.ProjectID
+		}
+		return ""
+	}))
 	return t
 }
 
