@@ -93,7 +93,7 @@ func (u *UploadCoordinator) downloadImage(ctx context.Context, who auth.Identity
 	if err != nil {
 		return i, downloadError(ctx, err)
 	}
-	return i, downloadVisible(who, id, i)
+	return i, u.downloadVisible(ctx, who, id, i)
 }
 
 // downloadViewer reads the image row and its data state in ONE read-only
@@ -102,17 +102,40 @@ type downloadViewer interface {
 	DownloadView(context.Context, string) (model.Image, model.DataState, error)
 }
 
-func downloadVisible(who auth.Identity, id string, i model.Image) error {
+// memberChecker is implemented by the MySQL repository (image_members).
+type memberChecker interface {
+	IsMember(ctx context.Context, imageID, project string) (bool, error)
+}
+
+func (u *UploadCoordinator) downloadVisible(ctx context.Context, who auth.Identity, id string, i model.Image) error {
 	if i.ID != id {
 		return ErrUploadReconciliation
 	}
 	if i.Status == "deleted" {
 		return notFound(id)
 	}
-	// Same project/visibility policy as the B20 metadata reader; identity and
+	// Same project/visibility policy as the metadata reader; identity and
 	// reader/admin role were checked before any catalog or filesystem access.
+	// Only a shared image of another project needs the membership lookup.
 	if !who.HasRole("admin") && i.Owner != who.ProjectID && i.Visibility != "public" && i.Visibility != "community" {
-		return notFound(id)
+		m, ok := u.images.(memberChecker)
+		if !ok {
+			m, ok = u.transfers.(memberChecker)
+		}
+		if i.Visibility != "shared" || !ok {
+			return notFound(id)
+		}
+		member, err := m.IsMember(ctx, id, who.ProjectID)
+		if err != nil {
+			return downloadError(ctx, err)
+		}
+		if !member {
+			return notFound(id)
+		}
+	}
+	// As the original's image_data download.
+	if i.Status == "deactivated" && !who.HasRole("admin") {
+		return model.Fail(model.Forbidden, "The requested image has been deactivated. Image data download is forbidden.")
 	}
 	return nil
 }
@@ -214,7 +237,7 @@ func (u *UploadCoordinator) OpenDownload(ctx context.Context, who auth.Identity,
 		if err != nil {
 			return nil, downloadError(ctx, err)
 		}
-		if err = downloadVisible(who, id, i); err != nil {
+		if err = u.downloadVisible(ctx, who, id, i); err != nil {
 			return nil, err
 		}
 		s, owner = state, i.Owner

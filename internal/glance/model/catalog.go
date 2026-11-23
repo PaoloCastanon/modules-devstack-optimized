@@ -23,6 +23,9 @@ type ListOptions struct {
 	Tags         []string
 	ProjectID    string
 	Admin        bool
+	// MemberStatus selects shared images by the project's membership status:
+	// accepted (default), pending, rejected or all.
+	MemberStatus string
 }
 
 func Sortable(key string) bool {
@@ -43,6 +46,12 @@ func (o ListOptions) Validate() (ListOptions, error) {
 			return bad()
 		}
 		o.Marker = id
+	}
+	if o.MemberStatus == "" {
+		o.MemberStatus = "accepted"
+	}
+	if !member(o.MemberStatus, "accepted pending rejected all") {
+		return bad()
 	}
 	o.Sort = append([]Sort(nil), o.Sort...)
 	if len(o.Sort) == 0 {

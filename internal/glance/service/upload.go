@@ -228,7 +228,7 @@ func imageReceiptMatches(s model.DataState, c model.DataContent) bool {
 	return s.Size != nil && *s.Size == c.Size && sameNumber(s.VirtualSize, c.VirtualSize) && sameText(s.Checksum, c.Checksum) && sameText(s.HashAlgorithm, "sha512") && sameText(s.HashValue, c.SHA512)
 }
 func committed(s model.DataState, key store.Key, c model.DataContent) bool {
-	return ownState(s, key) == nil && s.Status == "active" && s.Operation.Phase == model.DataCommitted && receiptMatches(s.Operation, c) && imageReceiptMatches(s, c)
+	return ownState(s, key) == nil && (s.Status == "active" || s.Status == "deactivated") && s.Operation.Phase == model.DataCommitted && receiptMatches(s.Operation, c) && imageReceiptMatches(s, c)
 }
 func committedBeforeTombstone(s model.DataState, key store.Key, c model.DataContent) bool {
 	if !s.Deleted || s.Operation == nil || s.Operation.AttemptID != key.AttemptID || !receiptMatches(s.Operation, c) || !imageReceiptMatches(s, c) {

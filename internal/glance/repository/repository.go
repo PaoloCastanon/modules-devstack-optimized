@@ -23,3 +23,18 @@ type Repository interface {
 	Update(context.Context, string, func(model.Image) (model.Image, error)) (model.Image, error)
 	Delete(context.Context, string, time.Time, func(model.Image) error) error
 }
+
+var ErrMemberNotFound = errors.New("image member not found")
+var ErrMemberDuplicate = errors.New("image member already exists")
+
+// Members is the original's image_members table. Writes run under the image
+// row lock (as catalog PATCH/DELETE) and call check with the current image
+// before changing anything; a check error rolls back.
+type Members interface {
+	ListMembers(ctx context.Context, imageID string) ([]model.Member, error)
+	// GetMember returns ErrMemberNotFound when the project is not a member.
+	GetMember(ctx context.Context, imageID, memberID string) (model.Member, error)
+	CreateMember(ctx context.Context, imageID, memberID string, now time.Time, check func(image model.Image, members int) error) (model.Member, error)
+	UpdateMember(ctx context.Context, imageID, memberID, status string, now time.Time, check func(model.Image, model.Member) error) (model.Member, error)
+	DeleteMember(ctx context.Context, imageID, memberID string, now time.Time, check func(model.Image, model.Member) error) (model.Member, error)
+}

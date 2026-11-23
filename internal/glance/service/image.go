@@ -73,8 +73,8 @@ func (s *Service) Get(ctx context.Context, identity auth.Identity, value string)
 	if err != nil {
 		return model.Image{}, err
 	}
-	if !identity.HasRole("admin") && image.Owner != identity.ProjectID && image.Visibility != "public" && image.Visibility != "community" {
-		return model.Image{}, notFound(id)
+	if err = s.visible(ctx, identity, image); err != nil {
+		return model.Image{}, err
 	}
 	return image, nil
 }

@@ -61,7 +61,7 @@ func (s *Service) Patch(ctx context.Context, who auth.Identity, id string, ops [
 		return model.Image{}, err
 	}
 	image, err := s.repo.Update(ctx, id, func(current model.Image) (model.Image, error) {
-		if err := writePolicy(who, current); err != nil {
+		if err := s.writable(ctx, who, current); err != nil {
 			return model.Image{}, err
 		}
 		for _, op := range ops {
@@ -100,7 +100,7 @@ func (s *Service) Delete(ctx context.Context, who auth.Identity, id string) erro
 	var removed model.Image
 	err = s.repo.Delete(ctx, id, s.now(), func(current model.Image) error {
 		removed = current
-		if err := writePolicy(who, current); err != nil {
+		if err := s.writable(ctx, who, current); err != nil {
 			return err
 		}
 		if current.Protected {

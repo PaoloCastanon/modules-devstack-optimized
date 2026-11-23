@@ -122,3 +122,14 @@ func Envelope(publisherID, eventType, priority string, payload any, now time.Tim
 	}
 	return json.Marshal(map[string]string{"oslo.version": "2.0", "oslo.message": string(message)})
 }
+
+// MemberPayload is the original's format_image_member_notification
+// (image.member.create/update/delete).
+func MemberPayload(m model.Member, deleted bool, at time.Time) map[string]any {
+	p := map[string]any{"image_id": m.ImageID, "member_id": m.MemberID, "status": m.Status,
+		"created_at": isotime(m.CreatedAt), "updated_at": isotime(m.UpdatedAt), "deleted": deleted, "deleted_at": nil}
+	if deleted {
+		p["deleted_at"] = isotime(at)
+	}
+	return p
+}

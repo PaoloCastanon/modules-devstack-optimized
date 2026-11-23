@@ -62,6 +62,10 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 	mux.HandleFunc("/v2/images", h.create)
 	mux.HandleFunc("/v2/images/{id}", h.show)
 	mux.HandleFunc("/v2/schemas/{name}", h.schema)
+	mux.HandleFunc("/v2/images/{id}/members", h.members)
+	mux.HandleFunc("/v2/images/{id}/members/{member}", h.imageMember)
+	mux.HandleFunc("/v2/images/{id}/tags/{tag}", h.tag)
+	mux.HandleFunc("/v2/images/{id}/actions/{action}", h.action)
 	if h.binary != nil {
 		mux.HandleFunc("/v2/images/{id}/file", h.file)
 	}
@@ -164,6 +168,21 @@ func logRoute(path string) string {
 	}
 	if rest, ok := strings.CutPrefix(path, "/v2/images/"); ok && rest != "" && !strings.Contains(rest, "/") {
 		return "/v2/images/{id}"
+	}
+	if rest, ok := strings.CutPrefix(path, "/v2/images/"); ok {
+		parts := strings.Split(rest, "/")
+		if parts[0] != "" {
+			switch {
+			case len(parts) == 2 && parts[1] == "members":
+				return "/v2/images/{id}/members"
+			case len(parts) == 3 && parts[1] == "members" && parts[2] != "":
+				return "/v2/images/{id}/members/{member}"
+			case len(parts) == 3 && parts[1] == "tags" && parts[2] != "":
+				return "/v2/images/{id}/tags/{tag}"
+			case len(parts) == 3 && parts[1] == "actions" && (parts[2] == "deactivate" || parts[2] == "reactivate"):
+				return "/v2/images/{id}/actions/" + parts[2]
+			}
+		}
 	}
 	return "unmatched"
 }

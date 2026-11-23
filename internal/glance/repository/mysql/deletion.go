@@ -37,7 +37,7 @@ func deletableData(s model.DataState) bool {
 		return noCalculatedData(s) && (o == nil || o.Phase == model.DataCleaned && isTarget(o, "killed"))
 	case "saving":
 		return noCalculatedData(s) && o != nil && ((o.Phase == model.DataReserved || o.Phase == model.DataStaged || o.Phase == model.DataPublished) && o.CleanupTarget == nil || o.Phase == model.DataCleanup && (isTarget(o, "queued") || isTarget(o, "killed")))
-	case "active":
+	case "active", "deactivated":
 		return o != nil && o.Phase == model.DataCommitted && o.CleanupTarget == nil && equalPointer(s.Size, o.Size) && s.Size != nil && equalPointer(s.VirtualSize, o.VirtualSize) && equalPointer(s.Checksum, o.Checksum) && equalPointer(s.HashValue, o.SHA512) && s.HashAlgorithm != nil && *s.HashAlgorithm == "sha512"
 	}
 	return false

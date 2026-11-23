@@ -89,9 +89,7 @@ func parseList(raw string) (model.ListOptions, error) {
 		q.Del(key)
 	}
 	if q.Has("member_status") {
-		if q.Get("member_status") != "accepted" {
-			return bad()
-		}
+		o.MemberStatus = q.Get("member_status")
 		q.Del("member_status")
 	}
 	for key, values := range q {
