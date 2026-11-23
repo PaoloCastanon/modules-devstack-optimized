@@ -182,6 +182,10 @@ func ApplyPatch(image Image, operations []PatchOperation, now time.Time) (Image,
 		if !member(op.Op, "add replace remove") {
 			return Image{}, Fail(Invalid, "Unsupported JSON Patch operation.")
 		}
+		if op.Key == "locations" { // locations are invisible (show_multiple_locations off)
+			verb := map[string]string{"add": "add", "replace": "update", "remove": "remove"}[op.Op]
+			return Image{}, Fail(Forbidden, "It's not allowed to "+verb+" locations if locations are invisible.")
+		}
 		if Reserved(op.Key) && !Mutable(op.Key) {
 			return Image{}, Fail(Forbidden, "Attribute is immutable or reserved: "+op.Key)
 		}

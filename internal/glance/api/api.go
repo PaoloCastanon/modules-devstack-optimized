@@ -40,6 +40,8 @@ type Handler struct {
 	binary       BinaryTransfers
 	imports      *service.Importer
 	cache        *service.ImageCache
+	// show_image_direct_url, show_multiple_locations
+	directURL, multipleLocations bool
 }
 
 func New(service *service.Service, authenticator auth.Authenticator, publicURL, keystoneURL string, maxBodyBytes int64, logger *slog.Logger, options ...Option) (http.Handler, error) {
@@ -74,6 +76,7 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 	mux.HandleFunc("/v2/images/{id}/members/{member}", h.imageMember)
 	mux.HandleFunc("/v2/images/{id}/tags/{tag}", h.tag)
 	mux.HandleFunc("/v2/images/{id}/actions/{action}", h.action)
+	mux.HandleFunc("/v2/images/{id}/locations", h.locations)
 	mux.HandleFunc("/v2/images/{id}/stage", h.stage)
 	mux.HandleFunc("/v2/images/{id}/import", h.importImage)
 	mux.HandleFunc("/v2/images/{id}/tasks", h.imageTasks)
@@ -237,7 +240,7 @@ func logRoute(path string) string {
 				return "/v2/images/{id}/members/{member}"
 			case len(parts) == 3 && parts[1] == "tags" && parts[2] != "":
 				return "/v2/images/{id}/tags/{tag}"
-			case len(parts) == 2 && (parts[1] == "stage" || parts[1] == "import" || parts[1] == "tasks"):
+			case len(parts) == 2 && (parts[1] == "stage" || parts[1] == "import" || parts[1] == "tasks" || parts[1] == "locations"):
 				return "/v2/images/{id}/" + parts[1]
 			case len(parts) == 3 && parts[1] == "actions" && (parts[2] == "deactivate" || parts[2] == "reactivate"):
 				return "/v2/images/{id}/actions/" + parts[2]
@@ -401,7 +404,7 @@ func (h *Handler) show(w http.ResponseWriter, r *http.Request) {
 		h.failure(w, err)
 		return
 	}
-	h.json(w, 200, representation(image))
+	h.json(w, 200, h.withLocations(r, representation(image)))
 }
 
 func (h *Handler) json(w http.ResponseWriter, status int, value any) {
@@ -450,7 +453,7 @@ func representation(image model.Image) map[string]any {
 	for key, value := range image.Properties {
 		// os_glance_* are the original's own properties (import lock, stage
 		// host): shown, though clients cannot set them.
-		if !model.Reserved(key) || strings.HasPrefix(key, "os_glance") {
+		if (!model.Reserved(key) || strings.HasPrefix(key, "os_glance")) && key != "os_glance_stage_host" && key != "os_glance_hash_op_host" {
 			out[key] = value
 		}
 	}

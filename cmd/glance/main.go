@@ -197,7 +197,7 @@ func run(args []string, logger *slog.Logger) (result error) {
 			return errors.New("import task recovery failed")
 		}
 		logger.Info("import methods enabled", "methods", importer.Methods(), "staging", c.Import.StagingDir, "recovered_tasks", recovered)
-		options = append(options, api.WithImports(importer))
+		options = append(options, api.WithImports(importer), api.WithLocationViews(c.ShowDirectURL, c.ShowMultipleLocations))
 	}
 	if binary != nil && c.Cache.Enabled {
 		// The original's image cache (centralized_db) and its prefetcher.

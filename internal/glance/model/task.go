@@ -28,3 +28,6 @@ const (
 	ImportTaskProperty = "os_glance_import_task"
 	StageHostProperty  = "os_glance_stage_host"
 )
+
+// Location is one active image_locations row.
+type Location struct{ URL, Metadata string }

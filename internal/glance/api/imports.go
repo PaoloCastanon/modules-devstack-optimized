@@ -240,3 +240,75 @@ func (h *Handler) imageTasks(w http.ResponseWriter, r *http.Request) {
 	}
 	h.json(w, 200, map[string]any{"tasks": out})
 }
+
+func (h *Handler) locations(w http.ResponseWriter, r *http.Request) {
+	if h.imports == nil {
+		h.status(w, 404, "The resource could not be found.")
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		list, err := h.imports.Locations(r.Context(), who(r), r.PathValue("id"))
+		if err != nil {
+			h.failure(w, err)
+			return
+		}
+		out := make([]map[string]any, 0, len(list))
+		for _, l := range list {
+			out = append(out, map[string]any{"url": l.URL, "metadata": json.RawMessage(l.Metadata)})
+		}
+		h.json(w, 200, out)
+	case http.MethodPost:
+		var body struct {
+			URL            *string                 `json:"url"`
+			ValidationData *service.ValidationData `json:"validation_data"`
+		}
+		if !h.readObject(w, r, &body) {
+			return
+		}
+		if body.URL == nil || *body.URL == "" {
+			h.status(w, 400, "Provided object does not match schema 'location': 'url' is a required property")
+			return
+		}
+		if err := h.imports.AddLocation(r.Context(), who(r), r.PathValue("id"), *body.URL, body.ValidationData); err != nil {
+			h.failure(w, err)
+			return
+		}
+		w.WriteHeader(202)
+	default:
+		w.Header().Set("Allow", "GET, POST")
+		h.status(w, 405, "Method not implemented.")
+	}
+}
+
+// WithLocationViews adds direct_url and/or locations to image views, as
+// show_image_direct_url and show_multiple_locations.
+func WithLocationViews(directURL, multiple bool) Option {
+	return func(h *Handler) error {
+		h.directURL, h.multipleLocations = directURL, multiple
+		return nil
+	}
+}
+
+// withLocations is the original's _format_image location part.
+func (h *Handler) withLocations(r *http.Request, rep map[string]any) map[string]any {
+	if (!h.directURL && !h.multipleLocations) || h.imports == nil {
+		return rep
+	}
+	id, _ := rep["id"].(string)
+	list, err := h.imports.ImageLocationList(r.Context(), id)
+	if err != nil {
+		list = nil
+	}
+	if h.multipleLocations {
+		out := make([]map[string]any, 0, len(list))
+		for _, l := range list {
+			out = append(out, map[string]any{"url": l.URL, "metadata": json.RawMessage(l.Metadata)})
+		}
+		rep["locations"] = out
+	}
+	if h.directURL && len(list) > 0 {
+		rep["direct_url"] = list[0].URL
+	}
+	return rep
+}

@@ -229,3 +229,62 @@ func (r *Repository) StagedSize(ctx context.Context, imageID string, size int64)
 		return r.ack(ctx, tx, "UPDATE images SET size=? WHERE id=? AND status='uploading' AND deleted=FALSE", size, imageID)
 	})
 }
+
+// ImageLocations are the image's active locations (url, meta_data JSON).
+func (r *Repository) ImageLocations(ctx context.Context, imageID string) ([]model.Location, error) {
+	out := []model.Location{}
+	err := r.rows(ctx, "SELECT value, meta_data FROM image_locations WHERE image_id=? AND deleted=0 AND status='active' ORDER BY id", []any{imageID}, func(s scanner) error {
+		var l model.Location
+		var meta sql.NullString
+		err := s.Scan(&l.URL, &meta)
+		l.Metadata = meta.String
+		if l.Metadata == "" {
+			l.Metadata = "{}"
+		}
+		out = append(out, l)
+		return err
+	})
+	return out, err
+}
+
+// BeginLocationImport is the original's add_location: the import lock on a
+// queued image (set_property_atomic) and the location_import task; the
+// image stays queued.
+func (r *Repository) BeginLocationImport(ctx context.Context, t model.Task, check func(model.Image) error) error {
+	id := *t.ImageID
+	return r.lockedImage(ctx, id, func(ctx context.Context, tx *sql.Tx, image model.Image) error {
+		if err := check(image); err != nil {
+			return err
+		}
+		if image.Properties[model.ImportTaskProperty] != "" {
+			return repository.ErrConflict
+		}
+		if _, err := r.exec(ctx, tx, "INSERT INTO image_properties (image_id, name, value, created_at, deleted) VALUES (?, ?, ?, ?, 0) ON DUPLICATE KEY UPDATE value=VALUES(value), deleted=0, deleted_at=NULL, updated_at=VALUES(created_at)",
+			id, model.ImportTaskProperty, t.ID, t.CreatedAt.UTC()); err != nil {
+			return err
+		}
+		return r.insertTask(ctx, tx, t)
+	})
+}
+
+// CommitLocation activates a queued image held by the task with its
+// location, size and hashes, and releases the lock, in one transaction.
+func (r *Repository) CommitLocation(ctx context.Context, imageID, taskID, url string, size int64, md5, sha512 string, now time.Time) error {
+	return r.lockedImage(ctx, imageID, func(ctx context.Context, tx *sql.Tx, image model.Image) error {
+		if image.Properties[model.ImportTaskProperty] != taskID || image.Status != "queued" {
+			return repository.ErrConflict
+		}
+		at := now.UTC().Truncate(time.Second)
+		if err := r.ack(ctx, tx, "UPDATE images SET status='active', size=?, checksum=?, os_hash_algo='sha512', os_hash_value=?, updated_at=? WHERE id=? AND status='queued' AND deleted=FALSE", size, md5, sha512, at, imageID); err != nil {
+			return err
+		}
+		if _, err := r.exec(ctx, tx, "INSERT INTO image_locations (image_id, value, meta_data, status, created_at, updated_at, deleted) VALUES (?, ?, '{}', 'active', ?, ?, 0)", imageID, url, at, at); err != nil {
+			return err
+		}
+		_, err := r.exec(ctx, tx, "DELETE FROM image_properties WHERE image_id=? AND name=?", imageID, model.ImportTaskProperty)
+		return err
+	})
+}
+
+// StoreLocation is the location this repository's store gives an image.
+func (r *Repository) StoreLocation(imageID string) string { return r.location(imageID) }

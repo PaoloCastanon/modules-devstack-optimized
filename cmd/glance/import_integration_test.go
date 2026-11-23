@@ -5,6 +5,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha512"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -30,7 +32,7 @@ import (
 type importIdentity struct{}
 
 func (importIdentity) Authenticate(_ context.Context, token string) (auth.Identity, error) {
-	roles := map[string][]string{"member-token": {"reader", "member"}, "admin-token": {"reader", "member", "admin"}}[token]
+	roles := map[string][]string{"member-token": {"reader", "member"}, "admin-token": {"reader", "member", "admin"}, "service-token": {"reader", "service"}}[token]
 	if roles == nil {
 		return auth.Identity{}, auth.ErrInvalidToken
 	}
@@ -261,6 +263,27 @@ func TestImportMySQLFilesystemHTTP(t *testing.T) {
 	if b := call("GET", "/v2/tasks/"+legacy["id"].(string), "", "", "admin-token", 200); !strings.Contains(string(b), `"status":"success"`) {
 		t.Fatal(string(b))
 	}
+
+	// Location API: a service registers the image's file in the store.
+	located := create()
+	data := []byte("located-bytes")
+	if err := os.WriteFile(filepath.Join(images, located), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha512.Sum512(data)
+	loc := `{"url":"file://` + images + "/" + located + `","validation_data":{"os_hash_algo":"sha512","os_hash_value":"` + hex.EncodeToString(sum[:]) + `"}}`
+	call("POST", "/v2/images/"+located+"/locations", loc, "application/json", "member-token", 403)
+	call("POST", "/v2/images/"+located+"/locations", `{"url":"file:///etc/passwd"}`, "application/json", "service-token", 400)
+	call("POST", "/v2/images/"+located+"/locations", loc, "application/json", "service-token", 202)
+	wait(located, "active")
+	if got := call("GET", "/v2/images/"+located+"/file", "", "", "member-token", 200); !bytes.Equal(got, data) {
+		t.Fatal("located bytes differ")
+	}
+	if l := call("GET", "/v2/images/"+located+"/locations", "", "", "service-token", 200); !strings.Contains(string(l), "file://"+images+"/"+located) {
+		t.Fatal(string(l))
+	}
+	call("GET", "/v2/images/"+located+"/locations", "", "", "member-token", 403)
+	call("PATCH", "/v2/images/"+located, `[{"op":"add","path":"/locations/-","value":{"url":"file:///x","metadata":{}}}]`, "application/openstack-images-v2.1-json-patch", "member-token", 403)
 
 	// Recovery: a task left processing by a previous process.
 	stuck := create()

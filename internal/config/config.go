@@ -59,6 +59,9 @@ type Config struct {
 	// UserStorageQuota is user_storage_quota in bytes (0: none); applied
 	// only without use_keystone_limits, as the original.
 	UserStorageQuota int64
+	// ShowDirectURL, ShowMultipleLocations: show_image_direct_url and
+	// show_multiple_locations (both off by default, OSSN-0065).
+	ShowDirectURL, ShowMultipleLocations bool
 }
 
 // ImageFormatSettings: require_image_format_match (default True) and

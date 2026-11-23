@@ -229,6 +229,13 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 		n, _ := strconv.ParseInt(m[1], 10, 64)
 		c.UserStorageQuota = n << map[string]uint{"": 0, "B": 0, "KB": 10, "MB": 20, "GB": 30, "TB": 40}[m[2]]
 	}
+	for key, dst := range map[string]*bool{"show_image_direct_url": &c.ShowDirectURL, "show_multiple_locations": &c.ShowMultipleLocations} {
+		b, ok := osloBool(f.get("DEFAULT", key))
+		if !ok {
+			return errors.New("invalid [DEFAULT] " + key)
+		}
+		*dst = b
+	}
 	// image_size_cap (1 TiB by default) bounds uploads, unless
 	// GLANCE_GO_MAX_UPLOAD_BYTES sets the bound explicitly.
 	if env("GLANCE_GO_MAX_UPLOAD_BYTES") == "" {
