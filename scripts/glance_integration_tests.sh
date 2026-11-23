@@ -33,7 +33,7 @@ ssh_cmd=(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
          -o "UserKnownHostsFile=$known" -o ConnectTimeout=10 -i "$key")
 # A free loopback port for the tunnel.
 port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')
-suites=(history_persist partial transfers catalog deletion fences contention e2e)
+suites=(history_persist partial transfers catalog members deletion fences contention e2e)
 tunnel=
 
 # Remote prelude: the original's MySQL account, read on the VM from
@@ -132,6 +132,7 @@ run history "$sql" TestMySQLHistoryReadOnlyVerification GLANCE_GO_MYSQL_TEST=1 \
 run partial-ddl "$sql" TestMySQLPartialDDLRemainsDirtyAcrossConnections GLANCE_GO_MYSQL_TEST=1 "GLANCE_GO_TEST_PARTIAL_DSN_FILE=$private/partial.dsn"
 run transfers "$sql" TestMySQLTransferOperations GLANCE_GO_MYSQL_TEST=1 "GLANCE_GO_TEST_DSN_FILE=$private/transfers.dsn"
 run catalog "$sql" TestMySQLCatalogOperations GLANCE_GO_MYSQL_TEST=1 "GLANCE_GO_TEST_DSN_FILE=$private/catalog.dsn"
+run members "$sql" TestMySQLMembersTagsActionsUsage GLANCE_GO_MYSQL_TEST=1 "GLANCE_GO_TEST_DSN_FILE=$private/members.dsn"
 run deletion "$sql" TestMySQLCoordinatedDeletion GLANCE_GO_MYSQL_TEST=1 "GLANCE_GO_TEST_DSN_FILE=$private/deletion.dsn"
 run fences "$sql" TestB25MySQLConcurrentFences GLANCE_GO_B25_MYSQL_TEST=1 "GLANCE_GO_TEST_DSN_FILE=$private/fences.dsn"
 run contention "$sql" TestB25MySQLConcurrentDistinctImages GLANCE_GO_B25_MYSQL_TEST=1 "GLANCE_GO_TEST_DSN_FILE=$private/contention.dsn"
