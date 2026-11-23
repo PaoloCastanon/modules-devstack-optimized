@@ -43,6 +43,9 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, input mode
 	if err != nil {
 		return model.Image{}, err
 	}
+	if err = protectedChange(identity, map[string]string{}, image.Properties); err != nil {
+		return model.Image{}, err
+	}
 	if overridden() {
 		if err = Permit(identity, "add_image", visibilityTarget(identity, image), nil); err != nil {
 			return model.Image{}, err
@@ -67,7 +70,7 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, input mode
 		return model.Image{}, err
 	}
 	s.notify("image.create", notify.ImagePayload(image))
-	return image, nil
+	return readable(identity, image), nil
 }
 
 func (s *Service) Get(ctx context.Context, identity auth.Identity, value string) (model.Image, error) {
@@ -94,7 +97,7 @@ func (s *Service) Get(ctx context.Context, identity auth.Identity, value string)
 	if err = s.permitImage(ctx, identity, "get_image", image, nil); err != nil {
 		return model.Image{}, err
 	}
-	return image, nil
+	return readable(identity, image), nil
 }
 
 func notFound(id string) error { return model.Fail(model.NotFound, "No image found with ID "+id) }

@@ -64,6 +64,8 @@ type Config struct {
 	ShowDirectURL, ShowMultipleLocations bool
 	// PolicyFile is [oslo_policy] policy_file, resolved next to glance-api.conf.
 	PolicyFile string
+	// PropertyProtectionFile and its rule format (roles or policies).
+	PropertyProtectionFile, PropertyProtectionFormat string
 }
 
 // ImageFormatSettings: require_image_format_match (default True) and

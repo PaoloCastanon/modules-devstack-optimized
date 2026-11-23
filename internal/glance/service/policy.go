@@ -6,6 +6,7 @@ import (
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/protect"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/policy"
 )
 
@@ -71,4 +72,66 @@ func (s *Service) permitImage(ctx context.Context, who auth.Identity, action str
 // visibilityTarget: the target of a create or visibility change.
 func visibilityTarget(who auth.Identity, image model.Image) map[string]any {
 	return map[string]any{"project_id": image.Owner, "owner": image.Owner, "visibility": image.Visibility, "member_id": ""}
+}
+
+// Protections is the property protection file ([DEFAULT]
+// property_protection_file), nil when none is configured.
+var Protections *protect.Rules
+
+func reserved(key string) error {
+	return model.Fail(model.Forbidden, "Attribute '"+key+"' is reserved.")
+}
+
+func protectedAllowed(who auth.Identity, key, op string) bool {
+	return Protections.Allowed(key, op, who.Roles, credentials(who))
+}
+
+// readable hides the properties the caller may not read, as the
+// original's ExtraPropertiesProxy.
+func readable(who auth.Identity, image model.Image) model.Image {
+	if Protections == nil {
+		return image
+	}
+	props := map[string]string{}
+	for k, v := range image.Properties {
+		if protectedAllowed(who, k, "read") {
+			props[k] = v
+		}
+	}
+	image.Properties = props
+	return image
+}
+
+// protectedChange checks a property change: a new property is create, a
+// changed one update, a removed one delete; an unreadable property does not
+// exist for the caller.
+func protectedChange(who auth.Identity, before, after map[string]string) error {
+	if Protections == nil {
+		return nil
+	}
+	for k, v := range after {
+		old, existed := before[k]
+		if existed && old == v {
+			continue // untouched
+		}
+		switch {
+		case !existed || !protectedAllowed(who, k, "read"):
+			if !protectedAllowed(who, k, "create") {
+				return reserved(k)
+			}
+		case old != v && !protectedAllowed(who, k, "update"):
+			return reserved(k)
+		}
+	}
+	for k := range before {
+		if _, kept := after[k]; !kept {
+			if !protectedAllowed(who, k, "read") {
+				return model.Fail(model.Conflict, "Property "+k+" does not exist.")
+			}
+			if !protectedAllowed(who, k, "delete") {
+				return reserved(k)
+			}
+		}
+	}
+	return nil
 }

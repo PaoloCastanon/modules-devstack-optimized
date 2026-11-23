@@ -399,3 +399,12 @@ func cutYAML(line string) (string, string, bool) {
 	}
 	return key, unquote(rest), true
 }
+
+// AllowedRule evaluates a check string (e.g. "rule:name") with no target.
+func (e *Enforcer) AllowedRule(rule string, creds Credentials) bool {
+	if e == nil {
+		return false
+	}
+	c, err := Parse(rule)
+	return err == nil && c.eval(map[string]any{}, creds.values(), e, 0)
+}

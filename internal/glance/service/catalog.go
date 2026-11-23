@@ -26,7 +26,13 @@ func (s *Service) List(ctx context.Context, who auth.Identity, options model.Lis
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.List(ctx, options)
+	images, err := s.repo.List(ctx, options)
+	if Protections != nil {
+		for n := range images {
+			images[n] = readable(who, images[n])
+		}
+	}
+	return images, err
 }
 
 // writePolicy is the default modify/upload/delete rule; with a policy file
@@ -87,6 +93,9 @@ func (s *Service) Patch(ctx context.Context, who auth.Identity, id string, ops [
 		if err != nil {
 			return model.Image{}, err
 		}
+		if err = protectedChange(who, current.Properties, changed.Properties); err != nil {
+			return model.Image{}, err
+		}
 		// Check the decoded value, not just its possible JSON spellings/escapes.
 		if overridden() && changed.Visibility != current.Visibility {
 			if action := map[string]string{"public": "publicize_image", "community": "communitize_image"}[changed.Visibility]; action != "" {
@@ -102,7 +111,7 @@ func (s *Service) Patch(ctx context.Context, who auth.Identity, id string, ops [
 	if err == nil {
 		s.notify("image.update", notify.ImagePayload(image))
 	}
-	return image, mutationError(err, id)
+	return readable(who, image), mutationError(err, id)
 }
 
 func (s *Service) Delete(ctx context.Context, who auth.Identity, id string) error {

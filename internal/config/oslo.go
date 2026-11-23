@@ -237,6 +237,10 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 		}
 		*dst = b
 	}
+	c.PropertyProtectionFile, c.PropertyProtectionFormat = f.get("DEFAULT", "property_protection_file"), firstOf(f.get("DEFAULT", "property_protection_rule_format"), "roles")
+	if c.PropertyProtectionFile != "" && !strings.HasPrefix(c.PropertyProtectionFile, "/") {
+		c.PropertyProtectionFile = filepath.Join(filepath.Dir(env("GLANCE_GO_CONFIG_FILE")), c.PropertyProtectionFile)
+	}
 	c.PolicyFile = firstOf(f.get("oslo_policy", "policy_file"), "policy.yaml")
 	if !strings.HasPrefix(c.PolicyFile, "/") {
 		c.PolicyFile = filepath.Join(filepath.Dir(env("GLANCE_GO_CONFIG_FILE")), c.PolicyFile)

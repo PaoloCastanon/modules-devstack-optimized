@@ -17,6 +17,7 @@ import (
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/api"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/metadefs"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/protect"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/quota"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/service"
@@ -178,6 +179,13 @@ func run(args []string, logger *slog.Logger) (result error) {
 	}
 	if len(overrides) > 0 {
 		logger.Info("policy file loaded", "file", c.PolicyFile, "rules", len(overrides))
+	}
+	if c.PropertyProtectionFile != "" {
+		// As the original: a configured file that cannot be read stops the service.
+		if service.Protections, err = protect.Load(c.PropertyProtectionFile, c.PropertyProtectionFormat, service.Policy); err != nil {
+			return err
+		}
+		logger.Info("property protections loaded", "file", c.PropertyProtectionFile, "format", c.PropertyProtectionFormat)
 	}
 	catalog := service.New(r, time.Now)
 	catalog.SetNotifier(notifier)
