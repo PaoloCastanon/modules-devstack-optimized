@@ -1,0 +1,227 @@
+package api
+
+import (
+	"encoding/json"
+	"errors"
+	"io"
+	"mime"
+	"net/http"
+	"net/url"
+	"strconv"
+
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/service"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/store"
+)
+
+// WithImports enables /stage, /import, /v2/info/import and the tasks API.
+func WithImports(m *service.Importer) Option {
+	return func(h *Handler) error {
+		if m == nil {
+			return errors.New("invalid import service")
+		}
+		h.imports = m
+		return nil
+	}
+}
+
+func (h *Handler) importInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		h.status(w, 405, "Method not implemented.")
+		return
+	}
+	methods := []string{}
+	if h.imports != nil {
+		methods = h.imports.Methods()
+	}
+	h.json(w, 200, map[string]any{"import-methods": map[string]any{"description": "Import methods available.", "type": "array", "value": methods}})
+}
+
+func (h *Handler) stage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		w.Header().Set("Allow", "PUT")
+		h.status(w, 405, "Method not implemented.")
+		return
+	}
+	if h.imports == nil {
+		h.status(w, 404, "The resource could not be found.")
+		return
+	}
+	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || media != "application/octet-stream" {
+		h.status(w, 415, "Expected Content-Type application/octet-stream.")
+		return
+	}
+	expected, err := declaredSize(r)
+	if err != nil {
+		h.binaryFailure(w, err)
+		return
+	}
+	var src io.Reader = http.NoBody
+	if r.Body != nil {
+		src = r.Body
+	}
+	if err = h.imports.Stage(r.Context(), who(r), r.PathValue("id"), src, expected); err != nil {
+		if errors.Is(err, store.ErrTooLarge) || errors.Is(err, store.ErrSizeMismatch) {
+			h.binaryFailure(w, err)
+			return
+		}
+		h.failure(w, err)
+		return
+	}
+	w.WriteHeader(204)
+}
+
+func (h *Handler) importImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		h.status(w, 405, "Method not implemented.")
+		return
+	}
+	if h.imports == nil {
+		h.status(w, 404, "The resource could not be found.")
+		return
+	}
+	var req service.ImportRequest
+	if !h.readObject(w, r, &req) {
+		return
+	}
+	if req.Method.Name == "" {
+		h.status(w, 400, "Import method name is required.")
+		return
+	}
+	if _, err := h.imports.Import(r.Context(), who(r), r.PathValue("id"), req); err != nil {
+		h.failure(w, err)
+		return
+	}
+	w.WriteHeader(202)
+}
+
+func taskRepresentation(t model.Task, full bool) map[string]any {
+	out := map[string]any{"id": t.ID, "type": t.Type, "status": t.Status, "owner": t.Owner,
+		"created_at": t.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"), "updated_at": t.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z"),
+		"image_id": t.ImageID, "request_id": t.RequestID, "user_id": t.UserID, "self": "/v2/tasks/" + t.ID, "schema": "/v2/schemas/task"}
+	if t.ExpiresAt != nil {
+		out["expires_at"] = t.ExpiresAt.UTC().Format("2006-01-02T15:04:05Z")
+	} else {
+		out["expires_at"] = nil
+	}
+	if full {
+		out["input"], out["result"], out["message"] = rawJSON(t.Input), rawJSON(t.Result), t.Message
+	}
+	return out
+}
+
+func rawJSON(s *string) any {
+	if s == nil || *s == "" {
+		return nil
+	}
+	return json.RawMessage(*s)
+}
+
+func (h *Handler) tasksList(w http.ResponseWriter, r *http.Request) {
+	if h.imports == nil {
+		h.status(w, 404, "The resource could not be found.")
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		h.status(w, 405, "Method not implemented.")
+		return
+	}
+	q := r.URL.Query()
+	o := model.TaskListOptions{Marker: q.Get("marker"), SortKey: q.Get("sort_key"), SortDir: q.Get("sort_dir"), Type: q.Get("type"), Status: q.Get("status")}
+	if v := q.Get("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			h.status(w, 400, "limit param must be an integer")
+			return
+		}
+		o.Limit = n
+	}
+	identity := who(r)
+	if !identity.HasRole("admin") {
+		o.Owner = identity.ProjectID
+	}
+	tasks, err := h.imports.ListTasks(r.Context(), identity, o)
+	if err != nil {
+		h.failure(w, err)
+		return
+	}
+	out := make([]map[string]any, 0, len(tasks))
+	for _, t := range tasks {
+		out = append(out, taskRepresentation(t, false))
+	}
+	q.Del("marker")
+	first := "/v2/tasks"
+	if e := q.Encode(); e != "" {
+		first += "?" + e
+	}
+	body := map[string]any{"tasks": out, "first": first, "schema": "/v2/schemas/tasks"}
+	limit := o.Limit
+	if limit == 0 {
+		limit = 25
+	}
+	if len(tasks) == limit {
+		next := url.Values(q)
+		next.Set("marker", tasks[len(tasks)-1].ID)
+		body["next"] = "/v2/tasks?" + next.Encode()
+	}
+	h.json(w, 200, body)
+}
+
+func (h *Handler) task(w http.ResponseWriter, r *http.Request) {
+	if h.imports == nil {
+		h.status(w, 404, "The resource could not be found.")
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		h.status(w, 405, "Method not implemented.")
+		return
+	}
+	t, err := h.imports.GetTask(r.Context(), who(r), r.PathValue("task"))
+	if err != nil {
+		h.failure(w, err)
+		return
+	}
+	h.json(w, 200, taskRepresentation(t, true))
+}
+
+func (h *Handler) imageTasks(w http.ResponseWriter, r *http.Request) {
+	if h.imports == nil {
+		h.status(w, 404, "The resource could not be found.")
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		h.status(w, 405, "Method not implemented.")
+		return
+	}
+	tasks, err := h.imports.ImageTasks(r.Context(), who(r), r.PathValue("id"))
+	if err != nil {
+		h.failure(w, err)
+		return
+	}
+	out := make([]map[string]any, 0, len(tasks))
+	for _, t := range tasks {
+		out = append(out, taskRepresentation(t, true))
+	}
+	h.json(w, 200, map[string]any{"tasks": out})
+}
+
+func taskSchema() map[string]any {
+	str := func(t ...string) map[string]any {
+		if len(t) == 0 {
+			return map[string]any{"type": "string"}
+		}
+		return map[string]any{"type": t}
+	}
+	props := map[string]any{"id": str(), "type": map[string]any{"type": "string", "enum": []string{"import", "api_image_import"}},
+		"status": map[string]any{"type": "string", "enum": []string{"pending", "processing", "success", "failure"}},
+		"input":  map[string]any{"type": []string{"null", "object"}}, "result": map[string]any{"type": []string{"null", "object"}},
+		"owner": str(), "message": str(), "image_id": str("null", "string"), "request_id": str("null", "string"), "user_id": str("null", "string"),
+		"expires_at": str("null", "string"), "created_at": str(), "updated_at": str(), "self": str(), "schema": str()}
+	return map[string]any{"name": "task", "properties": props}
+}

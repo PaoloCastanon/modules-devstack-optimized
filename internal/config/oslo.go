@@ -190,6 +190,9 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 	if err := readLimits(c, f); err != nil {
 		return err
 	}
+	if err := readImport(c, f); err != nil {
+		return err
+	}
 	k := func(key string) string { return f["keystone_authtoken"][key] }
 	if t := k("auth_type"); t != "" && t != "password" {
 		return errors.New("only [keystone_authtoken] auth_type = password is supported")
@@ -251,6 +254,73 @@ func readLimits(c *Config, f osloFile) error {
 		return errors.New("[oslo_limit] system_scope must be all")
 	}
 	return nil
+}
+
+// readImport: the original's import options and defaults. copy-image needs
+// several stores (enabled_backends), which this single-store service lacks.
+func readImport(c *Config, f osloFile) error {
+	staging := firstOf(f.get("DEFAULT", "node_staging_uri"), "file:///tmp/staging/")
+	dir, ok := strings.CutPrefix(staging, "file://")
+	dir = strings.TrimRight(dir, "/")
+	if !ok || dir == "" || dir[0] != '/' {
+		return errors.New("invalid [DEFAULT] node_staging_uri: only file:// is supported")
+	}
+	methods := f.list("DEFAULT", "enabled_import_methods")
+	if len(methods) == 0 {
+		methods = []string{"glance-direct", "web-download", "copy-image"}
+	}
+	c.Import = ImportSettings{StagingDir: dir, TaskTimeToLive: 48 * time.Hour,
+		AllowedSchemes: []string{"http", "https"}, AllowedPorts: []int{80, 443}}
+	for _, m := range methods {
+		m = strings.Trim(strings.TrimSpace(m), "'\"[]")
+		switch m {
+		case "glance-direct", "web-download", "glance-download":
+			c.Import.Methods = append(c.Import.Methods, m)
+		case "copy-image": // only with several stores
+		default:
+			if m != "" {
+				return errors.New("invalid [DEFAULT] enabled_import_methods")
+			}
+		}
+	}
+	if v := f.get("task", "task_time_to_live"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return errors.New("invalid [task] task_time_to_live")
+		}
+		c.Import.TaskTimeToLive = time.Duration(n) * time.Hour
+	}
+	o := func(key string) ([]string, bool) {
+		if _, ok := f["import_filtering_opts"][key]; !ok {
+			return nil, false
+		}
+		return f.list("import_filtering_opts", key), true
+	}
+	if v, ok := o("allowed_schemes"); ok {
+		c.Import.AllowedSchemes = v
+	}
+	c.Import.DisallowedSchemes, _ = o("disallowed_schemes")
+	c.Import.AllowedHosts, _ = o("allowed_hosts")
+	c.Import.DisallowedHosts, _ = o("disallowed_hosts")
+	ports := func(key string, dst *[]int) error {
+		v, ok := o(key)
+		if !ok {
+			return nil
+		}
+		*dst = nil
+		for _, p := range v {
+			n, err := strconv.Atoi(p)
+			if err != nil || n < 1 || n > 65535 {
+				return errors.New("invalid [import_filtering_opts] " + key)
+			}
+			*dst = append(*dst, n)
+		}
+		return nil
+	}
+	if err := ports("allowed_ports", &c.Import.AllowedPorts); err != nil {
+		return err
+	}
+	return ports("disallowed_ports", &c.Import.DisallowedPorts)
 }
 
 func firstOf(v, fallback string) string {

@@ -33,6 +33,7 @@ type Handler struct {
 	logger       *slog.Logger
 	challenge    string
 	binary       BinaryTransfers
+	imports      *service.Importer
 }
 
 func New(service *service.Service, authenticator auth.Authenticator, publicURL, keystoneURL string, maxBodyBytes int64, logger *slog.Logger, options ...Option) (http.Handler, error) {
@@ -66,6 +67,12 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 	mux.HandleFunc("/v2/images/{id}/members/{member}", h.imageMember)
 	mux.HandleFunc("/v2/images/{id}/tags/{tag}", h.tag)
 	mux.HandleFunc("/v2/images/{id}/actions/{action}", h.action)
+	mux.HandleFunc("/v2/images/{id}/stage", h.stage)
+	mux.HandleFunc("/v2/images/{id}/import", h.importImage)
+	mux.HandleFunc("/v2/images/{id}/tasks", h.imageTasks)
+	mux.HandleFunc("/v2/info/import", h.importInfo)
+	mux.HandleFunc("/v2/tasks", h.tasksList)
+	mux.HandleFunc("/v2/tasks/{task}", h.task)
 	mux.HandleFunc("/v2/info/usage", h.usage)
 	mux.HandleFunc("/v2/info/stores", h.stores)
 	mux.HandleFunc("/v2/info/stores/detail", h.stores)
@@ -157,7 +164,7 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 
 // Log route templates rather than arbitrary paths, identifiers or queries.
 func logRoute(path string) string {
-	if path == "/v2/images" || path == "/" || path == "/versions" || path == "/v2/info/usage" || path == "/v2/info/stores" || path == "/v2/info/stores/detail" {
+	if path == "/v2/images" || path == "/" || path == "/versions" || path == "/v2/info/usage" || path == "/v2/info/stores" || path == "/v2/info/stores/detail" || path == "/v2/info/import" || path == "/v2/tasks" {
 		return path
 	}
 	if rest, ok := strings.CutPrefix(path, "/v2/schemas/"); ok && rest != "" && !strings.Contains(rest, "/") {
@@ -182,10 +189,15 @@ func logRoute(path string) string {
 				return "/v2/images/{id}/members/{member}"
 			case len(parts) == 3 && parts[1] == "tags" && parts[2] != "":
 				return "/v2/images/{id}/tags/{tag}"
+			case len(parts) == 2 && (parts[1] == "stage" || parts[1] == "import" || parts[1] == "tasks"):
+				return "/v2/images/{id}/" + parts[1]
 			case len(parts) == 3 && parts[1] == "actions" && (parts[2] == "deactivate" || parts[2] == "reactivate"):
 				return "/v2/images/{id}/actions/" + parts[2]
 			}
 		}
+	}
+	if rest, ok := strings.CutPrefix(path, "/v2/tasks/"); ok && rest != "" && !strings.Contains(rest, "/") {
+		return "/v2/tasks/{id}"
 	}
 	return "unmatched"
 }
@@ -374,7 +386,9 @@ func (h *Handler) failure(w http.ResponseWriter, err error) {
 func representation(image model.Image) map[string]any {
 	out := map[string]any{}
 	for key, value := range image.Properties {
-		if !model.Reserved(key) {
+		// os_glance_* are the original's own properties (import lock, stage
+		// host): shown, though clients cannot set them.
+		if !model.Reserved(key) || strings.HasPrefix(key, "os_glance") {
 			out[key] = value
 		}
 	}

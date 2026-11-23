@@ -133,3 +133,14 @@ func MemberPayload(m model.Member, deleted bool, at time.Time) map[string]any {
 	}
 	return p
 }
+
+// TaskPayload is the original's format_task_notification (task.create,
+// task.processing, task.success, task.failure): no input, result or message.
+func TaskPayload(t model.Task) map[string]any {
+	var expires any
+	if t.ExpiresAt != nil {
+		expires = isotime(*t.ExpiresAt)
+	}
+	return map[string]any{"id": t.ID, "type": t.Type, "status": t.Status, "result": nil, "owner": t.Owner, "message": nil,
+		"expires_at": expires, "created_at": isotime(t.CreatedAt), "updated_at": isotime(t.UpdatedAt), "deleted": false, "deleted_at": nil}
+}

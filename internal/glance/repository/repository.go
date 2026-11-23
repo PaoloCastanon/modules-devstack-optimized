@@ -38,3 +38,25 @@ type Members interface {
 	UpdateMember(ctx context.Context, imageID, memberID, status string, now time.Time, check func(model.Image, model.Member) error) (model.Member, error)
 	DeleteMember(ctx context.Context, imageID, memberID string, now time.Time, check func(model.Image, model.Member) error) (model.Member, error)
 }
+
+var ErrTaskNotFound = errors.New("task not found")
+
+// Tasks is the original's tasks/task_info tables and the import lock it
+// keeps on the image (property os_glance_import_task).
+type Tasks interface {
+	// BeginImport locks the image, runs check, moves it from one of from to
+	// "importing", sets the lock property to the task and inserts the task.
+	BeginImport(ctx context.Context, task model.Task, from []string, check func(model.Image) error) error
+	// ReleaseImport, if the image still holds the task's lock: moves it from
+	// "importing" to status and clears the lock (keeps it when keep). It
+	// reports whether the image held the lock.
+	ReleaseImport(ctx context.Context, imageID, taskID, status string, keep bool, now time.Time) (bool, error)
+	// SetStaged moves a queued image to uploading (staged) or back.
+	SetStaged(ctx context.Context, imageID string, from, to string, now time.Time, check func(model.Image) error) error
+	UpdateTask(ctx context.Context, task model.Task) error
+	GetTask(ctx context.Context, id string) (model.Task, error)
+	ListTasks(ctx context.Context, o model.TaskListOptions) ([]model.Task, error)
+	ImageTasks(ctx context.Context, imageID string) ([]model.Task, error)
+	// OpenTasks lists api_image_import tasks still pending or processing.
+	OpenTasks(ctx context.Context) ([]model.Task, error)
+}

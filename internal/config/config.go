@@ -44,6 +44,20 @@ type Config struct {
 	// Limits is the original's use_keystone_limits with its [oslo_limit]
 	// credentials (Glance only, read only by serve).
 	Limits KeystoneLimits
+	// Import is the original's interoperable import configuration.
+	Import ImportSettings
+}
+
+// ImportSettings: node_staging_uri, enabled_import_methods,
+// task_time_to_live and [import_filtering_opts], with the original's defaults.
+type ImportSettings struct {
+	StagingDir                    string
+	Methods                       []string
+	TaskTimeToLive                time.Duration
+	AllowedSchemes, AllowedHosts  []string
+	DisallowedSchemes             []string
+	DisallowedHosts               []string
+	AllowedPorts, DisallowedPorts []int
 }
 
 // KeystoneLimits is what oslo.limit reads: the Glance endpoint whose

@@ -54,6 +54,10 @@ func (h *Handler) schema(w http.ResponseWriter, r *http.Request) {
 		h.json(w, 200, imageSchema())
 	case "images":
 		h.json(w, 200, map[string]any{"name": "images", "properties": map[string]any{"images": map[string]any{"type": "array", "items": imageSchema()}, "first": map[string]string{"type": "string"}, "next": map[string]string{"type": "string"}, "schema": map[string]string{"type": "string"}}, "links": []map[string]string{{"rel": "first", "href": "{first}"}, {"rel": "next", "href": "{next}"}, {"rel": "describedby", "href": "{schema}"}}})
+	case "task":
+		h.json(w, 200, taskSchema())
+	case "tasks":
+		h.json(w, 200, map[string]any{"name": "tasks", "properties": map[string]any{"tasks": map[string]any{"type": "array", "items": taskSchema()}, "first": map[string]string{"type": "string"}, "next": map[string]string{"type": "string"}, "schema": map[string]string{"type": "string"}}, "links": []map[string]string{{"rel": "first", "href": "{first}"}, {"rel": "next", "href": "{next}"}, {"rel": "describedby", "href": "{schema}"}}})
 	case "member":
 		h.json(w, 200, memberSchema())
 	case "members":

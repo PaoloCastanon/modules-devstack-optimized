@@ -153,6 +153,23 @@ func run(args []string, logger *slog.Logger) (result error) {
 		}
 		logger.Info("keystone limits enabled", "endpoint_id", c.Limits.EndpointID)
 	}
+	if binary != nil {
+		// Interoperable import and tasks; recovered after the uploads were.
+		importer, err := service.NewImporter(c.Import, catalog, binary.owner, &http.Client{Transport: transport})
+		if err != nil {
+			return err
+		}
+		importer.SetNotifier(notifier)
+		defer importer.Close() // before the store closes (deferred earlier)
+		recovering, cancelRecovery := context.WithTimeout(ctx, c.Binary.RecoveryTimeout)
+		recovered, err := importer.Recover(recovering)
+		cancelRecovery()
+		if err != nil {
+			return errors.New("import task recovery failed")
+		}
+		logger.Info("import methods enabled", "methods", importer.Methods(), "staging", c.Import.StagingDir, "recovered_tasks", recovered)
+		options = append(options, api.WithImports(importer))
+	}
 	handler, err := api.New(catalog, authenticator, c.PublicURL, c.KeystoneURL, c.MaxBodyBytes, logger, options...)
 	if err != nil {
 		return err

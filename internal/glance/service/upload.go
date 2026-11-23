@@ -289,7 +289,9 @@ func (u *UploadCoordinator) checkpoint(ctx context.Context, key store.Key, phase
 	return ErrUploadReconciliation
 }
 
-func (u *UploadCoordinator) authorized(ctx context.Context, who auth.Identity, id string) (model.Image, error) {
+// authorized: task is the import holding the image's import lock ("" for a
+// client upload). A client upload never writes an image being imported.
+func (u *UploadCoordinator) authorized(ctx context.Context, who auth.Identity, id, task string) (model.Image, error) {
 	if err := who.Check(u.now()); err != nil {
 		return model.Image{}, err
 	}
@@ -305,6 +307,9 @@ func (u *UploadCoordinator) authorized(ctx context.Context, who auth.Identity, i
 	}
 	if err = writePolicy(who, i); err != nil {
 		return i, err
+	}
+	if i.Properties[model.ImportTaskProperty] != task {
+		return i, model.Fail(model.Conflict, "Image "+id+" is being imported.")
 	}
 	return i, nil
 }
@@ -335,8 +340,21 @@ func (u *UploadCoordinator) notify(eventType, priority string, payload any) {
 // image.activate and image.update (active), or an ERROR image.upload whose
 // payload is a message, as official Glance.
 func (u *UploadCoordinator) Upload(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64) (model.DataContent, error) {
+	return u.write(ctx, who, value, src, declared, "")
+}
+
+// ImportUpload writes an import's data (task holds the image's import lock)
+// through the same reserve/stage/publish/commit path as a client upload.
+func (u *UploadCoordinator) ImportUpload(ctx context.Context, who auth.Identity, id string, src io.Reader, declared *int64, task string) (model.DataContent, error) {
+	if task == "" {
+		return model.DataContent{}, model.Fail(model.Invalid, "Import without a task.")
+	}
+	return u.write(ctx, who, id, src, declared, task)
+}
+
+func (u *UploadCoordinator) write(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64, task string) (model.DataContent, error) {
 	var prepared *model.Image
-	content, err := u.upload(ctx, who, value, src, declared, &prepared)
+	content, err := u.upload(ctx, who, value, src, declared, &prepared, task)
 	if prepared == nil {
 		return content, err
 	}
@@ -355,7 +373,7 @@ func (u *UploadCoordinator) Upload(ctx context.Context, who auth.Identity, value
 	return content, nil
 }
 
-func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64, prepared **model.Image) (model.DataContent, error) {
+func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value string, src io.Reader, declared *int64, prepared **model.Image, task string) (model.DataContent, error) {
 	var zero model.DataContent
 	if err := ctx.Err(); err != nil {
 		return zero, err
@@ -364,11 +382,11 @@ func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value
 	if err != nil {
 		return zero, err
 	}
-	i, err := u.authorized(ctx, who, id)
+	i, err := u.authorized(ctx, who, id, task)
 	if err != nil {
 		return zero, err
 	}
-	if u.quota != nil {
+	if u.quota != nil && task == "" { // an import was checked when accepted
 		if err = u.quota.EnforceUpload(ctx, who.ProjectID); err != nil {
 			return zero, err
 		}
@@ -438,7 +456,7 @@ func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value
 	}
 	// Formats are mutable while queued. Re-read after reservation froze formats
 	// in saving; do not use a stale pre-reservation format to derive virtual_size.
-	current, err := u.authorized(ctx, who, id)
+	current, err := u.authorized(ctx, who, id, task)
 	if err != nil {
 		return fail(err)
 	}

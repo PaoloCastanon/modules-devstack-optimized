@@ -33,7 +33,7 @@ ssh_cmd=(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
          -o "UserKnownHostsFile=$known" -o ConnectTimeout=10 -i "$key")
 # A free loopback port for the tunnel.
 port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')
-suites=(history_persist partial transfers catalog members deletion fences contention e2e)
+suites=(history_persist partial transfers catalog members deletion fences contention e2e imports)
 tunnel=
 
 # Remote prelude: the original's MySQL account, read on the VM from
@@ -139,6 +139,10 @@ run contention "$sql" TestB25MySQLConcurrentDistinctImages GLANCE_GO_B25_MYSQL_T
 mkdir -m 700 "$private/e2e-root"
 run e2e ./cmd/glance TestB25MySQLFilesystemHTTP GLANCE_GO_B25_MYSQL_TEST=1 \
   "GLANCE_GO_TEST_DSN_FILE=$private/e2e.dsn" "GLANCE_GO_B25_TEST_ROOT=$private/e2e-root"
+
+mkdir -m 700 "$private/imports-root"
+run imports ./cmd/glance TestImportMySQLFilesystemHTTP GLANCE_GO_B25_MYSQL_TEST=1 \
+  "GLANCE_GO_TEST_DSN_FILE=$private/imports.dsn" "GLANCE_GO_B25_TEST_ROOT=$private/imports-root"
 
 # Logs must not carry the account's password.
 if grep -rqF -- "$password" "$out"; then echo "Password found in logs; removing them" >&2; rm -f "$out"/*.log; exit 1; fi
