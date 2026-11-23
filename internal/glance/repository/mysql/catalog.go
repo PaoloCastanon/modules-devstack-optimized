@@ -216,6 +216,9 @@ func (r *Repository) update(ctx context.Context, id string, change func(model.Im
 	if err != nil {
 		return result, err
 	}
+	// change may edit the maps and slices it is given in place: what to compare
+	// with is a copy taken before.
+	before := model.Image{Properties: maps.Clone(current.Properties), Tags: slices.Clone(current.Tags)}
 	result, err = change(current)
 	if err != nil {
 		return model.Image{}, err
@@ -236,7 +239,7 @@ func (r *Repository) update(ctx context.Context, id string, change func(model.Im
 	// Parent lock serializes writers; child changes and parent update share commit.
 	// Properties and tags are rewritten only when they changed: renaming an
 	// image with many properties does not touch them.
-	if !maps.Equal(current.Properties, result.Properties) || !slices.Equal(current.Tags, result.Tags) {
+	if !maps.Equal(before.Properties, result.Properties) || !slices.Equal(before.Tags, result.Tags) {
 		if _, err = r.exec(ctx, tx, "DELETE FROM image_properties WHERE image_id=?", id); err != nil {
 			return model.Image{}, err
 		}
