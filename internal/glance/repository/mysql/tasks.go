@@ -70,7 +70,7 @@ func (r *Repository) ImageTasks(ctx context.Context, imageID string) ([]model.Ta
 }
 
 func (r *Repository) OpenTasks(ctx context.Context) ([]model.Task, error) {
-	return r.tasks(ctx, "SELECT "+taskColumns+taskFrom+" WHERE t.type='api_image_import' AND t.status IN ('pending','processing') AND t.deleted=0 ORDER BY t.created_at")
+	return r.tasks(ctx, "SELECT "+taskColumns+taskFrom+" WHERE t.type IN ('api_image_import','import') AND t.status IN ('pending','processing') AND t.deleted=0 ORDER BY t.created_at")
 }
 
 // ListTasks is task_get_all: filters, one sort key plus id, marker paging.

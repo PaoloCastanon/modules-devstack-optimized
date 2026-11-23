@@ -246,6 +246,22 @@ func TestImportMySQLFilesystemHTTP(t *testing.T) {
 		t.Fatal("failed import not reverted", tasks, status(id))
 	}
 
+	// The original's task-based import (POST /v2/tasks, type import).
+	call("POST", "/v2/tasks", `{"type":"import","input":{"import_from":"`+source.URL+`/cirros.img","import_from_format":"raw","image_properties":{"name":"legacy"}}}`, "application/json", "member-token", 403)
+	var legacy map[string]any
+	_ = json.Unmarshal(call("POST", "/v2/tasks", `{"type":"import","input":{"import_from":"`+source.URL+`/cirros.img","import_from_format":"raw","image_properties":{"name":"legacy","container_format":"bare"}}}`, "application/json", "admin-token", 201), &legacy)
+	if legacy["status"] != "pending" || legacy["type"] != "import" {
+		t.Fatal("legacy task", legacy)
+	}
+	legacyImage := legacy["image_id"].(string)
+	wait(legacyImage, "active")
+	if got := call("GET", "/v2/images/"+legacyImage+"/file", "", "", "member-token", 200); !bytes.Equal(got, payload) {
+		t.Fatal("legacy import bytes differ")
+	}
+	if b := call("GET", "/v2/tasks/"+legacy["id"].(string), "", "", "admin-token", 200); !strings.Contains(string(b), `"status":"success"`) {
+		t.Fatal(string(b))
+	}
+
 	// Recovery: a task left processing by a previous process.
 	stuck := create()
 	call("PUT", "/v2/images/"+stuck+"/stage", "abc", "application/octet-stream", "member-token", 204)

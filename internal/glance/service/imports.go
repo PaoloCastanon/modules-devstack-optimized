@@ -518,3 +518,67 @@ func (m *Importer) tasksAccess(who auth.Identity) error {
 	}
 	return nil
 }
+
+// LegacyImport is POST /v2/tasks with type "import" (the original's
+// task-based import): admin only; it creates the image from
+// input.image_properties (disk_format from import_from_format) and fills it
+// from input.import_from, as a web-download. The task is returned pending.
+func (m *Importer) LegacyImport(ctx context.Context, who auth.Identity, taskType string, input json.RawMessage) (model.Task, error) {
+	if err := m.tasksAccess(who); err != nil {
+		return model.Task{}, err
+	}
+	if taskType != "import" {
+		return model.Task{}, model.Fail(model.Invalid, "Invalid type value: "+taskType)
+	}
+	var in struct {
+		From       string         `json:"import_from"`
+		FromFormat string         `json:"import_from_format"`
+		Properties map[string]any `json:"image_properties"`
+	}
+	if json.Unmarshal(input, &in) != nil || in.From == "" || in.FromFormat == "" || in.Properties == nil {
+		return model.Task{}, model.Fail(model.Invalid, "Input does not contain 'import_from', 'import_from_format' and 'image_properties'.")
+	}
+	u, err := url.Parse(in.From)
+	if err != nil {
+		return model.Task{}, model.Fail(model.Invalid, "Invalid import_from URI.")
+	}
+	if err = m.filter(u); err != nil {
+		return model.Task{}, err
+	}
+	str := func(k string) *string {
+		if v, ok := in.Properties[k].(string); ok {
+			return &v
+		}
+		return nil
+	}
+	create := model.CreateInput{Name: str("name"), DiskFormat: &in.FromFormat, ContainerFormat: str("container_format"), Visibility: str("visibility"), Properties: map[string]string{}}
+	if create.ContainerFormat == nil {
+		bare := "bare"
+		create.ContainerFormat = &bare
+	}
+	for k, v := range in.Properties {
+		if s, ok := v.(string); ok && !model.Reserved(k) {
+			create.Properties[k] = s
+		}
+	}
+	image, err := m.svc.Create(ctx, who, create)
+	if err != nil {
+		return model.Task{}, err
+	}
+	tid, err := uuid.NewRandom()
+	if err != nil {
+		return model.Task{}, err
+	}
+	now := m.now().UTC().Truncate(time.Second)
+	raw, user := string(input), who.UserID
+	task := model.Task{ID: tid.String(), Type: "import", Status: "pending", Owner: who.ProjectID, ImageID: &image.ID, UserID: &user, Input: &raw, CreatedAt: now, UpdatedAt: now}
+	if rid, ok := ctx.Value(RequestIDKey{}).(string); ok && rid != "" {
+		task.RequestID = &rid
+	}
+	if err = m.tasks.BeginImport(ctx, task, []string{"queued"}, func(model.Image) error { return nil }); err != nil {
+		return model.Task{}, importConflict(err, image.ID)
+	}
+	m.notifier.Notify("task.create", notify.Info, notify.TaskPayload(task))
+	m.start(task, "web-download", in.From)
+	return task, nil
+}

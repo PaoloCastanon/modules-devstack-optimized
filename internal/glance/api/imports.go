@@ -130,8 +130,24 @@ func (h *Handler) tasksList(w http.ResponseWriter, r *http.Request) {
 		h.status(w, 404, "The resource could not be found.")
 		return
 	}
+	if r.Method == http.MethodPost {
+		var body struct {
+			Type  string          `json:"type"`
+			Input json.RawMessage `json:"input"`
+		}
+		if !h.readObject(w, r, &body) {
+			return
+		}
+		t, err := h.imports.LegacyImport(r.Context(), who(r), body.Type, body.Input)
+		if err != nil {
+			h.failure(w, err)
+			return
+		}
+		h.json(w, 201, taskRepresentation(t, true))
+		return
+	}
 	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", "GET")
+		w.Header().Set("Allow", "GET, POST")
 		h.status(w, 405, "Method not implemented.")
 		return
 	}
