@@ -104,3 +104,30 @@ func TestOriginalTokenCacheTimeOverridesDefault(t *testing.T) {
 		t.Fatal(c.TokenCacheTime, err)
 	}
 }
+
+func TestOriginalKeystoneLimits(t *testing.T) {
+	load := func(conf string) (Config, error) {
+		env := map[string]string{"GLANCE_GO_CONFIG_FILE": originalConf(t, conf, 0644)}
+		return Load(func(k string) string { return env[k] }, "serve")
+	}
+	c, err := load(devstackConf)
+	if err != nil || c.Limits.Enabled {
+		t.Fatal("limits enabled without use_keystone_limits", err)
+	}
+	// As DevStack writes it.
+	limits := strings.Replace(devstackConf, "[DEFAULT]\n", "[DEFAULT]\nuse_keystone_limits = True\n", 1) +
+		"[oslo_limit]\nendpoint_id = 9520004904bb4bbbacaa6349bbc82816\nsystem_scope = all\nauth_url = http://192.168.122.10/identity\nauth_type = password\nusername = glance\npassword = svc\nuser_domain_name = Default\n"
+	c, err = load(limits)
+	if err != nil || !c.Limits.Enabled || c.Limits.URL != "http://192.168.122.10/identity/v3" || c.Limits.EndpointID != "9520004904bb4bbbacaa6349bbc82816" || c.Limits.SystemScope != "all" || c.Limits.Username != "glance" {
+		t.Fatal(c.Limits, err)
+	}
+	for _, bad := range []string{
+		strings.Replace(limits, "endpoint_id = 9520004904bb4bbbacaa6349bbc82816\n", "", 1),
+		strings.Replace(limits, "system_scope = all", "system_scope = domain", 1),
+		strings.Replace(limits, "use_keystone_limits = True", "use_keystone_limits = maybe", 1),
+	} {
+		if _, err = load(bad); err == nil {
+			t.Fatal("invalid [oslo_limit] accepted")
+		}
+	}
+}

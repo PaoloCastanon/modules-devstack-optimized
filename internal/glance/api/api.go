@@ -66,6 +66,9 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 	mux.HandleFunc("/v2/images/{id}/members/{member}", h.imageMember)
 	mux.HandleFunc("/v2/images/{id}/tags/{tag}", h.tag)
 	mux.HandleFunc("/v2/images/{id}/actions/{action}", h.action)
+	mux.HandleFunc("/v2/info/usage", h.usage)
+	mux.HandleFunc("/v2/info/stores", h.stores)
+	mux.HandleFunc("/v2/info/stores/detail", h.stores)
 	if h.binary != nil {
 		mux.HandleFunc("/v2/images/{id}/file", h.file)
 	}
@@ -154,7 +157,7 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 
 // Log route templates rather than arbitrary paths, identifiers or queries.
 func logRoute(path string) string {
-	if path == "/v2/images" || path == "/" || path == "/versions" {
+	if path == "/v2/images" || path == "/" || path == "/versions" || path == "/v2/info/usage" || path == "/v2/info/stores" || path == "/v2/info/stores/detail" {
 		return path
 	}
 	if rest, ok := strings.CutPrefix(path, "/v2/schemas/"); ok && rest != "" && !strings.Contains(rest, "/") {

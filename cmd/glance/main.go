@@ -15,6 +15,7 @@ import (
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/config"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/api"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/quota"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/service"
 )
@@ -140,6 +141,18 @@ func run(args []string, logger *slog.Logger) (result error) {
 	authenticator := auth.NewKeystone(c.KeystoneURL, client, c.Credential, auth.WithTokenCache(c.TokenCacheTime, 10000))
 	catalog := service.New(r, time.Now)
 	catalog.SetNotifier(notifier)
+	if c.Limits.Enabled {
+		// The original's use_keystone_limits: [oslo_limit] user and endpoint.
+		limits, err := quota.New(c.Limits, client, r)
+		if err != nil {
+			return err
+		}
+		catalog.SetQuota(limits)
+		if binary != nil {
+			binary.owner.SetQuota(limits)
+		}
+		logger.Info("keystone limits enabled", "endpoint_id", c.Limits.EndpointID)
+	}
 	handler, err := api.New(catalog, authenticator, c.PublicURL, c.KeystoneURL, c.MaxBodyBytes, logger, options...)
 	if err != nil {
 		return err

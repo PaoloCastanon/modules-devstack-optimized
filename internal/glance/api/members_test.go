@@ -134,3 +134,16 @@ func TestMembersTagsAndActionsRoutes(t *testing.T) {
 		t.Fatal("member ID leaked into logs")
 	}
 }
+
+func TestInfoUsageAndStores(t *testing.T) {
+	h, _, _, _ := harness()
+	w := request(h, "GET", "/v2/info/usage", "")
+	if w.Code != 200 || strings.TrimSpace(w.Body.String()) != `{"usage":{}}` {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	for _, path := range []string{"/v2/info/stores", "/v2/info/stores/detail"} {
+		if w = request(h, "GET", path, ""); w.Code != 404 || !strings.Contains(w.Body.String(), "Multi backend is not supported at this site.") {
+			t.Fatal(path, w.Code, w.Body.String())
+		}
+	}
+}

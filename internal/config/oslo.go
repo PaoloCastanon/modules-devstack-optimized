@@ -187,6 +187,9 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 		}
 	}
 	c.Notifications = n
+	if err := readLimits(c, f); err != nil {
+		return err
+	}
 	k := func(key string) string { return f["keystone_authtoken"][key] }
 	if t := k("auth_type"); t != "" && t != "password" {
 		return errors.New("only [keystone_authtoken] auth_type = password is supported")
@@ -202,6 +205,50 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 		UserDomainName: firstOf(k("user_domain_name"), "Default"), ProjectDomainName: firstOf(k("project_domain_name"), "Default")}
 	if c.Credential.Username == "" || c.Credential.Password == "" || c.Credential.ProjectName == "" {
 		return errors.New("[keystone_authtoken] needs username, password and project_name")
+	}
+	return nil
+}
+
+// osloBool parses an oslo.config boolean (true/false, yes/no, on/off, 1/0).
+func osloBool(v string) (bool, bool) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "true", "yes", "on", "1":
+		return true, true
+	case "false", "no", "off", "0", "":
+		return false, true
+	}
+	return false, false
+}
+
+// readLimits: [DEFAULT] use_keystone_limits and [oslo_limit], as oslo.limit
+// (password auth; endpoint_id names the Glance endpoint).
+func readLimits(c *Config, f osloFile) error {
+	enabled, ok := osloBool(f.get("DEFAULT", "use_keystone_limits"))
+	if !ok {
+		return errors.New("invalid [DEFAULT] use_keystone_limits")
+	}
+	if !enabled {
+		return nil
+	}
+	l := func(key string) string { return f["oslo_limit"][key] }
+	if t := l("auth_type"); t != "" && t != "password" {
+		return errors.New("only [oslo_limit] auth_type = password is supported")
+	}
+	url := strings.TrimRight(l("auth_url"), "/")
+	if !strings.HasSuffix(url, "/v3") {
+		url += "/v3"
+	}
+	if err := ValidateURL(url); err != nil {
+		return errors.New("invalid [oslo_limit] auth_url")
+	}
+	c.Limits = KeystoneLimits{Enabled: true, URL: url, EndpointID: l("endpoint_id"), Username: l("username"), Password: l("password"),
+		UserDomainName: firstOf(l("user_domain_name"), "Default"), SystemScope: l("system_scope"), ProjectName: l("project_name"),
+		ProjectDomainName: firstOf(l("project_domain_name"), "Default"), Region: l("endpoint_region_name")}
+	if c.Limits.EndpointID == "" || c.Limits.Username == "" || c.Limits.Password == "" || c.Limits.SystemScope == "" && c.Limits.ProjectName == "" {
+		return errors.New("[oslo_limit] needs endpoint_id, username, password and system_scope or project_name")
+	}
+	if c.Limits.SystemScope != "" && c.Limits.SystemScope != "all" {
+		return errors.New("[oslo_limit] system_scope must be all")
 	}
 	return nil
 }

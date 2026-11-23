@@ -41,6 +41,20 @@ type Config struct {
 	// (read from its glance-api.conf). Its files are in
 	// Binary.OfficialStoreDir, the original's filesystem_store_datadir.
 	OfficialCatalog string
+	// Limits is the original's use_keystone_limits with its [oslo_limit]
+	// credentials (Glance only, read only by serve).
+	Limits KeystoneLimits
+}
+
+// KeystoneLimits is what oslo.limit reads: the Glance endpoint whose
+// registered and project limits apply, and the user that reads them
+// (system scope "all", or a project scope).
+type KeystoneLimits struct {
+	Enabled                                bool
+	URL, EndpointID                        string
+	Username, Password, UserDomainName     string
+	SystemScope                            string
+	ProjectName, ProjectDomainName, Region string
 }
 
 // ReadSecret rejects group/world-readable files and never returns their contents in errors.

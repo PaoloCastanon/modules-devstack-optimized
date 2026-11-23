@@ -15,6 +15,7 @@ type Service struct {
 	repo     repository.Repository
 	now      func() time.Time
 	notifier notify.Notifier
+	quota    QuotaEnforcer
 }
 
 // SetNotifier makes the catalog emit image.create/update/delete as official
@@ -44,6 +45,11 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, input mode
 	}
 	if image.Visibility == "public" && !identity.HasRole("admin") {
 		return model.Image{}, model.Fail(model.Forbidden, "Publishing images requires admin role.")
+	}
+	if s.quota != nil {
+		if err = s.quota.EnforceImageCount(ctx, identity.ProjectID); err != nil {
+			return model.Image{}, err
+		}
 	}
 	if err = s.repo.Create(ctx, image); errors.Is(err, repository.ErrDuplicate) {
 		return model.Image{}, model.Fail(model.Conflict, "An image with this ID already exists.")

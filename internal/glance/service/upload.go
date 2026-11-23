@@ -46,6 +46,7 @@ type ImageReader interface {
 type UploadCoordinator struct {
 	images                    ImageReader
 	transfers                 repository.Transfers
+	quota                     QuotaEnforcer
 	bytes                     store.Store
 	limits                    UploadLimits
 	now                       func() time.Time
@@ -366,6 +367,11 @@ func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value
 	i, err := u.authorized(ctx, who, id)
 	if err != nil {
 		return zero, err
+	}
+	if u.quota != nil {
+		if err = u.quota.EnforceUpload(ctx, who.ProjectID); err != nil {
+			return zero, err
+		}
 	}
 	if src == nil || declared != nil && *declared < 0 {
 		return zero, model.Fail(model.Invalid, "Invalid upload source or declared size.")
