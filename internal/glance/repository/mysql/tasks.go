@@ -291,3 +291,33 @@ func (r *Repository) CommitLocation(ctx context.Context, imageID, taskID, url st
 
 // StoreLocation is the location this repository's store gives an image.
 func (r *Repository) StoreLocation(imageID string) string { return r.location(imageID) }
+
+// LocationsFor is ImageLocations for a page of images in one query (the
+// original loads them with the images, joinedload).
+func (r *Repository) LocationsFor(ctx context.Context, ids []string) (map[string][]model.Location, error) {
+	out := make(map[string][]model.Location, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	args := make([]any, len(ids))
+	marks := make([]string, len(ids))
+	for n, id := range ids {
+		args[n], marks[n] = id, "?"
+	}
+	q := "SELECT image_id, value, meta_data FROM image_locations WHERE image_id IN (" + strings.Join(marks, ",") + ") AND deleted=0 AND status='active' ORDER BY id"
+	err := r.rows(ctx, q, args, func(s scanner) error {
+		var id string
+		var l model.Location
+		var meta sql.NullString
+		if err := s.Scan(&id, &l.URL, &meta); err != nil {
+			return err
+		}
+		l.Metadata = meta.String
+		if l.Metadata == "" {
+			l.Metadata = "{}"
+		}
+		out[id] = append(out[id], l)
+		return nil
+	})
+	return out, err
+}

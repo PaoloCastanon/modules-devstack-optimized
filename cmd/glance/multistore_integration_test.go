@@ -89,7 +89,7 @@ func TestMultiStoreMySQLFilesystemHTTP(t *testing.T) {
 	}
 	list := []api.StoreInfo{{ID: "local", Type: "file", Description: "Local", DataDir: images, Default: true}, {ID: "fast", Type: "file", DataDir: fast, Weight: 5}}
 	h, err := api.New(catalog, importIdentity{}, "http://127.0.0.1:9293", "http://keystone-fixture.invalid/v3", 1048576, testLogger(),
-		api.WithBinaryTransfers(runtime.owner), api.WithImports(importer), api.WithStores(list, runtime.owner))
+		api.WithBinaryTransfers(runtime.owner), api.WithImports(importer), api.WithStores(list, runtime.owner), api.WithLocationViews(true, true))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,6 +161,23 @@ func TestMultiStoreMySQLFilesystemHTTP(t *testing.T) {
 	}
 	if got := call("GET", "/v2/images/"+id+"/file", nil, nil, "member-token", 200); !bytes.Equal(got, payload) {
 		t.Fatal("download from the fast store")
+	}
+	// The listing shows the same locations, direct_url and stores (one
+	// query for the page).
+	var page struct{ Images []map[string]any }
+	_ = json.Unmarshal(call("GET", "/v2/images", nil, nil, "member-token", 200), &page)
+	listed := false
+	for _, v := range page.Images {
+		if v["id"] == id {
+			listed = true
+			locs, _ := v["locations"].([]any)
+			if v["stores"] != "fast" || v["direct_url"] != "file://"+fast+"/"+id || len(locs) != 1 {
+				t.Fatal("listed image", v)
+			}
+		}
+	}
+	if !listed {
+		t.Fatal("image not listed")
 	}
 
 	// copy-image is admin-only; it copies to the default store.

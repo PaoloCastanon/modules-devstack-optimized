@@ -21,7 +21,7 @@ type StoreInfo struct {
 // MultiStore is the multi-store part of service.UploadCoordinator.
 type MultiStore interface {
 	UploadTo(context.Context, auth.Identity, string, io.Reader, *int64, string) (model.DataContent, error)
-	ImageStores(context.Context, string) ([]string, error)
+	LocationsFor(context.Context, []string) (map[string][]model.Location, error)
 	DeleteFromStore(context.Context, auth.Identity, string, string) error
 }
 
@@ -87,17 +87,4 @@ func (h *Handler) deleteFromStore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// withStores adds the original's "stores" (the image's backends, comma
-// separated) to an image representation.
-func (h *Handler) withStores(r *http.Request, rep map[string]any) map[string]any {
-	if h.multi == nil {
-		return rep
-	}
-	id, _ := rep["id"].(string)
-	if list, err := h.multi.ImageStores(r.Context(), id); err == nil && len(list) > 0 {
-		rep["stores"] = strings.Join(list, ",")
-	}
-	return rep
 }

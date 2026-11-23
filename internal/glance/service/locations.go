@@ -165,6 +165,36 @@ func (m *Importer) runLocation(repo locationRepo, task model.Task, url string, v
 
 // ImageLocationList is the image's locations for its view (no policy:
 // the view itself was authorized).
+// LocationsFor is ImageLocationList for several images in one query.
+func (m *Importer) LocationsFor(ctx context.Context, ids []string) (map[string][]model.Location, error) {
+	return locationsFor(ctx, m.tasks, ids)
+}
+
+type batchLocations interface {
+	LocationsFor(ctx context.Context, ids []string) (map[string][]model.Location, error)
+}
+
+func locationsFor(ctx context.Context, repo any, ids []string) (map[string][]model.Location, error) {
+	if b, ok := repo.(batchLocations); ok {
+		return b.LocationsFor(ctx, ids)
+	}
+	l, ok := repo.(interface {
+		ImageLocations(ctx context.Context, imageID string) ([]model.Location, error)
+	})
+	if !ok {
+		return nil, errors.New("locations are not available")
+	}
+	out := map[string][]model.Location{}
+	for _, id := range ids {
+		list, err := l.ImageLocations(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		out[id] = list
+	}
+	return out, nil
+}
+
 func (m *Importer) ImageLocationList(ctx context.Context, imageID string) ([]model.Location, error) {
 	repo, err := m.locations()
 	if err != nil {
