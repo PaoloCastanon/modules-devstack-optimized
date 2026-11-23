@@ -1468,3 +1468,24 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     `pending_delete` (son filas `deleted=1` y la capa SQL filtraba
     `deleted=0`); corregido en el mismo commit.
   - **Fuera del alcance:** `glance-download` y stores que no son de archivos.
+- 2026-11-23, optimizaciones del código nuevo (rama local `perf/glance-full-api`,
+  sobre la PR #28), con la regla de comparar con el original y medir antes y
+  después. Benchmarks en el PC (go1.24.4, `-count 5`, mediana):
+  - **Listado con `show_image_direct_url`** (o `show_multiple_locations`,
+    `enabled_backends`): una consulta de ubicaciones por página en vez de una
+    por imagen (25 → 1 en el general log de MySQL). En la VM,
+    `GET /v2/images?limit=25`, 300 peticiones: p50 9,49 → 3,74 ms. DevStack
+    deja estas opciones en `False`, así que la configuración por defecto y la
+    campaña v6 no tenían el problema (p50 por defecto: 3,07 ms).
+  - **Inspector de formato:** 64 MiB binarios en chunks de 1 MiB,
+    1,15 → 0,155 ms y 12,4 → 1,2 MB asignados; la subida con inspección baja
+    de 15,5 a 4,3 MB asignados. Corpus contra oslo.utils 8.2.0: 540/540.
+  - **copy-image:** 64 MiB entre stores, 197 → 92 ms (escritura y hashes en
+    paralelo, el mismo pipeline de la subida).
+  - **Protección de propiedades:** 5,7 → 0,59 µs por imagen de 12
+    propiedades. **Políticas:** `member_id` se consulta solo si una regla lo lee.
+  - **Descartado tras medir:** `DetectFile` ya termina en 0,37 ms por 64 MiB;
+    mover la inspección a un hilo aparte no compensa (menos de 1 % de la
+    subida).
+  - **Verificación:** `make check` OK; integración MySQL 12/12 con `-race`;
+    suite unificada 11/11 con el binario de `ad38130`.
