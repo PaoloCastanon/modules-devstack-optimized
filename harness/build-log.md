@@ -1432,3 +1432,39 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     El original subió un 30–37 % más lento que en la v5 en el DevStack
     reinstalado: los factores se comparan dentro de cada campaña.
     [Resultados](../docs/benchmarks/glance-results-v6-pc-juan-20261122.md).
+- 2026-11-23, Glance Go con la API v2 completa que deja activa DevStack
+  (rama local `feat/glance-full-api`, sobre la de la PR #27): miembros, tags
+  por ruta, desactivar/reactivar, cuotas de Keystone y `/v2/info/*`,
+  importación interoperable con tareas, caché `centralized_db` con
+  `/v2/cache`, metadefs y los 16 schemas idénticos al original
+  ([detalle](../docs/glance/full-api.md)).
+  - **Verificación:** `make check` OK; integración MySQL 11/11 con `-race`
+    (nuevas: `members`, `imports`); suite unificada 11/11 con el binario
+    nuevo; comparación diferencial con el original vivo, 449 de 450 casos
+    idénticos (el que falta es el volcado de `jsonschema` en un 400).
+  - **Costo de las cuotas:** con `use_keystone_limits` activo en los dos,
+    crear una imagen tarda 99 ms (p50) en Glance Go y 376 ms en el original
+    (30 creaciones seguidas). Sin cuotas, Go tardaba unos 17 ms: el resto es
+    la ida a Keystone, que el original también paga.
+  - **Fuera del alcance todavía:** varios stores y `copy-image`, la API de
+    ubicaciones, la inspección del formato al subir, la protección de
+    propiedades y los plugins de importación. La campaña v6 midió la revisión
+    `a69474d`, sin estas funciones.
+- 2026-11-23, Glance 100 % en Go por defecto (rama local `feat/glance-full-api`):
+  el plugin DevStack ya no instala el Glance de Python
+  (`GLANCE_GO_INSTALL_ORIGINAL=False`); `glance-manage`, `glance-cache-pruner`,
+  `glance-cache-cleaner` y `glance-scrubber` son binarios Go. Se suman a la API:
+  inspección de formato (port de `format_inspector`, 600/600 decisiones iguales
+  al original), ubicaciones, políticas `policy.yaml` y protección de
+  propiedades, plugins de importación, cuotas locales, `POST /v2/tasks`,
+  `/healthcheck`, varios stores de archivos con `copy-image` y borrado diferido
+  ([detalle](../docs/glance/full-api.md)).
+  - **Verificación:** integración MySQL 12/12 con `-race` (nueva: `stores`, que
+    cubre `X-Image-Meta-Store`, `copy-image`, borrar la copia de un store y
+    `delayed_delete` + scrubber); en la VM sin `/opt/stack/glance` ni unidad
+    g-api, `glance-manage db check` OK y suite unificada 11/11 con los binarios
+    del commit `054ec95`.
+  - **Defecto encontrado:** el scrubber no veía las ubicaciones
+    `pending_delete` (son filas `deleted=1` y la capa SQL filtraba
+    `deleted=0`); corregido en el mismo commit.
+  - **Fuera del alcance:** `glance-download` y stores que no son de archivos.

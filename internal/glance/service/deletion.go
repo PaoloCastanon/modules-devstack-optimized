@@ -28,7 +28,7 @@ func (u *UploadCoordinator) claimDeletion(id string) (func(), error) {
 }
 
 func deletionPolicy(who auth.Identity, i model.Image) error {
-	if err := writePolicy(who, i); err != nil {
+	if err := writePolicy(who, i, "delete_image"); err != nil {
 		return err
 	}
 	if i.Protected {
@@ -114,7 +114,7 @@ func (u *UploadCoordinator) DeleteImage(ctx context.Context, who auth.Identity, 
 	if err := who.Check(u.now()); err != nil {
 		return err
 	}
-	if !who.HasRole("member") && !who.HasRole("admin") {
+	if !overridden() && !who.HasRole("member") && !who.HasRole("admin") {
 		return model.Fail(model.Forbidden, "Deleting images requires member or admin role.")
 	}
 	id, err := model.CanonicalID(value)
@@ -179,6 +179,11 @@ func (u *UploadCoordinator) DeleteImage(ctx context.Context, who auth.Identity, 
 	resolved, cancel := u.resolution(ctx)
 	defer cancel()
 	s, readErr := u.readState(resolved, id)
+	if readErr == nil && s.Deleted && s.Status == "pending_delete" && sameDataReceipt(before, s) {
+		// delayed_delete: the data stays until glance-scrubber removes it.
+		u.notify("image.delete", notify.Info, notify.DeletePayload(i, s.UpdatedAt))
+		return nil
+	}
 	if readErr != nil || !s.Deleted || s.Status != "deleted" || !sameDataReceipt(before, s) {
 		return ErrUploadReconciliation
 	}
