@@ -1310,7 +1310,7 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     del PC con chrony y `ptp_kvm`, con un desfase de 0,00–0,01 ms. Se fue
     directo a la oficial, porque el piloto ya había pasado 72/72.
   - Revisión medida `7e922cd`, binario `67e58def…`.
-    [Resultados](../docs/benchmarks/glance-results-v5-pc-juan-20261121.md).
+    Resultados.
     La evidencia cruda queda fuera del repositorio (en el PC de Juan).
 - 2026-11-21, protocolo Glance compact v6: la matriz y la ruta de la v5,
   ahora con las mismas condiciones de datos para los dos.
@@ -1431,7 +1431,7 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     C=1) a ×39,6 (subir 1 MiB, C=16); PSS 16–53 MiB frente a 233–239 MiB.
     El original subió un 30–37 % más lento que en la v5 en el DevStack
     reinstalado: los factores se comparan dentro de cada campaña.
-    [Resultados](../docs/benchmarks/glance-results-v6-pc-juan-20261122.md).
+    Resultados.
 - 2026-11-23, Glance Go con la API v2 completa que deja activa DevStack
   (rama local `feat/glance-full-api`, sobre la de la PR #27): miembros, tags
   por ruta, desactivar/reactivar, cuotas de Keystone y `/v2/info/*`,
