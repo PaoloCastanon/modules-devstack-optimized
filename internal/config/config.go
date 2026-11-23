@@ -56,6 +56,9 @@ type Config struct {
 	// retry_interval (oslo.db: 10 and 10 s; -1 retries forever).
 	DBMaxRetries    int
 	DBRetryInterval time.Duration
+	// UserStorageQuota is user_storage_quota in bytes (0: none); applied
+	// only without use_keystone_limits, as the original.
+	UserStorageQuota int64
 }
 
 // ImageFormatSettings: require_image_format_match (default True) and

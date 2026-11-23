@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"strconv"
 	"sync"
 	"time"
 
@@ -17,10 +19,12 @@ import (
 )
 
 var (
-	ErrUploadNotReady       = errors.New("upload coordinator is not accepting transfers")
-	ErrUploadBusy           = errors.New("upload capacity or image is busy")
-	ErrUploadUnavailable    = errors.New("upload dependency unavailable")
-	ErrUploadInterrupted    = errors.New("upload source interrupted")
+	ErrUploadNotReady    = errors.New("upload coordinator is not accepting transfers")
+	ErrUploadBusy        = errors.New("upload capacity or image is busy")
+	ErrUploadUnavailable = errors.New("upload dependency unavailable")
+	ErrUploadInterrupted = errors.New("upload source interrupted")
+	// errStorageQuotaFull: the limiting reader passed user_storage_quota.
+	errStorageQuotaFull     = errors.New("storage quota full")
 	ErrUploadGone           = errors.New("upload lost to an image tombstone")
 	ErrUploadReconciliation = errors.New("upload state requires reconciliation; evidence retained")
 )
@@ -39,6 +43,8 @@ type UploadLimits struct {
 	Inspect          bool
 	RequireFormat    bool
 	GPTNonfatalCheck []string
+	// StorageQuota is user_storage_quota in bytes (0: none).
+	StorageQuota int64
 }
 
 type ImageReader interface {
@@ -119,7 +125,7 @@ func (u *UploadCoordinator) claim(id string) (func(), error) {
 }
 
 func uploadStorageError(err error) error {
-	for _, known := range []error{context.Canceled, context.DeadlineExceeded, ErrUploadInterrupted, store.ErrTooLarge, store.ErrSizeMismatch, store.ErrStoreFull, store.ErrIntegrity, store.ErrExists} {
+	for _, known := range []error{context.Canceled, context.DeadlineExceeded, ErrUploadInterrupted, errStorageQuotaFull, store.ErrTooLarge, store.ErrSizeMismatch, store.ErrStoreFull, store.ErrIntegrity, store.ErrExists} {
 		if errors.Is(err, known) {
 			return known
 		}
@@ -137,7 +143,7 @@ func (s uploadSource) Read(p []byte) (int, error) {
 	if err == nil || err == io.EOF {
 		return n, err
 	}
-	for _, known := range []error{context.Canceled, context.DeadlineExceeded, store.ErrTooLarge, store.ErrSizeMismatch} {
+	for _, known := range []error{context.Canceled, context.DeadlineExceeded, store.ErrTooLarge, store.ErrSizeMismatch, errStorageQuotaFull} {
 		if errors.Is(err, known) {
 			return n, known
 		}
@@ -400,6 +406,22 @@ func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value
 	if src == nil || declared != nil && *declared < 0 {
 		return zero, model.Fail(model.Invalid, "Invalid upload source or declared size.")
 	}
+	// The original's user_storage_quota (check_quota + LimitingReader),
+	// only without Keystone limits.
+	if u.limits.StorageQuota > 0 && u.quota == nil {
+		remaining, err := u.storageRemaining(ctx, i.Owner)
+		if err != nil {
+			return zero, err
+		}
+		if declared != nil && *declared > remaining || declared == nil && remaining <= 0 {
+			size := "None"
+			if declared != nil {
+				size = strconv.FormatInt(*declared, 10)
+			}
+			return zero, storageQuotaFull(fmt.Sprintf("The size of the data %s will exceed the limit. %d bytes remaining.", size, remaining))
+		}
+		src = &quotaReader{r: src, left: remaining}
+	}
 	var expected *int64
 	if declared != nil {
 		n := *declared
@@ -486,6 +508,9 @@ func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value
 	if err != nil {
 		if errors.Is(err, store.ErrExists) {
 			return zero, ErrUploadReconciliation
+		}
+		if errors.Is(err, errStorageQuotaFull) {
+			return fail(storageQuotaFull("The size of the data %(image_size)s will exceed the limit. %(remaining)s bytes remaining."))
 		}
 		return fail(uploadStorageError(err))
 	}
@@ -625,4 +650,41 @@ func (u *UploadCoordinator) verifyBlob(ctx context.Context, key store.Key, expec
 		return store.ErrIntegrity
 	}
 	return closeErr
+}
+
+// storageUsage is the repository's project usage (user_get_storage_usage).
+type storageUsage interface {
+	ProjectUsage(ctx context.Context, project string) (model.Usage, error)
+}
+
+func (u *UploadCoordinator) storageRemaining(ctx context.Context, owner string) (int64, error) {
+	r, ok := u.transfers.(storageUsage)
+	if !ok {
+		return u.limits.StorageQuota, nil
+	}
+	usage, err := r.ProjectUsage(ctx, owner)
+	if err != nil {
+		return 0, uploadDBError(err, "")
+	}
+	return u.limits.StorageQuota - usage.SizeTotal, nil
+}
+
+func storageQuotaFull(detail string) error {
+	return model.Fail(model.LimitExceeded, "Image exceeds the storage quota: "+detail)
+}
+
+// quotaReader is the original's LimitingReader with StorageQuotaFull,
+// raised without arguments (its message keeps the placeholders).
+type quotaReader struct {
+	r    io.Reader
+	left int64
+}
+
+func (q *quotaReader) Read(p []byte) (int, error) {
+	n, err := q.r.Read(p)
+	q.left -= int64(n)
+	if q.left < 0 {
+		return n, errStorageQuotaFull
+	}
+	return n, err
 }

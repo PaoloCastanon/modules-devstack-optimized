@@ -221,6 +221,14 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 			*dst = n
 		}
 	}
+	if v := firstOf(f.get("DEFAULT", "user_storage_quota"), "0"); v != "0" {
+		m := storageQuota.FindStringSubmatch(v)
+		if m == nil {
+			return errors.New("Invalid value for option user_storage_quota: " + v)
+		}
+		n, _ := strconv.ParseInt(m[1], 10, 64)
+		c.UserStorageQuota = n << map[string]uint{"": 0, "B": 0, "KB": 10, "MB": 20, "GB": 30, "TB": 40}[m[2]]
+	}
 	// image_size_cap (1 TiB by default) bounds uploads, unless
 	// GLANCE_GO_MAX_UPLOAD_BYTES sets the bound explicitly.
 	if env("GLANCE_GO_MAX_UPLOAD_BYTES") == "" {
@@ -406,6 +414,8 @@ func readCache(c *Config, f osloFile) error {
 	}
 	return nil
 }
+
+var storageQuota = regexp.MustCompile(`^(\d+)((K|M|G|T)?B)?$`)
 
 func firstOf(v, fallback string) string {
 	if v != "" {

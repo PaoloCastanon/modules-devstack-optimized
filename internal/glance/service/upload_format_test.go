@@ -40,3 +40,26 @@ func asDomain(err error, target **model.Error) bool {
 	}
 	return ok
 }
+
+// As the original's user_storage_quota: refused before the upload when the
+// declared size exceeds what remains, and cut by the limiting reader when
+// the size is unknown; the image stays queued.
+func TestUploadUserStorageQuota(t *testing.T) {
+	for _, declare := range []bool{true, false} {
+		u, d, fs, _ := uploadFixture(t)
+		u.limits.StorageQuota = int64(len(uploadPayload)) - 1
+		var size *int64
+		if declare {
+			n := int64(len(uploadPayload))
+			size = &n
+		}
+		_, err := u.Upload(context.Background(), identity("member"), uploadImageID, bytes.NewReader(uploadPayload), size)
+		var domain *model.Error
+		if !asDomain(err, &domain) || domain.Kind != model.LimitExceeded {
+			t.Fatal(declare, "quota not enforced", err)
+		}
+		if d.image.Status != "queued" || fs.blob != nil {
+			t.Fatal(declare, "not restored", d.image.Status)
+		}
+	}
+}
