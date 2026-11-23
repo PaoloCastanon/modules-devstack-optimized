@@ -3,6 +3,7 @@ package format
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -170,4 +171,56 @@ func (w *Wrapper) Check(diskFormat string, requireMatch bool, nonfatal []string)
 		}
 		return virtual, nil
 	}
+}
+
+// DetectFile is the original's detect_file_format plus the safety check
+// the conversion plugin runs: the format name, or an error with its
+// message ("Image has disallowed configuration", "Image format detection
+// failed", "Unable to inspect image").
+func DetectFile(path string, nonfatal []string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", errors.New("Unable to inspect image")
+	}
+	defer f.Close()
+	w := NewWrapper()
+	buf := make([]byte, 4096)
+	var found *inspector
+	for found == nil {
+		n, err := f.Read(buf)
+		if n > 0 {
+			_, _ = w.Write(buf[:n])
+			if m, e := w.formats(); e == nil && len(m) == 1 {
+				found = m[0]
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+	w.Finish()
+	if found == nil {
+		m, e := w.formats()
+		if e != nil || len(m) != 1 {
+			return "", errors.New("Image format detection failed")
+		}
+		found = m[0]
+	}
+	if err := found.safetyCheck(); err != nil {
+		var sf *SafetyCheckFailed
+		if errors.As(err, &sf) {
+			fatal := 0
+			for name := range sf.Failures {
+				if !slices.Contains(nonfatal, name) {
+					fatal++
+				}
+			}
+			if found.name == "gpt" && fatal == 0 {
+				return found.name, nil
+			}
+			return "", errors.New("Image has disallowed configuration")
+		}
+		return "", errors.New("Image format detection failed")
+	}
+	return found.name, nil
 }

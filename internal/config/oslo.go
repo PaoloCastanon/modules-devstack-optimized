@@ -206,7 +206,7 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 	if err := readLimits(c, f); err != nil {
 		return err
 	}
-	if err := readImport(c, f); err != nil {
+	if err := readImport(c, f, env); err != nil {
 		return err
 	}
 	if err := readCache(c, f); err != nil {
@@ -329,7 +329,7 @@ func readLimits(c *Config, f osloFile) error {
 }
 
 // readImport: the original's import options and defaults.
-func readImport(c *Config, f osloFile) error {
+func readImport(c *Config, f osloFile, env func(string) string) error {
 	staging := firstOf(f.get("DEFAULT", "node_staging_uri"), "file:///tmp/staging/")
 	dir, ok := strings.CutPrefix(staging, "file://")
 	dir = strings.TrimRight(dir, "/")
@@ -388,6 +388,52 @@ func readImport(c *Config, f osloFile) error {
 			*dst = append(*dst, n)
 		}
 		return nil
+	}
+	// glance-image-import.conf, next to glance-api.conf, holds the plugins.
+	imp := f
+	if conf := env("GLANCE_GO_CONFIG_FILE"); conf != "" {
+		if extra, err := readOriginalConfig(filepath.Join(filepath.Dir(conf), "glance-image-import.conf")); err == nil {
+			imp = osloFile{}
+			for _, src := range []osloFile{f, extra} {
+				for sec, vals := range src {
+					if imp[sec] == nil {
+						imp[sec] = map[string]string{}
+					}
+					for k, v := range vals {
+						imp[sec][k] = v
+					}
+				}
+			}
+		}
+	}
+	for _, p := range imp.list("image_import_opts", "image_import_plugins") {
+		if p = strings.Trim(strings.TrimSpace(p), "'\"[]"); p != "" {
+			switch p {
+			case "no_op", "image_conversion", "inject_image_metadata", "image_decompression":
+				c.Import.Plugins = append(c.Import.Plugins, p)
+			default:
+				return errors.New("unknown image import plugin " + p)
+			}
+		}
+	}
+	c.Import.ConversionFormat = firstOf(imp.get("image_conversion", "output_format"), "raw")
+	if c.Import.ConversionFormat != "raw" && c.Import.ConversionFormat != "qcow2" && c.Import.ConversionFormat != "vmdk" {
+		return errors.New("invalid [image_conversion] output_format")
+	}
+	c.Import.InjectIgnore = imp.list("inject_metadata_properties", "ignore_user_roles")
+	if _, set := imp["inject_metadata_properties"]["ignore_user_roles"]; !set {
+		c.Import.InjectIgnore = []string{"admin"}
+	}
+	c.Import.Inject = map[string]string{}
+	for _, kv := range imp.list("inject_metadata_properties", "inject") {
+		if k, v, ok := strings.Cut(kv, ":"); ok {
+			c.Import.Inject[strings.TrimSpace(k)] = strings.TrimSpace(v)
+		}
+	}
+	c.Import.GPTNonfatal = imp.list("image_format", "gpt_safety_checks_nonfatal")
+	c.Import.VMDKAllowed = imp.list("image_format", "vmdk_allowed_types")
+	if _, set := imp["image_format"]["vmdk_allowed_types"]; !set {
+		c.Import.VMDKAllowed = []string{"streamOptimized", "monolithicSparse"}
 	}
 	if err := ports("allowed_ports", &c.Import.AllowedPorts); err != nil {
 		return err

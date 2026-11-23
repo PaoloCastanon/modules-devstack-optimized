@@ -289,11 +289,11 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 	if image, err := m.svc.repo.Get(ctx, id); err == nil {
 		m.svc.notify("image.update", notify.ImagePayload(image))
 	}
-	m.start(task, method, req.Method.URI)
+	m.start(task, method, req.Method.URI, who.Roles)
 	return task, nil
 }
 
-func (m *Importer) start(task model.Task, method, uri string) {
+func (m *Importer) start(task model.Task, method, uri string, roles []string) {
 	m.workers.Add(1)
 	go func() {
 		defer m.workers.Done()
@@ -303,7 +303,7 @@ func (m *Importer) start(task model.Task, method, uri string) {
 			return // restarted: Recover will close the task
 		}
 		defer func() { <-m.slots }()
-		m.run(task, method, uri)
+		m.run(task, method, uri, roles)
 	}()
 }
 
@@ -322,7 +322,7 @@ func (m *Importer) setTask(task *model.Task, status string, result any, message 
 	m.notifier.Notify("task."+status, notify.Info, notify.TaskPayload(*task))
 }
 
-func (m *Importer) run(task model.Task, method, uri string) {
+func (m *Importer) run(task model.Task, method, uri string, roles []string) {
 	id := *task.ImageID
 	ctx := m.ctx
 	m.setTask(&task, "processing", nil, "")
@@ -338,6 +338,14 @@ func (m *Importer) run(task model.Task, method, uri string) {
 			fail(err)
 			return
 		}
+	}
+	user0 := ""
+	if task.UserID != nil {
+		user0 = *task.UserID
+	}
+	if err := m.runPlugins(ctx, auth.Identity{UserID: user0, ProjectID: task.Owner, Roles: roles}, id); err != nil {
+		fail(err)
+		return
 	}
 	f, err := os.Open(m.staged(id))
 	if err != nil {
@@ -581,6 +589,6 @@ func (m *Importer) LegacyImport(ctx context.Context, who auth.Identity, taskType
 		return model.Task{}, importConflict(err, image.ID)
 	}
 	m.notifier.Notify("task.create", notify.Info, notify.TaskPayload(task))
-	m.start(task, "web-download", in.From)
+	m.start(task, "web-download", in.From, who.Roles)
 	return task, nil
 }

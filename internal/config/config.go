@@ -95,6 +95,13 @@ type ImportSettings struct {
 	DisallowedSchemes             []string
 	DisallowedHosts               []string
 	AllowedPorts, DisallowedPorts []int
+	// Plugins is [image_import_opts] image_import_plugins (glance-image-import.conf).
+	Plugins          []string
+	ConversionFormat string            // [image_conversion] output_format
+	InjectIgnore     []string          // [inject_metadata_properties] ignore_user_roles
+	Inject           map[string]string // [inject_metadata_properties] inject
+	VMDKAllowed      []string          // [image_format] vmdk_allowed_types
+	GPTNonfatal      []string          // [image_format] gpt_safety_checks_nonfatal
 }
 
 // KeystoneLimits is what oslo.limit reads: the Glance endpoint whose
