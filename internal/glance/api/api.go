@@ -11,6 +11,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -25,6 +26,9 @@ import (
 )
 
 type identityKey struct{}
+
+// HealthcheckDisableFile is the original's disable_by_file_path.
+var HealthcheckDisableFile = "/etc/glance/healthcheck_disable"
 
 type Handler struct {
 	service      *service.Service
@@ -139,6 +143,23 @@ func New(service *service.Service, authenticator auth.Authenticator, publicURL, 
 			}
 			h.logger.Log(r.Context(), level, "request completed", "request_id", requestID, "method", method, "route", logRoute(r.URL.Path), "status", observed.status, "duration_ms", time.Since(start).Milliseconds(), "response_bytes", observed.bytes, "error_kind", observed.kind)
 		}()
+		// /healthcheck is public, as the original's paste pipeline
+		// (oslo.middleware healthcheck with the disable_by_file backend).
+		if r.URL.Path == "/healthcheck" && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
+			if _, err := os.Stat(HealthcheckDisableFile); err == nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				if r.Method == http.MethodGet {
+					_, _ = io.WriteString(w, "DISABLED BY FILE")
+				}
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			if r.Method == http.MethodGet {
+				_, _ = io.WriteString(w, "OK")
+			}
+			return
+		}
 		// Version discovery is public in the original (no authtoken in its
 		// pipeline); keystoneauth in Nova requests it before any image call.
 		if status, ok := discovery(r); ok {
@@ -186,7 +207,7 @@ func withRequestID(ctx context.Context, id string) context.Context {
 
 // Log route templates rather than arbitrary paths, identifiers or queries.
 func logRoute(path string) string {
-	if path == "/v2/images" || path == "/" || path == "/versions" || path == "/v2/info/usage" || path == "/v2/info/stores" || path == "/v2/info/stores/detail" || path == "/v2/info/import" || path == "/v2/tasks" || path == "/v2/cache" || path == "/v2/metadefs/namespaces" || path == "/v2/metadefs/resource_types" {
+	if path == "/v2/images" || path == "/" || path == "/versions" || path == "/v2/info/usage" || path == "/v2/info/stores" || path == "/v2/info/stores/detail" || path == "/v2/info/import" || path == "/v2/tasks" || path == "/v2/cache" || path == "/v2/metadefs/namespaces" || path == "/v2/metadefs/resource_types" || path == "/healthcheck" {
 		return path
 	}
 	if rest, ok := strings.CutPrefix(path, "/v2/schemas/"); ok && rest != "" {

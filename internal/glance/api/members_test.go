@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -145,5 +147,26 @@ func TestInfoUsageAndStores(t *testing.T) {
 		if w = request(h, "GET", path, ""); w.Code != 404 || !strings.Contains(w.Body.String(), "Multi backend is not supported at this site.") {
 			t.Fatal(path, w.Code, w.Body.String())
 		}
+	}
+}
+
+func TestHealthcheckLikeOsloMiddleware(t *testing.T) {
+	h, _, a, _ := harness()
+	r := httptest.NewRequest("GET", "/healthcheck", nil) // no token
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != 200 || w.Body.String() != "OK" || a.calls != 0 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	old := HealthcheckDisableFile
+	HealthcheckDisableFile = t.TempDir() + "/disable"
+	defer func() { HealthcheckDisableFile = old }()
+	if err := os.WriteFile(HealthcheckDisableFile, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/healthcheck", nil))
+	if w.Code != 503 || w.Body.String() != "DISABLED BY FILE" {
+		t.Fatal(w.Code, w.Body.String())
 	}
 }
