@@ -119,6 +119,10 @@ type KeystoneLimits struct {
 	Username, Password, UserDomainName     string
 	SystemScope                            string
 	ProjectName, ProjectDomainName, Region string
+	// CacheTTL is how long a project's limits from Keystone are reused
+	// (GLANCE_GO_LIMITS_CACHE_SECONDS, default 5 s; 0 asks Keystone every time,
+	// as the original does). A changed limit shows up within the TTL.
+	CacheTTL time.Duration
 }
 
 // ReadSecret rejects group/world-readable files and never returns their contents in errors.

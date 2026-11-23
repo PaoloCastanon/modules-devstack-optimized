@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -214,6 +216,9 @@ func (r *Repository) update(ctx context.Context, id string, change func(model.Im
 	if err != nil {
 		return result, err
 	}
+	// change may edit the maps and slices it is given in place: what to compare
+	// with is a copy taken before.
+	before := model.Image{Properties: maps.Clone(current.Properties), Tags: slices.Clone(current.Tags)}
 	result, err = change(current)
 	if err != nil {
 		return model.Image{}, err
@@ -232,14 +237,18 @@ func (r *Repository) update(ctx context.Context, id string, change func(model.Im
 		return model.Image{}, repository.ErrConflict
 	}
 	// Parent lock serializes writers; child changes and parent update share commit.
-	if _, err = r.exec(ctx, tx, "DELETE FROM image_properties WHERE image_id=?", id); err != nil {
-		return model.Image{}, err
-	}
-	if _, err = r.exec(ctx, tx, "DELETE FROM image_tags WHERE image_id=?", id); err != nil {
-		return model.Image{}, err
-	}
-	if err = r.insertChildren(ctx, tx, id, result.Properties, result.Tags); err != nil {
-		return model.Image{}, err
+	// Properties and tags are rewritten only when they changed: renaming an
+	// image with many properties does not touch them.
+	if !maps.Equal(before.Properties, result.Properties) || !slices.Equal(before.Tags, result.Tags) {
+		if _, err = r.exec(ctx, tx, "DELETE FROM image_properties WHERE image_id=?", id); err != nil {
+			return model.Image{}, err
+		}
+		if _, err = r.exec(ctx, tx, "DELETE FROM image_tags WHERE image_id=?", id); err != nil {
+			return model.Image{}, err
+		}
+		if err = r.insertChildren(ctx, tx, id, result.Properties, result.Tags); err != nil {
+			return model.Image{}, err
+		}
 	}
 	if err = tx.Commit(); err != nil {
 		return model.Image{}, err

@@ -29,6 +29,8 @@ class GlanceBenchmarkTests(unittest.TestCase):
         text = glance_switch.replacement(19293).decode()
         self.assertIn('"/image"', text)
         self.assertNotIn('/placement', text)
+        # Same Apache conditions as the original's site file.
+        self.assertTrue(text.startswith('KeepAlive Off\nSetEnv proxy-sendchunked 1\n'))
         for port in [True, 80, 65536, '19293']:
             with self.assertRaises(ValueError):
                 glance_switch.replacement(port)
@@ -413,3 +415,84 @@ class CompactV6Tests(unittest.TestCase):
             args.go_catalog = 'own'
             with self.assertRaises(ValueError):
                 placement_campaign.Remote(args)
+
+
+class GlanceV7Tests(unittest.TestCase):
+    def test_v7_matrix_is_placement_design(self):
+        import glance_campaign
+        p = json.loads((Path(__file__).resolve().parents[2] / 'docs/benchmarks/glance-protocol-v7.json').read_text())
+        self.assertEqual(glance_campaign.validate_protocol(p), 144)
+        plan = glance_campaign.schedule(p, str(uuid.uuid4()))
+        self.assertEqual(len(plan), 72)
+        self.assertEqual({row['concurrency'] for row in plan}, {1, 16})
+        self.assertEqual({row['repetition'] for row in plan}, {1, 2, 3})
+        p['concurrency'] = [1, 4, 8, 16]
+        with self.assertRaisesRegex(ValueError, 'v7'):
+            glance_campaign.validate_protocol(p)
+
+    def test_import_and_nova_mix_cycles(self):
+        import hashlib
+        import glance_window
+        data = b'x' * 4096
+        digest = {'size': len(data), 'md5': hashlib.md5(data).hexdigest(), 'sha512': hashlib.sha512(data).hexdigest(), 'sha256': hashlib.sha256(data).hexdigest()}
+        images, polls, quirk = {}, {}, {'queued': True, 'lock': True}
+        seed = {'id': str(uuid.uuid4()), 'name': 'seed', 'tags': ['owned'], 'owner': 'project', 'status': 'active',
+                'disk_format': 'raw', 'container_format': 'bare', 'visibility': 'private'}
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = 'HTTP/1.1'
+            def log_message(self, *_):
+                pass
+            def reply(self, status, body=None, raw=None):
+                out = raw if raw is not None else (json.dumps(body).encode() if body is not None else b'')
+                self.send_response(status); self.send_header('Content-Length', str(len(out))); self.end_headers(); self.wfile.write(out)
+            def body(self):
+                return self.rfile.read(int(self.headers.get('Content-Length', 0)))
+            def do_GET(self):
+                path = self.path.split('?')[0]
+                if path.endswith('/v2/images'):
+                    return self.reply(200, {'images': [seed]})
+                if path.endswith('/file'):
+                    return self.reply(200, raw=data)
+                ident = path.rsplit('/', 1)[-1]
+                if ident == seed['id']:
+                    return self.reply(200, seed)
+                if ident not in images:
+                    return self.reply(404)
+                image = images[ident]
+                if image['status'] == 'importing':
+                    polls[ident] = polls.get(ident, 0) + 1
+                    if polls[ident] == 1 and quirk['queued']:
+                        # Go's instant between releasing the import lock and reserving the upload
+                        return self.reply(200, {**image, 'status': 'queued', 'os_glance_import_task': 'task'} if quirk['lock'] else {**image, 'status': 'queued'})
+                    if polls[ident] >= 2:
+                        image.update(status='active', size=len(data), checksum=digest['md5'], os_hash_algo='sha512', os_hash_value=digest['sha512'])
+                self.reply(200, image)
+            def do_PUT(self):
+                self.body(); ident = self.path.split('/')[-2]; images[ident]['status'] = 'uploading'; self.reply(204)
+            def do_POST(self):
+                payload = json.loads(self.body())
+                if self.path.endswith('/import'):
+                    images[self.path.split('/')[-2]]['status'] = 'importing'; return self.reply(202, {})
+                payload.update(owner='project', status='queued'); images[payload['id']] = payload; self.reply(201, payload)
+            def do_DELETE(self):
+                images.pop(self.path.rsplit('/', 1)[-1]); self.reply(204)
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as folder:
+                f = Path(folder) / 'payload'; f.write_bytes(data)
+                base = {'url': f'http://127.0.0.1:{server.server_port}/image', 'implementation': 'fixture', 'concurrency': 1,
+                        'tag': 'owned', 'owner': 'project', 'payload': digest, 'payload_file': str(f), 'import_poll_pause_s': 0.001}
+                for scenario in ('import-direct-16m', 'nova-mix'):
+                    config = {**base, 'run_id': 'fixture-' + scenario, 'scenario': scenario, 'namespace': str(uuid.uuid4()), 'images': [seed]}
+                    result = glance_window.run(config, 'PRIVATE-TOKEN', Path(folder) / scenario, duration=.05, warmup=0)
+                    self.assertTrue(result['valid'], scenario)
+                    self.assertGreater(result['measurement']['cycles'], 0)
+                self.assertFalse(images)
+                # 'queued' without the import lock is not an in-flight state
+                quirk['lock'] = False
+                config = {**base, 'run_id': 'fixture-nolock', 'scenario': 'import-direct-16m', 'namespace': str(uuid.uuid4()), 'images': [seed]}
+                result = glance_window.run(config, 'PRIVATE-TOKEN', Path(folder) / 'nolock', duration=.05, warmup=0)
+                self.assertFalse(result['valid'])
+        finally:
+            server.shutdown(); server.server_close(); thread.join()

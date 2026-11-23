@@ -53,6 +53,41 @@ type Enforcer struct {
 	token           string
 	expires         time.Time
 	service, region string // of the endpoint; fixed, looked up once
+	cache           map[string]cachedLimits
+}
+
+// cachedLimits are a project's limits as Keystone gave them, reused until
+// the TTL ([oslo_limit] cache, GLANCE_GO_LIMITS_CACHE_SECONDS). Read-only.
+type cachedLimits struct {
+	values map[string]int64
+	until  time.Time
+}
+
+const maxCachedProjects = 1024
+
+func (e *Enforcer) cachedLimits(project string) (map[string]int64, bool) {
+	if e.cfg.CacheTTL <= 0 {
+		return nil, false
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	c, ok := e.cache[project]
+	if !ok || time.Now().After(c.until) {
+		return nil, false
+	}
+	return c.values, true
+}
+
+func (e *Enforcer) storeLimits(project string, values map[string]int64) {
+	if e.cfg.CacheTTL <= 0 {
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.cache == nil || len(e.cache) >= maxCachedProjects {
+		e.cache = map[string]cachedLimits{}
+	}
+	e.cache[project] = cachedLimits{values: values, until: time.Now().Add(e.cfg.CacheTTL)}
 }
 
 func New(cfg config.KeystoneLimits, client *http.Client, usage UsageReader) (*Enforcer, error) {
@@ -91,9 +126,29 @@ func (e *Enforcer) enforce(ctx context.Context, project string, deltas map[strin
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	limits, usage, err := e.read(ctx, project)
-	if err != nil {
-		return err
+	// With the limits at hand (cache), a resource without a limit needs no
+	// usage query; the first request, or an expired entry, asks Keystone and
+	// the catalog at once, as before.
+	var limits, usage map[string]int64
+	if cached, ok := e.cachedLimits(project); ok {
+		limits = cached
+		limited := false
+		for _, name := range names {
+			limited = limited || limits[name] >= 0
+		}
+		if !limited {
+			return nil
+		}
+		u, err := e.usage.ProjectUsage(ctx, project)
+		if err != nil {
+			return err
+		}
+		usage = usageOf(u)
+	} else {
+		var err error
+		if limits, usage, err = e.read(ctx, project); err != nil {
+			return err
+		}
 	}
 	var over []string
 	for _, name := range names {
@@ -132,6 +187,9 @@ func (e *Enforcer) read(ctx context.Context, project string) (map[string]int64, 
 		done <- result{u, err}
 	}()
 	limits, err := e.limits(ctx, project)
+	if err == nil {
+		e.storeLimits(project, limits)
+	}
 	r := <-done
 	if err != nil {
 		return nil, nil, err

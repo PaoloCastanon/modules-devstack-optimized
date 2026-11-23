@@ -113,3 +113,101 @@ func TestUnlimited(t *testing.T) {
 		t.Fatal("-1 is unlimited", err)
 	}
 }
+
+// countingUsage counts the catalog's usage queries.
+type countingUsage struct {
+	u model.Usage
+	n *atomic.Int32
+}
+
+func (c countingUsage) ProjectUsage(context.Context, string) (model.Usage, error) {
+	c.n.Add(1)
+	return c.u, nil
+}
+
+// requests counts the limit reads Keystone answers.
+func countKeystone(ks *httptest.Server) (*http.Client, *atomic.Int32) {
+	var n atomic.Int32
+	client := &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path == "/v3/limits" || r.URL.Path == "/v3/registered_limits" {
+			n.Add(1)
+		}
+		return http.DefaultTransport.RoundTrip(r)
+	})}
+	return client, &n
+}
+
+type roundTrip func(*http.Request) (*http.Response, error)
+
+func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestLimitsAreReusedForTheTTL(t *testing.T) {
+	var tokens atomic.Int32
+	ks := keystoneFake(t, map[string]int64{"image_count_total": 3}, &tokens)
+	defer ks.Close()
+	client, reads := countKeystone(ks)
+	cfg := config.KeystoneLimits{Enabled: true, URL: ks.URL + "/v3", EndpointID: "ep1", Username: "glance", Password: "x", UserDomainName: "Default", SystemScope: "all", CacheTTL: 80 * time.Millisecond}
+	var usages atomic.Int32
+	e, err := New(cfg, client, countingUsage{model.Usage{CountTotal: 1}, &usages})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	for range 5 {
+		if err = e.EnforceImageCount(ctx, "p"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if reads.Load() != 2 { // registered + project limits, once
+		t.Fatal("Keystone limits read", reads.Load(), "times for 5 creations")
+	}
+	if usages.Load() != 5 {
+		t.Fatal("usage must be read every time", usages.Load())
+	}
+	time.Sleep(120 * time.Millisecond)
+	if err = e.EnforceImageCount(ctx, "p"); err != nil || reads.Load() != 4 {
+		t.Fatal("limits not read again after the TTL", reads.Load(), err)
+	}
+	// A limit past its TTL is enforced; one inside it too.
+	e2, _ := New(cfg, client, usageFake{model.Usage{CountTotal: 3}})
+	if err = e2.EnforceImageCount(ctx, "p"); err == nil {
+		t.Fatal("over the limit accepted")
+	}
+	if err = e2.EnforceImageCount(ctx, "p"); err == nil {
+		t.Fatal("over the limit accepted from the cache")
+	}
+}
+
+func TestZeroTTLAsksKeystoneEveryTime(t *testing.T) {
+	var tokens atomic.Int32
+	ks := keystoneFake(t, map[string]int64{}, &tokens)
+	defer ks.Close()
+	client, reads := countKeystone(ks)
+	cfg := config.KeystoneLimits{Enabled: true, URL: ks.URL + "/v3", EndpointID: "ep1", Username: "glance", Password: "x", UserDomainName: "Default", SystemScope: "all"}
+	e, _ := New(cfg, client, usageFake{})
+	for range 3 {
+		if err := e.EnforceImageCount(context.Background(), "p"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if reads.Load() != 6 {
+		t.Fatal("without a TTL every enforcement reads Keystone", reads.Load())
+	}
+}
+
+func TestUnlimitedSkipsTheUsageQueryOnceCached(t *testing.T) {
+	var tokens atomic.Int32
+	ks := keystoneFake(t, map[string]int64{"image_count_total": -1}, &tokens)
+	defer ks.Close()
+	cfg := config.KeystoneLimits{Enabled: true, URL: ks.URL + "/v3", EndpointID: "ep1", Username: "glance", Password: "x", UserDomainName: "Default", SystemScope: "all", CacheTTL: time.Minute}
+	var usages atomic.Int32
+	e, _ := New(cfg, http.DefaultClient, countingUsage{model.Usage{CountTotal: 1 << 40}, &usages})
+	for range 4 {
+		if err := e.EnforceImageCount(context.Background(), "p"); err != nil {
+			t.Fatal("-1 is unlimited", err)
+		}
+	}
+	if usages.Load() != 1 { // the first call asks Keystone and the catalog together
+		t.Fatal("usage queried", usages.Load(), "times for an unlimited resource")
+	}
+}

@@ -1489,3 +1489,33 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     subida).
   - **Verificación:** `make check` OK; integración MySQL 12/12 con `-race`;
     suite unificada 11/11 con el binario de `ad38130`.
+- 2026-11-23, optimizaciones de Glance Go sobre el código de las PR #28 y #29
+  (rama local `perf/limits-cache`, 3 commits), a partir de la latencia por
+  operación con 1 cliente y del conteo de consultas SQL de cada operación
+  (log general de MySQL). Medido en la VM por Apache con las mismas condiciones
+  de la campaña, original frente a nuevo, dos pasadas cada uno:
+  - **`create` 90-114 ms → 8-9 ms y `upload` de 1 MiB 109-145 ms → 25-27 ms:**
+    cada creación y cada subida preguntaba a Keystone por los límites (dos GET
+    de unos 30 ms) y contaba el uso en MySQL. Los límites de un proyecto se
+    reutilizan durante un TTL corto (5 s por defecto,
+    `GLANCE_GO_LIMITS_CACHE_SECONDS`; 0 pregunta siempre, como el original) y,
+    con los límites a mano, un recurso sin límite no consulta el uso. Un cambio
+    de límite tarda hasta el TTL en verse; las cuotas se siguen aplicando.
+  - **`download` de 1 MiB con 16 clientes 140 → 594 ops/s y p99 451 → 58 ms:**
+    cada descarga hacía un UPDATE sobre la misma fila de `cached_images`
+    (contador de accesos) y los 16 clientes esperaban ese bloqueo. Los accesos
+    se suman en memoria y se escriben una vez por segundo y al cerrar. Era la
+    causa de que en la v7 Python tuviera menor p99 en las descargas de 1 y
+    16 MiB con 16 clientes.
+  - **Menos relecturas de estado:** `upload` pasa de 18 a 14 consultas y
+    `delete` de 24 a 20 (un write confirmado es su propia prueba; solo un
+    commit dudoso se relee; el borrado conserva la lectura previa a quitar el
+    archivo). Mejora medida: 2-3 ms. `PATCH` escribe propiedades y tags solo
+    si cambiaron (de 4 a 2 consultas).
+  - **Defecto evitado por la integración:** el primer `PATCH` comparaba con el
+    objeto que el callback edita en el sitio y no habría guardado un cambio de
+    propiedades; ahora compara con una copia tomada antes.
+  - **Verificación:** `make check` OK; integración MySQL 12/12 con `-race`.
+  - **No medido todavía:** el efecto en la campaña (hay que repetirla con este
+    binario). `delete` queda en unos 27 ms en el banco de pruebas (en la
+    campaña v7 medía 10-18 ms, como la v6).

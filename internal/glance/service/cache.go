@@ -42,6 +42,8 @@ type ImageCache struct {
 	logger *slog.Logger
 
 	mu       sync.Mutex
+	hits     map[string]int64 // accesses not yet written (update_hit_count)
+	hitTimer *time.Timer
 	inflight map[string]bool
 	slots    chan struct{}
 	ctx      context.Context
@@ -96,8 +98,48 @@ func (c *ImageCache) open(id string, size int64) (*os.File, bool) {
 	return f, true
 }
 
+// hitFlushEvery is how often the access counters reach the database. The
+// original updates the row on every download; with many clients on one image
+// that is a lock queue on a single row, so the counts are summed in memory
+// and written once per interval (the totals are the same).
+const hitFlushEvery = time.Second
+
+// hitCounter is implemented by the MySQL repository: n accesses in one UPDATE.
+type hitCounter interface {
+	CacheHits(ctx context.Context, node int64, imageID string, n int64, now time.Time) error
+}
+
 func (c *ImageCache) hit(id string) {
-	c.background(func(ctx context.Context) { _ = c.repo.CacheHit(ctx, c.node, id, c.now()) })
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.hits == nil {
+		c.hits = map[string]int64{}
+	}
+	c.hits[id]++
+	if c.hitTimer == nil {
+		c.work.Add(1)
+		c.hitTimer = time.AfterFunc(hitFlushEvery, func() {
+			defer c.work.Done()
+			c.flushHits(c.ctx)
+		})
+	}
+}
+
+// flushHits writes the summed accesses.
+func (c *ImageCache) flushHits(ctx context.Context) {
+	c.mu.Lock()
+	batch := c.hits
+	c.hits, c.hitTimer = nil, nil
+	c.mu.Unlock()
+	for id, n := range batch {
+		if hc, ok := c.repo.(hitCounter); ok {
+			_ = hc.CacheHits(ctx, c.node, id, n, c.now())
+			continue
+		}
+		for range n {
+			_ = c.repo.CacheHit(ctx, c.node, id, c.now())
+		}
+	}
 }
 
 func (c *ImageCache) background(fn func(context.Context)) {
@@ -177,6 +219,14 @@ func (c *ImageCache) fill(id string, size int64, checksum string, src func(conte
 // Close stops the prefetcher and waits for background copies.
 func (c *ImageCache) Close() {
 	c.cancel()
+	c.mu.Lock()
+	if c.hitTimer != nil && c.hitTimer.Stop() {
+		c.work.Done() // the pending flush will not run: do it now
+		c.mu.Unlock()
+		c.flushHits(context.Background())
+	} else {
+		c.mu.Unlock()
+	}
 	c.work.Wait()
 }
 
