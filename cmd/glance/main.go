@@ -15,6 +15,7 @@ import (
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/config"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/api"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/metadefs"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/quota"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository/mysql"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/service"
@@ -30,8 +31,18 @@ func main() {
 
 func run(args []string, logger *slog.Logger) (result error) {
 	started := time.Now()
+	// install-metadefs DIR: the original's etc/metadefs files, which DevStack
+	// copies to metadata_source_path for glance-manage db load_metadefs.
+	if len(args) == 2 && args[0] == "install-metadefs" {
+		n, err := metadefs.Install(args[1])
+		if err != nil {
+			return errors.New("cannot install the metadata definition files")
+		}
+		logger.Info("metadata definition files installed", "dir", args[1], "files", n)
+		return nil
+	}
 	if len(args) != 1 || (args[0] != "serve" && args[0] != "migrate" && args[0] != "store-scope" && args[0] != "store-init") {
-		return errors.New("usage: glance serve | migrate | store-scope | store-init")
+		return errors.New("usage: glance serve | migrate | store-scope | store-init | install-metadefs DIR")
 	}
 	mode := args[0]
 	c, err := config.Load(os.Getenv, mode)

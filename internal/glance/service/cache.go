@@ -50,7 +50,20 @@ type ImageCache struct {
 }
 
 func NewImageCache(ctx context.Context, cfg config.CacheSettings, repo CacheRepository, data *UploadCoordinator, logger *slog.Logger) (*ImageCache, error) {
-	if !cfg.Enabled || cfg.Dir == "" || cfg.NodeURL == "" || repo == nil || data == nil {
+	if data == nil {
+		return nil, errors.New("invalid image cache configuration")
+	}
+	return newImageCache(ctx, cfg, repo, data, logger)
+}
+
+// NewCacheMaintenance is the cache of the glance-cache-pruner and
+// glance-cache-cleaner tools: no downloads or prefetcher.
+func NewCacheMaintenance(ctx context.Context, cfg config.CacheSettings, repo CacheRepository) (*ImageCache, error) {
+	return newImageCache(ctx, cfg, repo, nil, nil)
+}
+
+func newImageCache(ctx context.Context, cfg config.CacheSettings, repo CacheRepository, data *UploadCoordinator, logger *slog.Logger) (*ImageCache, error) {
+	if cfg.Dir == "" || cfg.NodeURL == "" || repo == nil {
 		return nil, errors.New("invalid image cache configuration")
 	}
 	for _, d := range []string{cfg.Dir, filepath.Join(cfg.Dir, "incomplete"), filepath.Join(cfg.Dir, "invalid"), filepath.Join(cfg.Dir, "queue")} {
@@ -284,3 +297,72 @@ func (c *ImageCache) Unqueue(id string) error {
 
 // SetCache serves and fills downloads through the image cache.
 func (u *UploadCoordinator) SetCache(c *ImageCache) { u.cache = c }
+
+// Size is get_cache_size: the bytes of the complete cached files.
+func (c *ImageCache) Size() (int64, error) {
+	entries, err := os.ReadDir(c.cfg.Dir)
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	for _, e := range entries {
+		if info, err := e.Info(); err == nil && info.Mode().IsRegular() {
+			total += info.Size()
+		}
+	}
+	return total, nil
+}
+
+// Prune is the original's image_cache.prune (glance-cache-pruner): least
+// recently accessed images are deleted until the cache fits max bytes.
+func (c *ImageCache) Prune(ctx context.Context, max int64) (files int, bytes int64, err error) {
+	current, err := c.Size()
+	if err != nil || current <= max {
+		return 0, 0, err
+	}
+	cached, err := c.repo.CachedImages(ctx, c.node)
+	if err != nil {
+		return 0, 0, err
+	}
+	sort.SliceStable(cached, func(i, j int) bool { return cached[i].LastAccessed.Before(cached[j].LastAccessed) })
+	for _, image := range cached {
+		if current <= max {
+			break
+		}
+		if err = c.Delete(ctx, image.ImageID); err != nil {
+			return files, bytes, err
+		}
+		files, bytes, current = files+1, bytes+image.Size, current-image.Size
+	}
+	return files, bytes, nil
+}
+
+// Clean is the original's image_cache.clean (glance-cache-cleaner): invalid
+// files are deleted, and incomplete ones older than stall.
+func (c *ImageCache) Clean(stall time.Duration) (invalid, stalled int, err error) {
+	for _, sub := range []string{"invalid", "incomplete"} {
+		entries, e := os.ReadDir(filepath.Join(c.cfg.Dir, sub))
+		if e != nil {
+			continue
+		}
+		for _, entry := range entries {
+			info, e := entry.Info()
+			if e != nil || !info.Mode().IsRegular() {
+				continue
+			}
+			if sub == "incomplete" && c.now().Sub(info.ModTime()) < stall {
+				continue
+			}
+			if e = os.Remove(filepath.Join(c.cfg.Dir, sub, entry.Name())); e != nil {
+				err = e
+				continue
+			}
+			if sub == "invalid" {
+				invalid++
+			} else {
+				stalled++
+			}
+		}
+	}
+	return invalid, stalled, err
+}
