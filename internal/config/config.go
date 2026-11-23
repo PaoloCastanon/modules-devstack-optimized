@@ -48,6 +48,15 @@ type Config struct {
 	Import ImportSettings
 	// Cache is the original's image cache (paste flavor with "cache").
 	Cache CacheSettings
+	// ImageFormat is [image_format]: upload content inspection.
+	ImageFormat ImageFormatSettings
+}
+
+// ImageFormatSettings: require_image_format_match (default True) and
+// gpt_safety_checks_nonfatal, as the original.
+type ImageFormatSettings struct {
+	RequireMatch bool
+	GPTNonfatal  []string
 }
 
 // CacheSettings: image_cache_dir with the centralized_db driver (cached

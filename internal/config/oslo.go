@@ -196,6 +196,14 @@ func applyOriginalConfig(c *Config, f osloFile, env func(string) string, mode st
 	if err := readCache(c, f); err != nil {
 		return err
 	}
+	c.ImageFormat = ImageFormatSettings{RequireMatch: true, GPTNonfatal: f.list("image_format", "gpt_safety_checks_nonfatal")}
+	if v := f.get("image_format", "require_image_format_match"); v != "" {
+		b, ok := osloBool(v)
+		if !ok {
+			return errors.New("invalid [image_format] require_image_format_match")
+		}
+		c.ImageFormat.RequireMatch = b
+	}
 	k := func(key string) string { return f["keystone_authtoken"][key] }
 	if t := k("auth_type"); t != "" && t != "password" {
 		return errors.New("only [keystone_authtoken] auth_type = password is supported")

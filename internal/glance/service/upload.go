@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/auth"
+	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/format"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/model"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/notify"
 	"github.com/PaoloCastanon/modules-devstack-optimized/internal/glance/repository"
@@ -34,6 +35,10 @@ type UploadLimits struct {
 	MaxDownloadStreams int
 	ResolutionTimeout  time.Duration
 	RecoveryTimeout    time.Duration
+	// Inspect: [image_format] content inspection of bare uploads.
+	Inspect          bool
+	RequireFormat    bool
+	GPTNonfatalCheck []string
 }
 
 type ImageReader interface {
@@ -470,6 +475,13 @@ func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value
 	*prepared = &current
 	u.notify("image.update", notify.Info, notify.ImagePayload(current))
 	u.notify("image.prepare", notify.Info, notify.UploadPayload(current))
+	// As the original's set_data: bare uploads are inspected in flight
+	// (format_inspector over the same stream the hashes and file read).
+	var inspector *format.Wrapper
+	if u.limits.Inspect && current.ContainerFormat != nil && *current.ContainerFormat == "bare" {
+		inspector = format.NewWrapper()
+		src = io.TeeReader(src, inspector)
+	}
 	info, err := u.bytes.Stage(ctx, key, uploadSource{src}, u.limits.MaxBytes, expected)
 	if err != nil {
 		if errors.Is(err, store.ErrExists) {
@@ -478,11 +490,21 @@ func (u *UploadCoordinator) upload(ctx context.Context, who auth.Identity, value
 		return fail(uploadStorageError(err))
 	}
 	content := model.DataContent{Size: info.Size, Checksum: info.Checksum, SHA512: info.SHA512}
-	if *current.DiskFormat == "raw" {
+	if inspector != nil {
+		inspector.Finish()
+		virtual, err := inspector.Check(*current.DiskFormat, u.limits.RequireFormat, u.limits.GPTNonfatalCheck)
+		var invalid *format.ErrInvalidImageData
+		if errors.As(err, &invalid) {
+			// InvalidImageData: 415, the image is restored to queued.
+			return fail(model.Fail(model.Unsupported, invalid.Msg))
+		}
+		if virtual > 0 {
+			content.VirtualSize = &virtual
+		}
+	} else if !u.limits.Inspect && *current.DiskFormat == "raw" {
 		n := info.Size
 		content.VirtualSize = &n
 	}
-	// QCOW2 and other formats without a verified inspector remain unknown (null).
 	if err = content.Validate(expected); err != nil {
 		return fail(store.ErrIntegrity)
 	}

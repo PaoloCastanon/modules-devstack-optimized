@@ -409,7 +409,7 @@ func (h *Handler) failure(w http.ResponseWriter, err error) {
 		}
 		h.status(w, 503, "Identity validation unavailable.")
 	case errors.As(err, &domain):
-		status := map[model.Kind]int{model.Invalid: 400, model.Forbidden: 403, model.NotFound: 404, model.Conflict: 409, model.LimitExceeded: 413}[domain.Kind]
+		status := map[model.Kind]int{model.Invalid: 400, model.Forbidden: 403, model.NotFound: 404, model.Conflict: 409, model.LimitExceeded: 413, model.Unsupported: 415}[domain.Kind]
 		if status == 0 {
 			status = 500
 		}

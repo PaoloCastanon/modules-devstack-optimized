@@ -20,6 +20,8 @@ const (
 	NotFound
 	Conflict
 	LimitExceeded
+	// Unsupported is the original's InvalidImageData (415).
+	Unsupported
 )
 
 type Error struct {
