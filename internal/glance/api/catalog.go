@@ -132,6 +132,10 @@ func decodePointer(path string) (string, error) {
 	bad := func() (string, error) {
 		return "", model.Fail(model.Invalid, "Only a single JSON Pointer token is supported.")
 	}
+	// /locations/<position> reaches the original's location rules.
+	if strings.HasPrefix(path, "/locations/") {
+		return "locations", nil
+	}
 	if !strings.HasPrefix(path, "/") || strings.Contains(path[1:], "/") {
 		return bad()
 	}
