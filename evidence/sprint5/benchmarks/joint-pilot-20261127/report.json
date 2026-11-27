@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "suite": "joint-campaign",
+  "run_id": "tt-joint-59aee5eca629",
+  "started_utc": "2026-11-27T21:57:57.401139+00:00",
+  "cases": {},
+  "cleanup": {
+    "original_unchanged": true,
+    "private_root_removed": true,
+    "runtime_removed": true,
+    "identity_removed": true,
+    "controls_restored": true,
+    "original_services_active": {
+      "devstack@placement-api.service": true,
+      "devstack@g-api.service": true,
+      "devstack@n-cpu.service": true,
+      "devstack@n-sch.service": true,
+      "devstack@keystone.service": true
+    },
+    "pending_images": 0,
+    "placement_restored": true,
+    "placement_runtime_removed": true,
+    "server_removed": true,
+    "service_validator_removed": true
+  },
+  "execution_error": null,
+  "passed": true,
+  "mode": "glance-go+placement-go",
+  "required_cases": [],
+  "protocol": "placement-glance-joint-compact-v3",
+  "pilot": true,
+  "protocol_sha256": "232f06d4956e9695510615779406b059c9ed8614f8d1897d3692d2f027e99fc0",
+  "blocks_required": 8,
+  "blocks_valid": 8,
+  "manifest_sha256": "abd926021457be9ced112d494178659b25c37f4d392b54ab2545b7e42be050b5",
+  "nova_ready_wait_s": 0.1,
+  "service_validator": {
+    "name": "tt-placement-glance-12ff8f09bd68",
+    "project": "service",
+    "roles": [
+      "service"
+    ]
+  },
+  "switches": [
+    {
+      "variant": "go-python",
+      "switch_s": 43.3,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "python-python",
+      "switch_s": 95.6,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "go-go",
+      "switch_s": 97.0,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "python-go",
+      "switch_s": 99.2,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    }
+  ],
+  "request_cases": 74,
+  "finished_utc": "2026-11-27T22:05:20.223836+00:00"
+}

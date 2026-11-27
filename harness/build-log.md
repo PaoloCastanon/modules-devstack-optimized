@@ -1552,3 +1552,29 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     si Glance Go se reinicia durante la tarea, esta se cierra como fallida.
     Si una petición tiene a la vez datos de `glance-download` inválidos y la
     imagen en un estado que no es `queued`, Go responde 400 y el original 409.
+
+- **2026-11-27 — Placement Go + Glance Go juntos con Nova; campaña conjunta preparada.**
+  - **E2E:** `glance_suite.py --with-placement-go` sobre `627691c`, dos corridas
+    consecutivas 16/16 con limpieza completa en la VM local. Antes fallaba en el
+    preflight porque `glance_go_shared` no existía (solo la crean
+    `glance_replace.py install` y el plugin): `prepare_official` ahora la crea
+    con la cuenta del original (`CREATE DATABASE IF NOT EXISTS`), con prueba.
+    Los scripts deben correr con `/opt/stack/data/venv/bin/python3`.
+  - **Campaña:** protocolo `joint-protocol-compact-v3.json` (2×2, lotes de 1 y 2
+    boots, 3 repeticiones, imagen fría por boot), runner
+    `scripts/integration/joint_campaign.py`, muestreo de cgroups
+    `scripts/benchmarks/cgroup_sampler.py` y análisis `analyze_joint.py`.
+    Pruebas unitarias en `tests/unit/test_joint_campaign.py`.
+  - **Piloto:** intento 1 detenido en el bloque 2 por un defecto del runner
+    (espera de borrado con `get_server`), corregido; intento 2 **8/8 bloques,
+    12 boots, limpieza completa**.
+    [Evidencia](../evidence/sprint5/benchmarks/joint-pilot-20261127/README.md).
+  - **Verificación:** `make check` OK antes de los cambios; tests unitarios
+    nuevos OK.
+  - **Oficial** (mismo código `1b74b3d` y binarios): **24/24 bloques, 36 boots,
+    limpieza completa**, primer intento. Boot igual en las cuatro variantes
+    (go-go/python-python ≈ 0,99); mismas peticiones de Nova; Placement Go ~13 MiB
+    y ~0,01 s de CPU frente a ~178 MiB y 0,07–0,17 s; Glance Go ~18 MiB frente a
+    ~236 MiB. VM apagada.
+    [Evidencia](../evidence/sprint5/benchmarks/joint-official-20261127/README.md).
+

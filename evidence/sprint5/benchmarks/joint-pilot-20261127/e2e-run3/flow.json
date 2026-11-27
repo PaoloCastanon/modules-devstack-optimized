@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "window_s": 7.8,
+  "timeline": [
+    {
+      "caller": "nova",
+      "attribution": "apache",
+      "method": "GET",
+      "route": "/",
+      "status": 300,
+      "response_bytes": 1432,
+      "glance_duration_ms": 0,
+      "request_id_correlated": false,
+      "x_service_token": null,
+      "t_ms": 0.0
+    },
+    {
+      "caller": "nova",
+      "attribution": "apache",
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "status": 200,
+      "response_bytes": 817,
+      "glance_duration_ms": 28,
+      "request_id_correlated": false,
+      "x_service_token": null,
+      "t_ms": 47.6
+    },
+    {
+      "caller": "nova",
+      "attribution": "apache",
+      "method": "GET",
+      "route": "/v2/schemas/{name}",
+      "status": 200,
+      "response_bytes": 6083,
+      "glance_duration_ms": 0,
+      "request_id_correlated": false,
+      "x_service_token": null,
+      "t_ms": 50.4
+    },
+    {
+      "caller": "nova",
+      "attribution": "apache",
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "status": 200,
+      "response_bytes": 817,
+      "glance_duration_ms": 7,
+      "request_id_correlated": false,
+      "x_service_token": null,
+      "t_ms": 1164.4
+    },
+    {
+      "caller": "nova",
+      "attribution": "apache",
+      "method": "GET",
+      "route": "/v2/images/{id}/file",
+      "status": 200,
+      "response_bytes": 21692416,
+      "glance_duration_ms": 26,
+      "request_id_correlated": false,
+      "x_service_token": null,
+      "t_ms": 1191.8
+    },
+    {
+      "caller": "nova",
+      "attribution": "apache",
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "status": 200,
+      "response_bytes": 817,
+      "glance_duration_ms": 0,
+      "request_id_correlated": false,
+      "x_service_token": null,
+      "t_ms": 1228.5
+    },
+    {
+      "caller": "nova",
+      "attribution": "apache",
+      "method": "GET",
+      "route": "/v2/schemas/{name}",
+      "status": 200,
+      "response_bytes": 6083,
+      "glance_duration_ms": 0,
+      "request_id_correlated": false,
+      "x_service_token": null,
+      "t_ms": 1229.7
+    }
+  ],
+  "apache": [
+    {
+      "source": "apache",
+      "method": "GET",
+      "route": "/",
+      "status": 300,
+      "response_bytes": 1673,
+      "user_agent_class": "openstack-client"
+    },
+    {
+      "source": "apache",
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "status": 200,
+      "response_bytes": 1043,
+      "user_agent_class": "openstack-client"
+    },
+    {
+      "source": "apache",
+      "method": "GET",
+      "route": "/v2/schemas/{name}",
+      "status": 200,
+      "response_bytes": 6335,
+      "user_agent_class": "openstack-client"
+    },
+    {
+      "source": "apache",
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "status": 200,
+      "response_bytes": 1043,
+      "user_agent_class": "openstack-client"
+    },
+    {
+      "source": "apache",
+      "method": "GET",
+      "route": "/v2/images/{id}/file",
+      "status": 200,
+      "response_bytes": 21692702,
+      "user_agent_class": "openstack-client"
+    },
+    {
+      "source": "apache",
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "status": 200,
+      "response_bytes": 1043,
+      "user_agent_class": "openstack-client"
+    },
+    {
+      "source": "apache",
+      "method": "GET",
+      "route": "/v2/schemas/{name}",
+      "status": 200,
+      "response_bytes": 6329,
+      "user_agent_class": "openstack-client"
+    }
+  ],
+  "summary": {
+    "nova_calls": 7,
+    "request_id_correlated": 0,
+    "attributed_by_apache": 7,
+    "callers": [
+      "nova"
+    ],
+    "metadata_reads_200": 3,
+    "downloads_200_full": 1,
+    "composite_auth_seen": null,
+    "non_nova_glance_requests": 0
+  },
+  "accepted": true
+}

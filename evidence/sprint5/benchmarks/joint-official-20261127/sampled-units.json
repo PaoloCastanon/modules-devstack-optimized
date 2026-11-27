@@ -1,0 +1,16 @@
+{
+  "nova-compute": "devstack@n-cpu.service",
+  "nova-scheduler": "devstack@n-sch.service",
+  "nova-api": "devstack@n-api.service",
+  "nova-conductor-cell1": "devstack@n-cond-cell1.service",
+  "nova-super-conductor": "devstack@n-super-cond.service",
+  "keystone": "devstack@keystone.service",
+  "mysql": "mysql.service",
+  "apache": "apache2.service",
+  "rabbitmq": "rabbitmq-server.service",
+  "placement-python": "devstack@placement-api.service",
+  "glance-python": "devstack@g-api.service",
+  "placement-go": "tt-placement-b13-go-d02ae3fa04.service",
+  "placement-go-mysql": "tt-placement-b13-db-d02ae3fa04.service",
+  "glance-go": "tt-placement-b13-go-0fae220b73.service"
+}

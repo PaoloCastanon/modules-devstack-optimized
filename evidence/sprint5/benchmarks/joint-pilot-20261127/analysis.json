@@ -1,0 +1,659 @@
+{
+  "reference": "python-python",
+  "valid_blocks": 8,
+  "invalid_blocks": 0,
+  "cells": {
+    "python-python/1": {
+      "blocks": 1,
+      "boots": 1,
+      "boot_s_all": [
+        3.557
+      ],
+      "boot_s": {
+        "median": 3.557,
+        "min": 3.557,
+        "max": 3.557
+      },
+      "makespan_s": {
+        "median": 3.558,
+        "min": 3.558,
+        "max": 3.558
+      },
+      "boots_per_min": {
+        "median": 16.8634,
+        "min": 16.8634,
+        "max": 16.8634
+      },
+      "vm_busy_fraction": {
+        "median": 0.3617,
+        "min": 0.3617,
+        "max": 0.3617
+      },
+      "placement": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 95,
+          "min": 95,
+          "max": 95
+        },
+        "cpu_s": {
+          "median": 0.062,
+          "min": 0.062,
+          "max": 0.062
+        },
+        "pss_max_mib": {
+          "median": 178.9,
+          "min": 178.9,
+          "max": 178.9
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 97,
+          "min": 97,
+          "max": 97
+        },
+        "cpu_s": {
+          "median": 0.221,
+          "min": 0.221,
+          "max": 0.221
+        },
+        "pss_max_mib": {
+          "median": 238.6,
+          "min": 238.6,
+          "max": 238.6
+        }
+      }
+    },
+    "python-python/2": {
+      "blocks": 1,
+      "boots": 2,
+      "boot_s_all": [
+        6.257,
+        5.214
+      ],
+      "boot_s": {
+        "median": 5.7355,
+        "min": 5.214,
+        "max": 6.257
+      },
+      "makespan_s": {
+        "median": 6.262,
+        "min": 6.262,
+        "max": 6.262
+      },
+      "boots_per_min": {
+        "median": 19.1632,
+        "min": 19.1632,
+        "max": 19.1632
+      },
+      "vm_busy_fraction": {
+        "median": 0.537,
+        "min": 0.537,
+        "max": 0.537
+      },
+      "placement": {
+        "requests": {
+          "median": 14,
+          "min": 14,
+          "max": 14
+        },
+        "server_ms": {
+          "median": 363,
+          "min": 363,
+          "max": 363
+        },
+        "cpu_s": {
+          "median": 0.218,
+          "min": 0.218,
+          "max": 0.218
+        },
+        "pss_max_mib": {
+          "median": 178.6,
+          "min": 178.6,
+          "max": 178.6
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 12,
+          "min": 12,
+          "max": 12
+        },
+        "server_ms": {
+          "median": 429,
+          "min": 429,
+          "max": 429
+        },
+        "cpu_s": {
+          "median": 0.303,
+          "min": 0.303,
+          "max": 0.303
+        },
+        "pss_max_mib": {
+          "median": 238.5,
+          "min": 238.5,
+          "max": 238.5
+        }
+      }
+    },
+    "go-python/1": {
+      "blocks": 1,
+      "boots": 1,
+      "boot_s_all": [
+        4.65
+      ],
+      "boot_s": {
+        "median": 4.65,
+        "min": 4.65,
+        "max": 4.65
+      },
+      "makespan_s": {
+        "median": 4.651,
+        "min": 4.651,
+        "max": 4.651
+      },
+      "boots_per_min": {
+        "median": 12.9005,
+        "min": 12.9005,
+        "max": 12.9005
+      },
+      "vm_busy_fraction": {
+        "median": 0.3448,
+        "min": 0.3448,
+        "max": 0.3448
+      },
+      "placement": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 33,
+          "min": 33,
+          "max": 33
+        },
+        "cpu_s": {
+          "median": 0.008,
+          "min": 0.008,
+          "max": 0.008
+        },
+        "pss_max_mib": {
+          "median": 11.7,
+          "min": 11.7,
+          "max": 11.7
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 91,
+          "min": 91,
+          "max": 91
+        },
+        "cpu_s": {
+          "median": 0.078,
+          "min": 0.078,
+          "max": 0.078
+        },
+        "pss_max_mib": {
+          "median": 237.5,
+          "min": 237.5,
+          "max": 237.5
+        }
+      }
+    },
+    "go-python/2": {
+      "blocks": 1,
+      "boots": 2,
+      "boot_s_all": [
+        5.148,
+        5.167
+      ],
+      "boot_s": {
+        "median": 5.1575,
+        "min": 5.148,
+        "max": 5.167
+      },
+      "makespan_s": {
+        "median": 5.167,
+        "min": 5.167,
+        "max": 5.167
+      },
+      "boots_per_min": {
+        "median": 23.2243,
+        "min": 23.2243,
+        "max": 23.2243
+      },
+      "vm_busy_fraction": {
+        "median": 0.5725,
+        "min": 0.5725,
+        "max": 0.5725
+      },
+      "placement": {
+        "requests": {
+          "median": 14,
+          "min": 14,
+          "max": 14
+        },
+        "server_ms": {
+          "median": 42,
+          "min": 42,
+          "max": 42
+        },
+        "cpu_s": {
+          "median": 0.015,
+          "min": 0.015,
+          "max": 0.015
+        },
+        "pss_max_mib": {
+          "median": 13.2,
+          "min": 13.2,
+          "max": 13.2
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 12,
+          "min": 12,
+          "max": 12
+        },
+        "server_ms": {
+          "median": 227,
+          "min": 227,
+          "max": 227
+        },
+        "cpu_s": {
+          "median": 0.3,
+          "min": 0.3,
+          "max": 0.3
+        },
+        "pss_max_mib": {
+          "median": 237.6,
+          "min": 237.6,
+          "max": 237.6
+        }
+      }
+    },
+    "python-go/1": {
+      "blocks": 1,
+      "boots": 1,
+      "boot_s_all": [
+        3.525
+      ],
+      "boot_s": {
+        "median": 3.525,
+        "min": 3.525,
+        "max": 3.525
+      },
+      "makespan_s": {
+        "median": 3.526,
+        "min": 3.526,
+        "max": 3.526
+      },
+      "boots_per_min": {
+        "median": 17.0164,
+        "min": 17.0164,
+        "max": 17.0164
+      },
+      "vm_busy_fraction": {
+        "median": 0.3637,
+        "min": 0.3637,
+        "max": 0.3637
+      },
+      "placement": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 118,
+          "min": 118,
+          "max": 118
+        },
+        "cpu_s": {
+          "median": 0.093,
+          "min": 0.093,
+          "max": 0.093
+        },
+        "pss_max_mib": {
+          "median": 176.9,
+          "min": 176.9,
+          "max": 176.9
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 57,
+          "min": 57,
+          "max": 57
+        },
+        "cpu_s": {
+          "median": 0.134,
+          "min": 0.134,
+          "max": 0.134
+        },
+        "pss_max_mib": {
+          "median": 18.4,
+          "min": 18.4,
+          "max": 18.4
+        }
+      }
+    },
+    "python-go/2": {
+      "blocks": 1,
+      "boots": 2,
+      "boot_s_all": [
+        4.267,
+        5.316
+      ],
+      "boot_s": {
+        "median": 4.7915,
+        "min": 4.267,
+        "max": 5.316
+      },
+      "makespan_s": {
+        "median": 5.319,
+        "min": 5.319,
+        "max": 5.319
+      },
+      "boots_per_min": {
+        "median": 22.5606,
+        "min": 22.5606,
+        "max": 22.5606
+      },
+      "vm_busy_fraction": {
+        "median": 0.573,
+        "min": 0.573,
+        "max": 0.573
+      },
+      "placement": {
+        "requests": {
+          "median": 14,
+          "min": 14,
+          "max": 14
+        },
+        "server_ms": {
+          "median": 219,
+          "min": 219,
+          "max": 219
+        },
+        "cpu_s": {
+          "median": 0.215,
+          "min": 0.215,
+          "max": 0.215
+        },
+        "pss_max_mib": {
+          "median": 178.2,
+          "min": 178.2,
+          "max": 178.2
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 12,
+          "min": 12,
+          "max": 12
+        },
+        "server_ms": {
+          "median": 112,
+          "min": 112,
+          "max": 112
+        },
+        "cpu_s": {
+          "median": 0.254,
+          "min": 0.254,
+          "max": 0.254
+        },
+        "pss_max_mib": {
+          "median": 18.4,
+          "min": 18.4,
+          "max": 18.4
+        }
+      }
+    },
+    "go-go/1": {
+      "blocks": 1,
+      "boots": 1,
+      "boot_s_all": [
+        4.744
+      ],
+      "boot_s": {
+        "median": 4.744,
+        "min": 4.744,
+        "max": 4.744
+      },
+      "makespan_s": {
+        "median": 4.745,
+        "min": 4.745,
+        "max": 4.745
+      },
+      "boots_per_min": {
+        "median": 12.6449,
+        "min": 12.6449,
+        "max": 12.6449
+      },
+      "vm_busy_fraction": {
+        "median": 0.3323,
+        "min": 0.3323,
+        "max": 0.3323
+      },
+      "placement": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 28,
+          "min": 28,
+          "max": 28
+        },
+        "cpu_s": {
+          "median": 0.009,
+          "min": 0.009,
+          "max": 0.009
+        },
+        "pss_max_mib": {
+          "median": 12.7,
+          "min": 12.7,
+          "max": 12.7
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 61,
+          "min": 61,
+          "max": 61
+        },
+        "cpu_s": {
+          "median": 0.136,
+          "min": 0.136,
+          "max": 0.136
+        },
+        "pss_max_mib": {
+          "median": 15.8,
+          "min": 15.8,
+          "max": 15.8
+        }
+      }
+    },
+    "go-go/2": {
+      "blocks": 1,
+      "boots": 2,
+      "boot_s_all": [
+        5.164,
+        4.163
+      ],
+      "boot_s": {
+        "median": 4.6635,
+        "min": 4.163,
+        "max": 5.164
+      },
+      "makespan_s": {
+        "median": 5.165,
+        "min": 5.165,
+        "max": 5.165
+      },
+      "boots_per_min": {
+        "median": 23.2333,
+        "min": 23.2333,
+        "max": 23.2333
+      },
+      "vm_busy_fraction": {
+        "median": 0.5628,
+        "min": 0.5628,
+        "max": 0.5628
+      },
+      "placement": {
+        "requests": {
+          "median": 14,
+          "min": 14,
+          "max": 14
+        },
+        "server_ms": {
+          "median": 34,
+          "min": 34,
+          "max": 34
+        },
+        "cpu_s": {
+          "median": 0.016,
+          "min": 0.016,
+          "max": 0.016
+        },
+        "pss_max_mib": {
+          "median": 13.7,
+          "min": 13.7,
+          "max": 13.7
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 12,
+          "min": 12,
+          "max": 12
+        },
+        "server_ms": {
+          "median": 95,
+          "min": 95,
+          "max": 95
+        },
+        "cpu_s": {
+          "median": 0.265,
+          "min": 0.265,
+          "max": 0.265
+        },
+        "pss_max_mib": {
+          "median": 18.2,
+          "min": 18.2,
+          "max": 18.2
+        }
+      }
+    }
+  },
+  "ratios": {
+    "go-go/1": {
+      "pairs": 1,
+      "boot_median_ratio": {
+        "median": 1.3337,
+        "min": 1.3337,
+        "max": 1.3337
+      },
+      "makespan_ratio": {
+        "median": 1.3336,
+        "min": 1.3336,
+        "max": 1.3336
+      }
+    },
+    "go-go/2": {
+      "pairs": 1,
+      "boot_median_ratio": {
+        "median": 0.8131,
+        "min": 0.8131,
+        "max": 0.8131
+      },
+      "makespan_ratio": {
+        "median": 0.8248,
+        "min": 0.8248,
+        "max": 0.8248
+      }
+    },
+    "go-python/1": {
+      "pairs": 1,
+      "boot_median_ratio": {
+        "median": 1.3073,
+        "min": 1.3073,
+        "max": 1.3073
+      },
+      "makespan_ratio": {
+        "median": 1.3072,
+        "min": 1.3072,
+        "max": 1.3072
+      }
+    },
+    "go-python/2": {
+      "pairs": 1,
+      "boot_median_ratio": {
+        "median": 0.8992,
+        "min": 0.8992,
+        "max": 0.8992
+      },
+      "makespan_ratio": {
+        "median": 0.8251,
+        "min": 0.8251,
+        "max": 0.8251
+      }
+    },
+    "python-go/1": {
+      "pairs": 1,
+      "boot_median_ratio": {
+        "median": 0.991,
+        "min": 0.991,
+        "max": 0.991
+      },
+      "makespan_ratio": {
+        "median": 0.991,
+        "min": 0.991,
+        "max": 0.991
+      }
+    },
+    "python-go/2": {
+      "pairs": 1,
+      "boot_median_ratio": {
+        "median": 0.8354,
+        "min": 0.8354,
+        "max": 0.8354
+      },
+      "makespan_ratio": {
+        "median": 0.8494,
+        "min": 0.8494,
+        "max": 0.8494
+      }
+    }
+  }
+}
