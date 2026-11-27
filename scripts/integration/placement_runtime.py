@@ -220,6 +220,20 @@ def run(args):
     return 0
 
 
+def ensure_shared_database(conf_text):
+    """Create glance_go_shared (Go's transfer bookkeeping) on the original's
+    MySQL server with the original's own account, as glance_replace install and
+    the DevStack plugin do. A lab where neither ran lacks it, and Glance Go's
+    migrate then retries until it gives up. Idempotent; never touches glance."""
+    import pymysql
+    from glance_replace import database_from_glance_conf
+    db = database_from_glance_conf(conf_text)
+    with pymysql.connect(host=db['host'], port=db['port'], user=db['user'], password=db['password'], connect_timeout=10) as conn:
+        with conn.cursor() as cur:
+            cur.execute('CREATE DATABASE IF NOT EXISTS `glance_go_shared`')
+        conn.commit()
+
+
 def prepare_official(args, root, state, save, checkpoint, start_unit):
     """Glance Go on the ORIGINAL catalog, as the permanent replacement: a
     private copy of the original's glance-api.conf (same MySQL account and
@@ -234,6 +248,7 @@ def prepare_official(args, root, state, save, checkpoint, start_unit):
         from glance_notifications import noop_config
         raw = noop_config(raw)
     save('glance-api.conf', raw)
+    ensure_shared_database(raw)
     state.update(catalog='official', db_unit=None, schema='glance', notifications=glance_notification_settings(raw)['driver'])
     checkpoint()
     shutil.copy(args.binary, root / 'glance')
