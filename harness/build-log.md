@@ -1570,5 +1570,11 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     12 boots, limpieza completa**.
     [Evidencia](../evidence/sprint5/benchmarks/joint-pilot-20261127/README.md).
   - **Verificación:** `make check` OK antes de los cambios; tests unitarios
-    nuevos OK. **Pendiente:** campaña oficial (24 bloques, 36 boots).
+    nuevos OK.
+  - **Oficial** (mismo código `1b74b3d` y binarios): **24/24 bloques, 36 boots,
+    limpieza completa**, primer intento. Boot igual en las cuatro variantes
+    (go-go/python-python ≈ 0,99); mismas peticiones de Nova; Placement Go ~13 MiB
+    y ~0,01 s de CPU frente a ~178 MiB y 0,07–0,17 s; Glance Go ~18 MiB frente a
+    ~236 MiB. VM apagada.
+    [Evidencia](../evidence/sprint5/benchmarks/joint-official-20261127/README.md).
 

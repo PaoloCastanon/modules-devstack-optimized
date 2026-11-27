@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "suite": "joint-campaign",
+  "run_id": "tt-joint-3c102376d354",
+  "started_utc": "2026-11-27T22:22:15.875103+00:00",
+  "cases": {},
+  "cleanup": {
+    "original_unchanged": true,
+    "private_root_removed": true,
+    "runtime_removed": true,
+    "identity_removed": true,
+    "controls_restored": true,
+    "original_services_active": {
+      "devstack@placement-api.service": true,
+      "devstack@g-api.service": true,
+      "devstack@n-cpu.service": true,
+      "devstack@n-sch.service": true,
+      "devstack@keystone.service": true
+    },
+    "pending_images": 0,
+    "placement_restored": true,
+    "placement_runtime_removed": true,
+    "server_removed": true,
+    "service_validator_removed": true
+  },
+  "execution_error": null,
+  "passed": true,
+  "mode": "glance-go+placement-go",
+  "required_cases": [],
+  "protocol": "placement-glance-joint-compact-v3",
+  "pilot": false,
+  "protocol_sha256": "232f06d4956e9695510615779406b059c9ed8614f8d1897d3692d2f027e99fc0",
+  "blocks_required": 24,
+  "blocks_valid": 24,
+  "manifest_sha256": "1ab63c1c64128fbfbac250ceff9a8ba860fa8a323f08681f1d808b7327abdb21",
+  "nova_ready_wait_s": 16.0,
+  "service_validator": {
+    "name": "tt-placement-glance-eb584f6ead50",
+    "project": "service",
+    "roles": [
+      "service"
+    ]
+  },
+  "switches": [
+    {
+      "variant": "python-go",
+      "switch_s": 111.6,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "go-go",
+      "switch_s": 99.0,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "python-python",
+      "switch_s": 102.1,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "go-python",
+      "switch_s": 101.5,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "python-python",
+      "switch_s": 100.8,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "python-go",
+      "switch_s": 101.8,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "go-python",
+      "switch_s": 101.6,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "go-go",
+      "switch_s": 103.4,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "go-python",
+      "switch_s": 103.6,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "python-go",
+      "switch_s": 97.3,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "python-python",
+      "switch_s": 105.7,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "go-go",
+      "switch_s": 97.1,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    }
+  ],
+  "request_cases": 218,
+  "finished_utc": "2026-11-27T22:47:05.527547+00:00"
+}
