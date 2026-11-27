@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -164,5 +165,21 @@ func TestOriginalEnabledBackendsAndDelayedDelete(t *testing.T) {
 	env["GLANCE_GO_CONFIG_FILE"] = originalConf(t, bad, 0644)
 	if _, err = Load(func(k string) string { return env[k] }, "serve"); err == nil {
 		t.Fatal("non-file backend accepted")
+	}
+}
+
+// glance-download's [glance_download_properties] extra_properties, with the
+// original's default prefixes when unset.
+func TestOriginalGlanceDownloadProperties(t *testing.T) {
+	conf := strings.Replace(devstackConf, "[DEFAULT]\n", "[DEFAULT]\nenabled_import_methods = glance-direct,web-download,glance-download\n", 1)
+	env := map[string]string{"GLANCE_GO_CONFIG_FILE": originalConf(t, conf, 0644)}
+	c, err := Load(func(k string) string { return env[k] }, "serve")
+	if err != nil || !slices.Equal(c.Import.Methods, []string{"glance-direct", "web-download", "glance-download"}) ||
+		!slices.Equal(c.Import.DownloadProperties, []string{"hw_", "trait:", "os_distro", "os_secure_boot", "os_type"}) {
+		t.Fatal(c.Import.Methods, c.Import.DownloadProperties, err)
+	}
+	env["GLANCE_GO_CONFIG_FILE"] = originalConf(t, conf+"[glance_download_properties]\nextra_properties = 'os_', architecture\n", 0644)
+	if c, err = Load(func(k string) string { return env[k] }, "serve"); err != nil || !slices.Equal(c.Import.DownloadProperties, []string{"os_", "architecture"}) {
+		t.Fatal(c.Import.DownloadProperties, err)
 	}
 }

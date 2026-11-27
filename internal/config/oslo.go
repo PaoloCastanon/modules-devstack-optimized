@@ -475,6 +475,16 @@ func readImport(c *Config, f osloFile, env func(string) string) error {
 	if _, set := imp["image_format"]["vmdk_allowed_types"]; !set {
 		c.Import.VMDKAllowed = []string{"streamOptimized", "monolithicSparse"}
 	}
+	// The original's default prefixes; os_glance is reserved and never copied.
+	c.Import.DownloadProperties = []string{"hw_", "trait:", "os_distro", "os_secure_boot", "os_type"}
+	if _, set := f["glance_download_properties"]["extra_properties"]; set {
+		c.Import.DownloadProperties = nil
+		for _, p := range f.list("glance_download_properties", "extra_properties") {
+			if p = strings.Trim(strings.TrimSpace(p), "'\"[]"); p != "" {
+				c.Import.DownloadProperties = append(c.Import.DownloadProperties, p)
+			}
+		}
+	}
 	if err := ports("allowed_ports", &c.Import.AllowedPorts); err != nil {
 		return err
 	}

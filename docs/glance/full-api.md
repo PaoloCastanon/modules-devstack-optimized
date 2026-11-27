@@ -20,7 +20,7 @@ del original.
 | Borrado diferido | `DELETE` deja `pending_delete`; `glance-scrubber` lo completa | `images`, `image_locations` | `delayed_delete`, `scrub_time` |
 | Límites de Keystone en caché | los límites de un proyecto se reutilizan unos segundos | — | `GLANCE_GO_LIMITS_CACHE_SECONDS` (5 por defecto; 0 pregunta siempre, como el original) |
 | Otros | `POST /v2/tasks` (tipo `import`), `/healthcheck` | `tasks` | `[DEFAULT] max_retries`/`retry_interval` de `[database]` |
-| Importación interoperable | `PUT /stage`, `POST /import`, `/v2/info/import` | `images`, `image_properties` (`os_glance_import_task`) | `node_staging_uri`, `enabled_import_methods`, `[import_filtering_opts]` |
+| Importación interoperable | `PUT /stage`, `POST /import`, `/v2/info/import` | `images`, `image_properties` (`os_glance_import_task`) | `node_staging_uri`, `enabled_import_methods`, `[import_filtering_opts]`, `[glance_download_properties] extra_properties` |
 | Tareas | `/v2/tasks`, `/v2/tasks/{id}`, `/v2/images/{id}/tasks` | `tasks`, `task_info` | `[task] task_time_to_live` |
 | Caché de imágenes | `/v2/cache[/{image_id}]`; descargas servidas desde la caché | `cached_images`, `node_reference` | `[paste_deploy] flavor`, `image_cache_dir`, `worker_self_reference_url`, `cache_prefetcher_interval` |
 | Metadefs | `/v2/metadefs/namespaces/...`, `/v2/metadefs/resource_types` | `metadef_*` (6 tablas) | — |
@@ -41,6 +41,16 @@ del original.
 
 - Un 400 de validación de metadefs no incluye el volcado de `jsonschema` que
   el original agrega después de la primera línea.
+- `glance-download` importa desde el Glance de otra región, como el original:
+  busca el endpoint `image` de `glance_region` (sin distinguir mayúsculas) e
+  interfaz `glance_service_interface` (por defecto `public`) en el catálogo del
+  usuario (`GET /v3/auth/catalog` con su token), exige la imagen remota
+  `active`, copia `disk_format`, `container_format` y las propiedades con los
+  prefijos de `extra_properties`, y baja los datos con el token del usuario,
+  el filtro de `[import_filtering_opts]` y el límite de tamaño; si falla,
+  restaura formatos y propiedades y la imagen vuelve a `queued`. El token se
+  guarda solo en memoria durante la tarea: si Glance Go se reinicia, la tarea
+  se cierra como fallida.
 - La importación escribe los datos por el mismo camino que una subida:
   durante la escritura la imagen se ve `saving` (el original la muestra
   `importing` hasta quedar `active`).
@@ -59,7 +69,7 @@ con el DDL de la revisión `2024_1_contract01`.
 
 ## Lo que no implementa todavía
 
-- `glance-download` (importación entre regiones) y stores que no son de
+- Stores que no son de
   archivos (rbd, swift, cinder, s3, http): `enabled_backends` acepta solo
   `file`.
 - `/v2/info/stores/detail` informa `chunk_size` 65536 y

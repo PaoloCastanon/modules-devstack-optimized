@@ -215,6 +215,8 @@ func run(args []string, logger *slog.Logger) (result error) {
 			return err
 		}
 		importer.SetNotifier(notifier)
+		// glance-download reads the user's service catalog from Keystone.
+		importer.SetKeystone(c.KeystoneURL, client)
 		defer importer.Close() // before the store closes (deferred earlier)
 		recovering, cancelRecovery := context.WithTimeout(ctx, c.Binary.RecoveryTimeout)
 		recovered, err := importer.Recover(recovering)
