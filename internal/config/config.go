@@ -108,6 +108,9 @@ type ImportSettings struct {
 	Inject           map[string]string // [inject_metadata_properties] inject
 	VMDKAllowed      []string          // [image_format] vmdk_allowed_types
 	GPTNonfatal      []string          // [image_format] gpt_safety_checks_nonfatal
+	// DownloadProperties is [glance_download_properties] extra_properties:
+	// the property prefixes glance-download copies from the remote image.
+	DownloadProperties []string
 }
 
 // KeystoneLimits is what oslo.limit reads: the Glance endpoint whose

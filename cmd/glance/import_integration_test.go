@@ -78,14 +78,34 @@ func TestImportMySQLFilesystemHTTP(t *testing.T) {
 	}
 	// The web-download source: a local HTTP server, allowed by the filter.
 	payload := bytes.Repeat([]byte("glance-go-web-download "), 4096)
+	// It also plays another region's Glance for glance-download, which only
+	// answers the user's token.
+	remote, remoteStatus := "8f9e2b1c-4d5a-4e6f-9a7b-0c1d2e3f4a5b", "active"
 	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/cirros.img" {
+		switch {
+		case r.URL.Path == "/cirros.img":
+			_, _ = w.Write(payload)
+		case r.Header.Get("X-Auth-Token") != "member-token":
+			w.WriteHeader(401)
+		case r.URL.Path == "/image/v2/images/"+remote:
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": remote, "status": remoteStatus, "size": len(payload),
+				"disk_format": "qcow2", "container_format": "bare", "hw_disk_bus": "scsi", "owner_note": "not copied"})
+		case r.URL.Path == "/image/v2/images/"+remote+"/file":
+			_, _ = w.Write(payload)
+		default:
 			w.WriteHeader(404)
-			return
 		}
-		_, _ = w.Write(payload)
 	}))
 	defer source.Close()
+	keystone := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v3/auth/catalog" || r.Header.Get("X-Auth-Token") != "member-token" {
+			w.WriteHeader(401)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"catalog": []any{map[string]any{"type": "image", "endpoints": []any{
+			map[string]any{"interface": "public", "region": "RegionTwo", "url": source.URL + "/image"}}}}})
+	}))
+	defer keystone.Close()
 	su, _ := url.Parse(source.URL)
 	port, _ := strconv.Atoi(su.Port())
 	c := testConfig()
@@ -94,8 +114,8 @@ func TestImportMySQLFilesystemHTTP(t *testing.T) {
 	c.DependencyTimeout, c.RequestTimeout = 5*time.Second, 15*time.Second
 	c.Binary.RecoveryTimeout, c.Binary.ResolutionTimeout = 30*time.Second, 5*time.Second
 	c.Binary.UploadTimeout, c.Binary.DownloadTimeout = time.Minute, time.Minute
-	c.Import = config.ImportSettings{StagingDir: staging, Methods: []string{"glance-direct", "web-download"}, TaskTimeToLive: 48 * time.Hour,
-		AllowedSchemes: []string{"http"}, AllowedPorts: []int{port}}
+	c.Import = config.ImportSettings{StagingDir: staging, Methods: []string{"glance-direct", "web-download", "glance-download"}, TaskTimeToLive: 48 * time.Hour,
+		AllowedSchemes: []string{"http"}, AllowedPorts: []int{port}, DownloadProperties: []string{"hw_", "trait:", "os_distro", "os_secure_boot", "os_type"}}
 	cacheDir := filepath.Clean(root) + "-cache"
 	c.Cache = config.CacheSettings{Enabled: true, Dir: cacheDir, NodeURL: "http://glance-go-test-node:9292", PrefetchInterval: 200 * time.Millisecond, MaxSize: 1 << 30}
 	var runtime *binaryRuntime
@@ -118,6 +138,7 @@ func TestImportMySQLFilesystemHTTP(t *testing.T) {
 		if importer, err = service.NewImporter(c.Import, catalog, runtime.owner, http.DefaultClient); err != nil {
 			t.Fatal(err)
 		}
+		importer.SetKeystone(keystone.URL+"/v3", http.DefaultClient)
 		if _, err = importer.Recover(ctx); err != nil {
 			t.Fatal(err)
 		}
@@ -192,7 +213,7 @@ func TestImportMySQLFilesystemHTTP(t *testing.T) {
 		return nil
 	}
 	info := call("GET", "/v2/info/import", "", "", "member-token", 200)
-	if !strings.Contains(string(info), `"value":["glance-direct","web-download"]`) {
+	if !strings.Contains(string(info), `"value":["glance-direct","web-download","glance-download"]`) {
 		t.Fatal(string(info))
 	}
 
@@ -246,6 +267,40 @@ func TestImportMySQLFilesystemHTTP(t *testing.T) {
 	}
 	if tasks.Tasks[0]["status"] != "failure" || status(id)["status"] != "queued" || status(id)["os_glance_import_task"] != nil {
 		t.Fatal("failed import not reverted", tasks, status(id))
+	}
+
+	// glance-download from RegionTwo: request checks, the import and a revert.
+	id = create()
+	gd := func(extra string) string { return `{"method":{"name":"glance-download"` + extra + `}}` }
+	call("POST", "/v2/images/"+id+"/import", gd(`,"glance_image_id":"`+remote+`"`), "application/json", "member-token", 400)
+	call("POST", "/v2/images/"+id+"/import", gd(`,"glance_region":"RegionTwo"`), "application/json", "member-token", 400)
+	call("POST", "/v2/images/"+id+"/import", gd(`,"glance_region":"RegionTwo","glance_image_id":"nope"`), "application/json", "member-token", 400)
+	call("POST", "/v2/images/"+id+"/import", gd(`,"glance_region":"regiontwo","glance_image_id":"`+remote+`"`), "application/json", "member-token", 202)
+	image = wait(id, "active")
+	if image["disk_format"] != "qcow2" || image["container_format"] != "bare" || image["hw_disk_bus"] != "scsi" || image["owner_note"] != nil {
+		t.Fatal("glance-download metadata", image)
+	}
+	if got := call("GET", "/v2/images/"+id+"/file", "", "", "member-token", 200); !bytes.Equal(got, payload) {
+		t.Fatal("glance-download bytes differ")
+	}
+	_ = json.Unmarshal(call("GET", "/v2/images/"+id+"/tasks", "", "", "member-token", 200), &tasks)
+	if len(tasks.Tasks) != 1 || tasks.Tasks[0]["status"] != "success" {
+		t.Fatal("glance-download task", tasks)
+	}
+	call("POST", "/v2/images/"+id+"/import", gd(`,"glance_region":"RegionTwo","glance_image_id":"`+remote+`"`), "application/json", "member-token", 409) // active
+	remoteStatus = "queued"
+	id = create()
+	call("POST", "/v2/images/"+id+"/import", gd(`,"glance_region":"RegionTwo","glance_image_id":"`+remote+`"`), "application/json", "member-token", 202)
+	for range 200 {
+		_ = json.Unmarshal(call("GET", "/v2/images/"+id+"/tasks", "", "", "member-token", 200), &tasks)
+		if len(tasks.Tasks) == 1 && tasks.Tasks[0]["status"] == "failure" {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if image = status(id); tasks.Tasks[0]["status"] != "failure" || image["status"] != "queued" || image["disk_format"] != "raw" || image["os_glance_import_task"] != nil ||
+		!strings.Contains(tasks.Tasks[0]["message"].(string), "Source image status should be active instead of queued") {
+		t.Fatal("failed glance-download not reverted", tasks, image)
 	}
 
 	// The original's task-based import (POST /v2/tasks, type import).

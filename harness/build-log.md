@@ -1519,3 +1519,36 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
   - **No medido todavía:** el efecto en la campaña (hay que repetirla con este
     binario). `delete` queda en unos 27 ms en el banco de pruebas (en la
     campaña v7 medía 10-18 ms, como la v6).
+
+- **2026-11-27 — Glance Go: importación `glance-download`, como el original.**
+  - **Antes:** `enabled_import_methods` aceptaba `glance-download` y
+    `/v2/info/import` lo anunciaba, pero `POST /import` lo rechazaba siempre
+    (no estaba implementado).
+  - **Ahora:** se sigue el código del original (`stable/2026.1`, `61e0339`:
+    `images.py`, `_ImportMetadata` y `glance_download.py`). Validación con 400
+    (`glance_region` y `glance_image_id` obligatorios, UUID, interfaz `public`
+    por defecto, que queda en el `import_req` de la tarea); endpoint `image`
+    de la región desde el catálogo del usuario (`GET /v3/auth/catalog` con su
+    token); imagen remota `active`; copia de `disk_format`,
+    `container_format` y las propiedades de
+    `[glance_download_properties] extra_properties`; descarga con el token del
+    usuario, el filtro `[import_filtering_opts]` y el límite de tamaño;
+    tamaño comparado con el remoto; si falla, formatos y propiedades vuelven
+    atrás y la imagen a `queued`.
+  - **Verificación:** pruebas unitarias nuevas (servicio y configuración) y
+    `go test -race` de `internal/glance/...`, `internal/config`,
+    `internal/auth` y `cmd/glance` OK; integración MySQL 12/12 (la suite
+    `imports` incluye `glance-download` por la API real, con Keystone y un
+    Glance remoto simulados). En la VM, con una región `RegionTwo` cuyo
+    endpoint `image` apunta a `/image`: la copia de CirrOS quedó `active` con
+    el mismo `os_hash_value`, `checksum` y bytes, `qcow2`/`bare` tomados de la
+    remota, `hw_disk_bus` y `os_distro` copiadas y una propiedad fuera de la
+    lista no copiada; una remota en `queued` y una región inexistente dejan
+    la tarea en `failure` y la imagen en `queued` con su formato original.
+    Suite unificada de DevStack 11/11 con ese binario. La VM quedó como
+    estaba (binario de `ddf7ad9`, sin `glance-download` ni `RegionTwo`).
+  - **Límites:** la región remota del laboratorio es el mismo Glance (prueba
+    el protocolo, no una red entre regiones). El token vive solo en memoria:
+    si Glance Go se reinicia durante la tarea, esta se cierra como fallida.
+    Si una petición tiene a la vez datos de `glance-download` inválidos y la
+    imagen en un estado que no es `queued`, Go responde 400 y el original 409.

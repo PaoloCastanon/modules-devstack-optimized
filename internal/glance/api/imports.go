@@ -93,6 +93,8 @@ func (h *Handler) importImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Raw = raw
+	// glance-download calls the remote Glance with the user's token.
+	req.Token = r.Header.Get("X-Auth-Token")
 	if req.Method.Name == "" {
 		h.status(w, 400, "Import method name is required.")
 		return

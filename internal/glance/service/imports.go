@@ -44,6 +44,9 @@ type Importer struct {
 	client   *http.Client
 	now      func() time.Time
 	notifier notify.Notifier
+	// keystone is the Keystone v3 URL glance-download reads the catalog from.
+	keystone       string
+	keystoneClient *http.Client
 
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -58,7 +61,14 @@ type ImportRequest struct {
 	Method struct {
 		Name string `json:"name"`
 		URI  string `json:"uri"`
+		// glance-download's remote image.
+		GlanceRegion           string `json:"glance_region,omitempty"`
+		GlanceImageID          string `json:"glance_image_id,omitempty"`
+		GlanceServiceInterface string `json:"glance_service_interface,omitempty"`
 	} `json:"method"`
+	// Token is the user's token: glance-download uses it with the remote
+	// Glance, as the original does with the request context. Memory only.
+	Token     string   `json:"-"`
 	Stores    []string `json:"stores"`
 	AllStores bool     `json:"all_stores"`
 	// AllStoresMustSucceed defaults to true, as the original.
@@ -71,6 +81,8 @@ type importJob struct {
 	roles       []string
 	stores      []string
 	mustSucceed bool
+	// glance-download
+	token, region, remoteID, iface string
 }
 
 func NewImporter(cfg config.ImportSettings, svc *Service, data *UploadCoordinator, client *http.Client) (*Importer, error) {
@@ -236,7 +248,7 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 		return model.Task{}, err
 	}
 	method := req.Method.Name
-	if !slices.Contains(m.cfg.Methods, method) || method == "glance-download" {
+	if !slices.Contains(m.cfg.Methods, method) {
 		return model.Task{}, model.Fail(model.Invalid, "Import method "+method+" is not valid for this image.")
 	}
 	stores, err := m.importStores(ctx, id, method, req)
@@ -254,6 +266,12 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 			return model.Task{}, model.Fail(model.Invalid, "URI for web-download is required.")
 		}
 		if err = m.filter(u); err != nil {
+			return model.Task{}, err
+		}
+		from = []string{"queued"}
+	}
+	if method == "glance-download" {
+		if err = checkGlanceDownload(&req); err != nil {
 			return model.Task{}, err
 		}
 		from = []string{"queued"}
@@ -307,8 +325,8 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 		if method == "glance-direct" && image.Status != "uploading" {
 			return model.Fail(model.Conflict, "Image needs to be staged before 'glance-direct' method can be used")
 		}
-		if method == "web-download" && image.Status != "queued" {
-			return model.Fail(model.Conflict, "Image needs to be in 'queued' state to use 'web-download' method")
+		if (method == "web-download" || method == "glance-download") && image.Status != "queued" {
+			return model.Fail(model.Conflict, "Image needs to be in 'queued' state to use '"+method+"' method")
 		}
 		return nil
 	})
@@ -325,7 +343,8 @@ func (m *Importer) Import(ctx context.Context, who auth.Identity, value string, 
 			i.Properties["os_glance_importing_to_stores"] = strings.Join(stores, ",")
 		})
 	}
-	m.start(task, importJob{method: method, uri: req.Method.URI, roles: who.Roles, stores: stores, mustSucceed: must})
+	m.start(task, importJob{method: method, uri: req.Method.URI, roles: who.Roles, stores: stores, mustSucceed: must,
+		token: req.Token, region: req.Method.GlanceRegion, remoteID: req.Method.GlanceImageID, iface: req.Method.GlanceServiceInterface})
 	return task, nil
 }
 
@@ -384,6 +403,12 @@ func (m *Importer) run(task model.Task, job importJob) {
 	}
 	if method == "web-download" {
 		if err := m.download(ctx, id, uri); err != nil {
+			fail(err)
+			return
+		}
+	}
+	if method == "glance-download" {
+		if err := m.glanceDownload(ctx, id, task.ID, job); err != nil {
 			fail(err)
 			return
 		}
