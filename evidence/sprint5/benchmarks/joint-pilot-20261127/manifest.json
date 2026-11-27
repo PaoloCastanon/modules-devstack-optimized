@@ -1,0 +1,73 @@
+{
+  "run_id": "tt-joint-59aee5eca629",
+  "protocol": "placement-glance-joint-compact-v3",
+  "protocol_sha256": "232f06d4956e9695510615779406b059c9ed8614f8d1897d3692d2f027e99fc0",
+  "pilot": true,
+  "plan": [
+    {
+      "index": 1,
+      "repetition": 1,
+      "variant": "go-python",
+      "concurrency": 1
+    },
+    {
+      "index": 2,
+      "repetition": 1,
+      "variant": "go-python",
+      "concurrency": 2
+    },
+    {
+      "index": 3,
+      "repetition": 1,
+      "variant": "python-python",
+      "concurrency": 2
+    },
+    {
+      "index": 4,
+      "repetition": 1,
+      "variant": "python-python",
+      "concurrency": 1
+    },
+    {
+      "index": 5,
+      "repetition": 1,
+      "variant": "go-go",
+      "concurrency": 1
+    },
+    {
+      "index": 6,
+      "repetition": 1,
+      "variant": "go-go",
+      "concurrency": 2
+    },
+    {
+      "index": 7,
+      "repetition": 1,
+      "variant": "python-go",
+      "concurrency": 1
+    },
+    {
+      "index": 8,
+      "repetition": 1,
+      "variant": "python-go",
+      "concurrency": 2
+    }
+  ],
+  "binaries_sha256": {
+    "glance": "652a7337a7ae069886095317d100994d9103682d45410738da508290e9106896",
+    "placement": "91866d8faae3746f60a102c0fb6bfdd8e37d7988008cf31f3de4479823d2d467"
+  },
+  "cirros": {
+    "name": "cirros-0.6.3-x86_64-disk.img",
+    "size": 21692416,
+    "md5": "87617e24a5e30cb3b87fda8c0764838f",
+    "sha256": "7d6355852aeb6dbcd191bcda7cd74f1536cfe5cbf8a10495a7283a8396e4b75b",
+    "sha512": "9a9bce0083a00939ec17c11febbfc767aa211aaa54f51e75c5a8b271a9b5637c77205a518b7a2007cb391d23cceb01e0e4e8d64832317151bc85b734b92a7be0"
+  },
+  "flavor_id": "42",
+  "network_id": "f604a0a4-4592-4f03-bd6b-580358875299",
+  "kernel": "6.8.0-147-generic",
+  "cpus": 4,
+  "mem_total_kib": 8125440,
+  "started_utc": "2026-11-27T21:57:57.401139+00:00"
+}
