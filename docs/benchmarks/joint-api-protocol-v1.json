@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "protocol": "placement-glance-joint-api-v1",
+  "status": "runner implemented (scripts/benchmarks/joint_api_campaign.py + joint_lab.py); pilot required before the official run",
+  "scope": "Placement and Glance loaded at the same time through the public Apache routes, in the 2x2 design (Python/Go each). Each window yields Placement metrics with Glance load and Glance metrics with Placement load, measured with the instruments of the individual campaigns",
+  "configurations": [
+    {"id": "python-python", "placement": "python", "glance": "python"},
+    {"id": "go-python", "placement": "go", "glance": "python"},
+    {"id": "python-go", "placement": "python", "glance": "go"},
+    {"id": "go-go", "placement": "go", "glance": "go"}
+  ],
+  "pairs": [
+    {"id": "nova", "placement": "nova-mix", "glance": "nova-mix", "size_bytes": 16777216,
+     "why": "what Nova does to each service when it boots: candidates/claim/provider reads and show/download/list"},
+    {"id": "claim-download", "placement": "claim-cycle", "glance": "download-16m", "size_bytes": 16777216,
+     "why": "writes in Placement (claim/read/release) while Glance streams image bytes"},
+    {"id": "schedule-catalog", "placement": "candidates", "glance": "catalog-show", "size_bytes": null,
+     "why": "the heaviest Placement query while Glance answers metadata reads"}
+  ],
+  "concurrency": [1, 16],
+  "concurrency_note": "the same C applies to both generators in a window",
+  "repetitions": 3,
+  "order": "per (pair, concurrency, repetition) block, the four variants in a seeded random order",
+  "order_seed": 20261128,
+  "warmup_s": 10,
+  "measurement_s": 30,
+  "request_timeout_s": 10,
+  "metadata_request_timeout_s": 120,
+  "binary_request_timeout_s": 120,
+  "minimum_overlap_fraction": 0.9,
+  "load_model": "closed-loop for both generators, on the host; both started together, each with its own barrier",
+  "routes": "both services through Apache (/placement, /image) as Nova reaches them; Glance with noop notifications in both implementations as in glance-v7",
+  "sampling_interval_s": 1,
+  "metrics": {
+    "per_service": ["correct ops/s", "p50/p95/p99 per run and per operation", "errors", "complete cycles/s", "Glance validated MiB/s and TTFB",
+                    "CPU s per correct request (service cgroup)", "PSS mean and observed peak", "RSS peak (secondary)", "idle PSS before warm-up"],
+    "controls": ["MySQL", "Placement Go MySQL", "Apache", "Keystone", "memcached", "nova-compute", "nova-scheduler", "RabbitMQ", "inactive implementations"],
+    "vm": ["CPU ticks by state", "steal", "minimum MemAvailable", "load average"]
+  },
+  "required_official_windows": 72,
+  "pilot": {
+    "concurrency": [1, 16],
+    "repetitions": 1,
+    "warmup_s": 2,
+    "measurement_s": 5,
+    "required_windows": 24
+  },
+  "acceptance": "All 72 windows valid: both generators valid (status, bodies, bytes and hashes), measurement windows overlapping at least 90 %, clock drift < 100 ms, seeds removed after each window, original services, routes and catalogs restored, owned runtimes and identities retired",
+  "comparability": "Placement windows use placement-compact-v2 timing and scenarios (warm-up 10 s, 30 s, C=1/16, 3 repetitions); Glance windows use glance-v7 timing and scenarios. Individual-campaign results are the 'alone' reference; this campaign is the 'together' condition",
+  "statistics": "Three paired repetitions per cell; median and observed range, Go/Python ratios paired by repetition against python-python; no significance claims",
+  "host_free_minimum_bytes": 21474836480
+}
