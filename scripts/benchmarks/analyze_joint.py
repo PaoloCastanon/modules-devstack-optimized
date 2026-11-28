@@ -46,6 +46,15 @@ def service_view(block, service):
             'idle_cpu_s': idle.get('cpu_s'), 'idle_pss_mib': idle.get('pss_mean_mib')}
 
 
+def boot_time(block):
+    """Median boot of a block: POST to nova-compute's build record when every
+    server has it (no polling), else the 1 s polled POST→ACTIVE."""
+    built = [(s.get('phases') or {}).get('post_to_built_s') for s in block['servers']]
+    if all(v is not None for v in built):
+        return statistics.median(built)
+    return statistics.median([s['active_s'] for s in block['servers']])
+
+
 def stack_view(block):
     """Placement + Glance (active implementations) together."""
     views = [service_view(block, service) for service in ('placement', 'glance')]
@@ -80,8 +89,7 @@ def analyze(blocks):
         if variant == REFERENCE or (REFERENCE, n, rep) not in by_rep:
             continue
         ref = by_rep[(REFERENCE, n, rep)]
-        med = statistics.median([s['active_s'] for s in b['servers']])
-        ref_med = statistics.median([s['active_s'] for s in ref['servers']])
+        med, ref_med = boot_time(b), boot_time(ref)
         entry = ratios.setdefault('%s/%d' % (variant, n), {'boot': [], 'makespan': [], 'stack_cpu_per_boot': [], 'stack_pss_mean': []})
         entry['boot'].append(med / ref_med)
         entry['makespan'].append(b['makespan_s'] / ref['makespan_s'])
@@ -141,7 +149,8 @@ def markdown(result):
             lines.append('| %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
                 variant, n, fmt(pl['cpu_s_per_boot'], 3), fmt(gl['cpu_s_per_boot'], 3), fmt(pl['pss_mean_mib']),
                 fmt(gl['pss_mean_mib']), fmt(pl['idle_pss_mib']), fmt(gl['idle_pss_mib']), fmt(row['stack']['pss_mean_mib'])))
-    lines += ['', 'Cociente frente a %s, pareado por repetición (<1 = más rápido o menos recursos; '
+    lines += ['', 'Cociente frente a %s, pareado por repetición (<1 = más rápido o menos recursos; boot = POST→build '
+              'cuando hay fases, si no POST→ACTIVE; '
               'pila = Placement + Glance activos):' % result['reference'], '',
               '| Celda | Pares | Boot (mediana) | Makespan | Pila CPU/boot | Pila PSS medio |', '|---|---:|---|---|---|---|']
     for key, row in result['ratios'].items():
