@@ -65,8 +65,15 @@ Oficial: sin `--pilot` y con directorios nuevos.
 ## Límites
 
 - 3 repeticiones por celda: mediana y rango, sin significación estadística.
-- Los dos generadores corren en el host, en lazo cerrado. Cada uno arranca con
-  su propia barrera, así que el solape se mide y se exige en cada ventana.
+- Los dos generadores corren en el host, en lazo cerrado (opción A): el
+  servicio acompañante más rápido genera más carga y le quita CPU al otro; la
+  condición "acompañado" mide esa competencia real. Una barrera común alinea el
+  inicio de las dos fases medidas y el solape se exige igualmente en cada ventana.
+
+## Resultados
+
+- Piloto: [joint-api-pilot-20261128](../../evidence/sprint5/benchmarks/joint-api-pilot-20261128/README.md) (24/24).
+- Oficial: [joint-api-official-20261128](../../evidence/sprint5/benchmarks/joint-api-official-20261128/README.md) (72/72).
 - Las implementaciones difieren en workers, cachés y pools: no se atribuye la
   diferencia solo al lenguaje.
 - Las campañas individuales son la referencia "solo" y se midieron en otras
