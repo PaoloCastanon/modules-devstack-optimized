@@ -18,8 +18,11 @@ def utc():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
-def run(config, token, output, *, duration=30, warmup=10, abort_check=None):
-    """One complete cycle may drain past deadline; its full time is counted."""
+def run(config, token, output, *, duration=30, warmup=10, abort_check=None, measurement_gate=None):
+    """One complete cycle may drain past deadline; its full time is counted.
+
+    measurement_gate, if given, is called after the warm-up cleanup and right
+    before the measured phase (the joint campaign aligns two generators)."""
     scenarios = {'catalog-list', 'catalog-show', 'catalog-lifecycle',
                  'upload-1m', 'upload-16m', 'upload-64m', 'download-1m', 'download-16m', 'download-64m',
                  'import-direct-16m', 'upload-qcow2', 'nova-mix'}
@@ -234,6 +237,8 @@ def run(config, token, output, *, duration=30, warmup=10, abort_check=None):
     try:
         report['warmup'] = phase(warmup, 'warmup') if warmup else None
         cleanup()
+        if measurement_gate is not None:
+            measurement_gate()
         report['measurement'] = phase(duration, 'measurement') if report['warmup'] is None or not report['warmup']['failed'] else None
     finally:
         try:

@@ -128,23 +128,35 @@ def run_window(entry, config, tokens, out, protocol, pilot, storage):
     """Both generators at once; returns (placement report, glance report)."""
     timing = protocol['pilot'] if pilot else protocol
     results, errors = {}, {}
+    # Both measured phases start together: each generator ends its own warm-up
+    # and cleanup, then waits here. A broken gate (the other side failed)
+    # lets it go on alone; the overlap check then invalidates the window.
+    gate = threading.Barrier(2, timeout=120)
+
+    def wait_gate():
+        try:
+            gate.wait()
+        except threading.BrokenBarrierError:
+            pass
 
     def placement():
         try:
             results['placement'] = placement_window.run(config['placement'], tokens['placement'], out / 'placement',
                                                         'pilot' if pilot else 'measurement', duration=timing['measurement_s'],
                                                         warmup=timing['warmup_s'], timeout=protocol['request_timeout_s'],
-                                                        abort_check=storage.failed.is_set)
+                                                        abort_check=storage.failed.is_set, measurement_gate=wait_gate)
         except Exception as error:  # noqa: BLE001 - the window becomes invalid
             errors['placement'] = type(error).__name__
+            gate.abort()
 
     def glance():
         try:
             results['glance'] = glance_window.run(config['glance'], tokens['glance'], out / 'glance',
                                                   duration=timing['measurement_s'], warmup=timing['warmup_s'],
-                                                  abort_check=storage.failed.is_set)
+                                                  abort_check=storage.failed.is_set, measurement_gate=wait_gate)
         except Exception as error:  # noqa: BLE001
             errors['glance'] = type(error).__name__
+            gate.abort()
 
     threads = [threading.Thread(target=placement), threading.Thread(target=glance)]
     for t in threads:

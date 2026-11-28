@@ -169,5 +169,49 @@ class AnalyzeTest(unittest.TestCase):
         self.assertTrue(re.search('Ventanas con error', analyze.markdown(result)))
 
 
+class GateTest(unittest.TestCase):
+    def run_with(self, placement, glance):
+        import threading
+        storage = type('S', (), {'failed': threading.Event()})()
+        saved = campaign.placement_window.run, campaign.glance_window.run
+        campaign.placement_window.run, campaign.glance_window.run = placement, glance
+        try:
+            return campaign.run_window({}, {'placement': {}, 'glance': {}}, {'placement': 't', 'glance': 't'},
+                                       Path('/nonexistent'), PROTOCOL, True, storage)
+        finally:
+            campaign.placement_window.run, campaign.glance_window.run = saved
+
+    def test_measured_phases_start_together(self):
+        import time
+        starts = {}
+
+        def slow(*args, measurement_gate=None, **kw):
+            time.sleep(0.3)  # longer warm-up cleanup
+            measurement_gate()
+            starts['placement'] = time.monotonic()
+            return {'valid': True}
+
+        def fast(*args, measurement_gate=None, **kw):
+            measurement_gate()
+            starts['glance'] = time.monotonic()
+            return {'valid': True}
+
+        p, g, errors = self.run_with(slow, fast)
+        self.assertEqual(errors, {})
+        self.assertLess(abs(starts['placement'] - starts['glance']), 0.05)
+
+    def test_failed_side_releases_the_other(self):
+        def broken(*args, measurement_gate=None, **kw):
+            raise ValueError('warm-up failed')
+
+        def waits(*args, measurement_gate=None, **kw):
+            measurement_gate()
+            return {'valid': True}
+
+        p, g, errors = self.run_with(broken, waits)
+        self.assertEqual(errors, {'placement': 'ValueError'})
+        self.assertEqual(g, {'valid': True})
+
+
 if __name__ == '__main__':
     unittest.main()

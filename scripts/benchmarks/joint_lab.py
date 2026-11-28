@@ -137,16 +137,22 @@ class JointLab:
             return {'already_closed': True}
         self.stop_collector()
         result = {}
-        # Placement back to Python and its seeds gone before Glance's Session
-        # compares the original Placement with its own initial snapshot.
+        # Both routes back to the originals and both seeds gone first: each
+        # lab's final checks require every original service active.
         try:
             self.pl.cleanup_seed()
         finally:
             if self.pl.original and (self.pl.runtime / 'switch-state.json').exists():
                 self.pl.route('python')
-        # Reverse order of prepare: Glance's control ledger was entered last.
-        result['glance'] = self.gl.cleanup()
+        try:
+            self.gl.finish(strict=False)
+        finally:
+            self.gl.restore_route()
+        # Reverse order of prepare (maintenance-control ledgers are nested):
+        # Placement entered last, so it restores first; Glance, which saw the
+        # original unit states, restores them last.
         result['placement'] = self.pl.cleanup()
+        result['glance'] = self.gl.cleanup()
         shutil.rmtree(self.args.work_root)
         self.closed = True
         result['private_root_removed'] = not self.args.work_root.exists()
