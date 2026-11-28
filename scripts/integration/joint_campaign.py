@@ -48,6 +48,7 @@ SHARED_UNITS = {'nova-compute': 'devstack@n-cpu.service', 'nova-scheduler': 'dev
 UWSGI = re.compile(r'\] (GET|PUT|POST|DELETE|PATCH|HEAD) (\S+) => generated (\d+) bytes in (\d+) msecs \(HTTP/[\d.]+ (\d{3})\)')
 UUID_RE = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 NAMESPACE = uuid.UUID('6f1c7b52-3c1e-4d0e-9a57-7a3c4b0a2711')
+REQUIRED_PHASES = ('to_compute_s', 'prepare_s', 'spawn_s', 'image_fetch_s', 'build_s', 'post_to_built_s')
 
 
 # -- pure helpers (unit tested) ---------------------------------------------
@@ -94,7 +95,7 @@ def uwsgi_events(journal_lines, since_us, until_us):
     for line in journal_lines:
         try:
             entry = json.loads(line)
-            message = entry['MESSAGE']
+            message = journal_message(entry)
             ts = int(entry['__REALTIME_TIMESTAMP'])
         except (ValueError, KeyError, TypeError):
             continue
@@ -156,61 +157,76 @@ def glance_trace_ok(events, image_ids, size):
     return len(full) >= len(image_ids) and (not served or set(image_ids) <= served)
 
 
-NOVA_TIME = re.compile(r'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?)')
-TOOK = re.compile(r'\[instance: ([0-9a-f-]{36})\] Took ([\d.]+) seconds to (spawn the instance on the hypervisor|build instance)')
+ANSI = re.compile(r'\x1b\[[0-9;]*m')
+INSTANCE = re.compile(r'\[instance: ([0-9a-f-]{36})\] (.*)')
+TOOK = re.compile(r'^Took ([\d.]+) seconds to (spawn the instance on the hypervisor|build instance)')
 LOCK_HELD = re.compile(r'Lock "([0-9a-f]{40})" "released" by "([^"]+)" :: held ([\d.]+)s')
 
 
-def nova_time(text):
-    """Nova API timestamps are UTC without zone (microseconds optional)."""
-    found = NOVA_TIME.search(text or '')
-    if not found:
-        return None
-    value = found.group(1)
-    fmt = '%Y-%m-%dT%H:%M:%S.%f' if '.' in value else '%Y-%m-%dT%H:%M:%S'
-    return datetime.datetime.strptime(value, fmt).replace(tzinfo=datetime.timezone.utc).timestamp()
-
-
-def action_phases(action):
-    """Split a create action (GET os-instance-actions/{req}) at the compute
-    build event: before it API, conductor, scheduler (Placement claims) and
-    RPC; inside it the compute build (Glance download, network, libvirt)."""
-    start = nova_time(action.get('start_time'))
-    events = {e.get('event'): e for e in action.get('events') or []}
-    build = events.get('compute__do_build_and_run_instance') or {}
-    b0, b1 = nova_time(build.get('start_time')), nova_time(build.get('finish_time'))
-    out = {'events': sorted(events), 'build_result': build.get('result')}
-    if start is not None and b0 is not None and b1 is not None:
-        out.update(request_to_build_s=round(b0 - start, 3), build_s=round(b1 - b0, 3), request_to_built_s=round(b1 - start, 3),
-                   start_epoch=start, built_epoch=b1)
-    for name, e in events.items():  # e.g. conductor_schedule_and_build_instances when present
-        e0, e1 = nova_time(e.get('start_time')), nova_time(e.get('finish_time'))
-        if name != 'compute__do_build_and_run_instance' and e0 is not None and e1 is not None:
-            out.setdefault('other_events_s', {})[name] = round(e1 - e0, 3)
-    return out
+def journal_message(entry):
+    """journald stores lines with ANSI colour codes as a byte array."""
+    message = entry.get('MESSAGE')
+    if isinstance(message, list):
+        message = bytes(message).decode('utf-8', 'replace')
+    return ANSI.sub('', message) if isinstance(message, str) else None
 
 
 def compute_log_phases(journal_lines, server_ids, image_ids):
-    """nova-compute's own timings: 'Took X seconds to spawn/build' per
-    instance and the hold time of the base-image lock (the cold fetch from
-    Glance and conversion into _base) per image."""
-    spawn, build, fetch = {}, {}, {}
+    """nova-compute's own records per instance, on the journal clock (µs):
+    'Starting instance...', 'Start spawning ...', 'Took X seconds to
+    spawn/build', and the hold time of the base-image lock while the cold
+    image is fetched from the active Glance and converted into _base."""
+    marks = {i: {} for i in server_ids}
+    fetch = {}
     bases = {base_cache_name(i): i for i in image_ids}
     for line in journal_lines:
         try:
-            message = json.loads(line)['MESSAGE']
+            entry = json.loads(line)
+            ts = int(entry['__REALTIME_TIMESTAMP'])
         except (ValueError, KeyError, TypeError):
             continue
-        if not isinstance(message, str):
+        message = journal_message(entry)
+        if not message:
             continue
-        took = TOOK.search(message)
-        if took and took.group(1) in server_ids:
-            (spawn if took.group(3).startswith('spawn') else build)[took.group(1)] = float(took.group(2))
         held = LOCK_HELD.search(message)
         if held and held.group(1) in bases and 'fetch' in held.group(2):
             image = bases[held.group(1)]
             fetch[image] = max(fetch.get(image, 0.0), float(held.group(3)))
-    return {'spawn_s': spawn, 'build_s': build, 'image_fetch_s': fetch}
+            continue
+        found = INSTANCE.search(message)
+        if not found or found.group(1) not in marks:
+            continue
+        text, mark = found.group(2), marks[found.group(1)]
+        if text.startswith('Starting instance...'):
+            mark.setdefault('compute_start_us', ts)
+        elif text.startswith('Start spawning the instance on the hypervisor'):
+            mark.setdefault('spawn_start_us', ts)
+        took = TOOK.search(text)
+        if took:
+            key = 'spawn' if took.group(2).startswith('spawn') else 'build'
+            mark[key + '_s'] = float(took.group(1))
+            mark[key + '_end_us'] = ts
+    return {'instances': marks, 'image_fetch_s': fetch}
+
+
+def boot_phases(post_epoch, active_s, marks, image_fetch_s):
+    """Per boot, all on this VM's clock: POST → nova-compute start (API,
+    conductor, scheduler with Placement candidates and claim, RPC), compute
+    preparation (claim, network, block devices), spawn (includes the Glance
+    fetch), POST → build finished, and the polling lag to ACTIVE."""
+    out = {'image_fetch_s': image_fetch_s, 'spawn_s': marks.get('spawn_s'), 'build_s': marks.get('build_s')}
+    start, spawn, built = marks.get('compute_start_us'), marks.get('spawn_start_us'), marks.get('build_end_us')
+    if post_epoch is not None and start is not None:
+        out['to_compute_s'] = round(start / 1e6 - post_epoch, 3)
+    if start is not None and spawn is not None:
+        out['prepare_s'] = round((spawn - start) / 1e6, 3)
+    if post_epoch is not None and built is not None:
+        out['post_to_built_s'] = round(built / 1e6 - post_epoch, 3)
+        if active_s is not None:
+            out['active_poll_lag_s'] = round(post_epoch + active_s - built / 1e6, 3)
+    if out['spawn_s'] is not None and image_fetch_s is not None:
+        out['spawn_without_fetch_s'] = round(out['spawn_s'] - image_fetch_s, 3)
+    return out
 
 
 def window_resources(samples, since_us, until_us):
@@ -485,27 +501,14 @@ class Campaign(Suite):
         return summary, checks
 
     def phases(self, servers, images, since, until):
-        """Per server: Nova's create action events and nova-compute's own
-        timings. Read before the servers are deleted."""
+        """Per server phases from nova-compute's journal (read before deletion)."""
         lines = glance_flow.journal(['devstack@n-cpu.service'], since, until)
         logs = compute_log_phases(lines, {s['id'] for s in servers}, images)
         ok = True
         for s in servers:
-            actions = self.connection.compute.get('/servers/%s/os-instance-actions' % s['id'],
-                                                  microversion='2.84').json().get('instanceActions') or []
-            create = [a for a in actions if a.get('action') == 'create']
-            phase = {}
-            if len(create) == 1:
-                detail = self.connection.compute.get('/servers/%s/os-instance-actions/%s' % (s['id'], create[0]['request_id']),
-                                                     microversion='2.84').json().get('instanceAction') or {}
-                phase = action_phases(detail)
-            phase.update(spawn_log_s=logs['spawn_s'].get(s['id']), build_log_s=logs['build_s'].get(s['id']),
-                         image_fetch_s=logs['image_fetch_s'].get(s['image_id']))
-            if phase.get('built_epoch') is not None and s.get('post_epoch') is not None:
-                # host and Nova share this VM's clock: last ACTIVE poll minus build end
-                phase['active_poll_lag_s'] = round(s['post_epoch'] + s['active_s'] - phase['built_epoch'], 3)
-            s['phases'] = phase
-            ok = ok and all(phase.get(k) is not None for k in ('request_to_build_s', 'build_s', 'spawn_log_s', 'image_fetch_s'))
+            s['phases'] = boot_phases(s.get('post_epoch'), s.get('active_s'), logs['instances'][s['id']],
+                                      logs['image_fetch_s'].get(s['image_id']))
+            ok = ok and all(s['phases'].get(k) is not None for k in REQUIRED_PHASES)
         return ok
 
     def verify_allocations(self, servers):

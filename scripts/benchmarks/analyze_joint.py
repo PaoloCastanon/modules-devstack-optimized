@@ -29,7 +29,7 @@ def load(path):
     return [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
 
 
-PHASES = ('request_to_build_s', 'build_s', 'image_fetch_s', 'spawn_log_s', 'active_poll_lag_s')
+PHASES = ('post_to_built_s', 'to_compute_s', 'prepare_s', 'spawn_s', 'image_fetch_s', 'spawn_without_fetch_s', 'build_s', 'active_poll_lag_s')
 SERVICE_FIELDS = ('requests', 'server_ms', 'cpu_s', 'cpu_s_per_boot', 'pss_max_mib', 'pss_mean_mib', 'idle_cpu_s', 'idle_pss_mib')
 
 
@@ -119,16 +119,17 @@ def markdown(result):
             variant, n, fmt(row['placement']['cpu_s'], 2), fmt(row['placement']['pss_max_mib']),
             fmt(row['glance']['cpu_s'], 2), fmt(row['glance']['pss_max_mib'])))
     if any(row['phases'][p] for row in result['cells'].values() for p in PHASES):
-        lines += ['', 'Fases por boot (s): petición→build = API, conductor, scheduler y Placement; build = cómputo '
-                  '(descarga de Glance, red, libvirt); descarga = lock del archivo base mientras se trae de Glance.', '',
-                  '| Variante | N | Petición→build | Build | Descarga imagen | Spawn (log) | Retardo del polling |',
-                  '|---|---:|---|---|---|---|---|']
+        lines += ['', 'Fases por boot (s, reloj de la VM). POST→build: tiempo de boot sin polling. POST→cómputo: API, conductor, '
+                  'scheduler y Placement (candidatos y claim), RPC. Preparación: claim, red y discos en nova-compute. '
+                  'Spawn incluye la descarga de la imagen desde Glance (lock del archivo base).', '',
+                  '| Variante | N | POST→build | POST→cómputo | Preparación | Spawn | Descarga imagen | Spawn sin descarga | Retardo polling |',
+                  '|---|---:|---|---|---|---|---|---|---|']
         for key, row in result['cells'].items():
             variant, n = key.split('/')
             ph = row['phases']
-            lines.append('| %s | %s | %s | %s | %s | %s | %s |' % (
-                variant, n, fmt(ph['request_to_build_s'], 2), fmt(ph['build_s'], 2), fmt(ph['image_fetch_s'], 2),
-                fmt(ph['spawn_log_s'], 2), fmt(ph['active_poll_lag_s'], 2)))
+            lines.append('| %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
+                variant, n, *(fmt(ph[name], 2) for name in ('post_to_built_s', 'to_compute_s', 'prepare_s', 'spawn_s',
+                                                             'image_fetch_s', 'spawn_without_fetch_s', 'active_poll_lag_s'))))
     if any(row['placement']['cpu_s_per_boot'] for row in result['cells'].values()):
         lines += ['', 'CPU por boot (s), PSS medio en la ventana y PSS en reposo antes del bloque (MiB):', '',
                   '| Variante | N | Placement CPU/boot | Glance CPU/boot | Placement PSS medio | Glance PSS medio '

@@ -207,28 +207,33 @@ class ProtocolV4Test(unittest.TestCase):
         self.assertEqual(PROTOCOL_V4['configurations'], PROTOCOL['configurations'])
 
 
-class PhaseTest(unittest.TestCase):
-    def test_action_phases_split_at_compute_build(self):
-        action = {'start_time': '2026-11-28T10:00:00.000000', 'events': [
-            {'event': 'conductor_schedule_and_build_instances', 'start_time': '2026-11-28T10:00:00.200000',
-             'finish_time': '2026-11-28T10:00:00.900000'},
-            {'event': 'compute__do_build_and_run_instance', 'start_time': '2026-11-28T10:00:01.000000',
-             'finish_time': '2026-11-28T10:00:04.500000', 'result': 'Success'}]}
-        out = joint.action_phases(action)
-        self.assertEqual((out['request_to_build_s'], out['build_s'], out['request_to_built_s']), (1.0, 3.5, 4.5))
-        self.assertEqual(out['other_events_s'], {'conductor_schedule_and_build_instances': 0.7})
-        self.assertNotIn('build_s', joint.action_phases({'start_time': '2026-11-28T10:00:00', 'events': []}))
+def coloured(ts, text):
+    """journald stores ANSI-coloured lines as a byte array."""
+    return json.dumps({'__REALTIME_TIMESTAMP': str(ts), 'MESSAGE': list(text.encode())})
 
-    def test_compute_log_timings_and_base_lock(self):
+
+class PhaseTest(unittest.TestCase):
+    def test_compute_log_marks_from_coloured_journal(self):
         base = joint.base_cache_name(IMAGE)
-        lines = [entry(T0, 'INFO nova.compute.manager [req] [instance: %s] Took 2.50 seconds to spawn the instance on the hypervisor.' % SERVER),
-                 entry(T0, 'INFO nova.compute.manager [req] [instance: %s] Took 3.10 seconds to build instance.' % SERVER),
-                 entry(T0, 'DEBUG oslo_concurrency.lockutils [req] Lock "%s" "released" by '
-                           '"nova.virt.libvirt.imagebackend.Image.cache.<locals>.fetch_func_sync" :: held 0.812s' % base),
-                 entry(T0, 'DEBUG oslo_concurrency.lockutils [req] Lock "%s" "released" by "other.thing" :: held 9.0s' % base),
-                 entry(T0, 'INFO [instance: 11111111-2222-4333-8444-555555555555] Took 9.00 seconds to build instance.')]
+        pre = 'INFO nova.compute.manager [\x1b[01;36mNone req-1 \x1b[00;36madmin admin] \x1b[01;35m[instance: %s] ' % SERVER
+        s0 = 1_800_000_000_000_000
+        lines = [coloured(s0 + 1_000_000, pre + 'Starting instance...\x1b[00m'),
+                 coloured(s0 + 1_500_000, pre + 'Start spawning the instance on the hypervisor.\x1b[00m'),
+                 coloured(s0 + 2_000_000, 'DEBUG oslo_concurrency.lockutils [\x1b[01;36mNone] \x1b[01;35mLock "%s" "released" by '
+                                          '"nova.virt.libvirt.imagebackend.Image.cache.<locals>.fetch_func_sync" :: held 0.812s\x1b[00m' % base),
+                 entry(s0, 'Lock "%s" "released" by "other.create_qcow2_image" :: held 9.0s' % base),
+                 coloured(s0 + 4_000_000, pre + 'Took 2.50 seconds to spawn the instance on the hypervisor.\x1b[00m'),
+                 coloured(s0 + 4_100_000, pre + 'Took 3.10 seconds to build instance.\x1b[00m'),
+                 coloured(s0, 'INFO [instance: 11111111-2222-4333-8444-555555555555] Took 9.00 seconds to build instance.')]
         out = joint.compute_log_phases(lines, {SERVER}, [IMAGE])
-        self.assertEqual(out, {'spawn_s': {SERVER: 2.5}, 'build_s': {SERVER: 3.1}, 'image_fetch_s': {IMAGE: 0.812}})
+        self.assertEqual(out['image_fetch_s'], {IMAGE: 0.812})
+        mark = out['instances'][SERVER]
+        self.assertEqual((mark['spawn_s'], mark['build_s'], mark['compute_start_us']), (2.5, 3.1, s0 + 1_000_000))
+        phases = joint.boot_phases(s0 / 1e6, 4.5, mark, 0.812)
+        self.assertEqual((phases['to_compute_s'], phases['prepare_s'], phases['post_to_built_s']), (1.0, 0.5, 4.1))
+        self.assertEqual((phases['active_poll_lag_s'], phases['spawn_without_fetch_s']), (0.4, 1.688))
+        self.assertTrue(all(phases.get(k) is not None for k in joint.REQUIRED_PHASES))
+        self.assertNotIn('to_compute_s', joint.boot_phases(None, None, {}, None))
 
 
 class AnalyzeV4Test(unittest.TestCase):
@@ -240,8 +245,8 @@ class AnalyzeV4Test(unittest.TestCase):
             return {'repetition': rep, 'variant': variant, 'placement': pl, 'glance': gl, 'concurrency': 2, 'valid': True,
                     'makespan_s': 5.0, 'traces': {}, 'resources': {'vm_busy_fraction': 0.5, 'groups': groups},
                     'idle_resources': {'groups': groups},
-                    'servers': [{'active_s': 5.0, 'phases': {'request_to_build_s': 1.0, 'build_s': 3.0, 'image_fetch_s': 0.5,
-                                                              'spawn_log_s': 2.0, 'active_poll_lag_s': 0.4}}] * 2}
+                    'servers': [{'active_s': 5.0, 'phases': {'to_compute_s': 1.0, 'build_s': 3.0, 'image_fetch_s': 0.5,
+                                                              'spawn_s': 2.0, 'active_poll_lag_s': 0.4}}] * 2}
         result = analyze.analyze([block(1, 'python-python', 1.0, 200.0), block(1, 'go-go', 0.1, 20.0)])
         cell = result['cells']['go-go/2']
         self.assertEqual(cell['placement']['cpu_s_per_boot']['median'], 0.05)

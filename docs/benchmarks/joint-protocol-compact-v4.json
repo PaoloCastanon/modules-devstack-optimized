@@ -78,10 +78,13 @@
   "idle_s": 8,
   "phases": true,
   "phase_sources": {
-    "request_to_build_s": "Nova create action start to compute__do_build_and_run_instance start (API, conductor, scheduler with Placement allocation_candidates and claim, RPC)",
-    "build_s": "compute__do_build_and_run_instance duration (Glance download, network, libvirt spawn)",
-    "image_fetch_s": "nova-compute lock hold on the base cache file sha1(image_id) while fetching it from the active Glance",
-    "spawn_log_s": "nova-compute 'Took X seconds to spawn the instance on the hypervisor'",
-    "active_poll_lag_s": "last 1 s poll that saw ACTIVE minus build end (polling resolution)"
+    "to_compute_s": "POST /servers (runner, VM clock) to nova-compute 'Starting instance...' (journal µs): API, conductor, scheduler with Placement allocation_candidates and claim, RPC",
+    "prepare_s": "'Starting instance...' to 'Start spawning the instance on the hypervisor': compute claim, network allocation start, block devices",
+    "spawn_s": "nova-compute 'Took X seconds to spawn the instance on the hypervisor' (includes the image fetch)",
+    "image_fetch_s": "nova-compute lock hold on the base cache file sha1(image_id) while fetching it from the active Glance and converting it",
+    "build_s": "nova-compute 'Took X seconds to build instance'",
+    "post_to_built_s": "POST to the build log record (precise boot time, no polling)",
+    "active_poll_lag_s": "last 1 s poll that saw ACTIVE minus build end (polling resolution)",
+    "note": "Nova instance-action events have 1 s resolution and are not used"
   }
 }
