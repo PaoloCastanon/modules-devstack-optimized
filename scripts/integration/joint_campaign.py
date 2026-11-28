@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Joint Placement x Glance campaign (2x2): original Nova boots CirrOS servers
-with Placement Python/Go and Glance Python/Go (protocol joint-compact-v3).
+with Placement Python/Go and Glance Python/Go (protocols joint-compact-v3/v4).
 
 Runs inside the lab VM with admin openrc and DevStack's venv Python. Reuses
 the B26 suite (glance_suite.Suite): lab identity, maintenance controls,
@@ -131,8 +131,13 @@ def trace_summary(events):
         key = '%s %s %s' % (e['method'], e['route'], e['status'])
         counts[key] = counts.get(key, 0) + 1
     durations = [e['duration_ms'] for e in events if isinstance(e.get('duration_ms'), (int, float))]
+    route_ms = {}
+    for e in events:
+        if isinstance(e.get('duration_ms'), (int, float)):
+            key = '%s %s' % (e['method'], e['route'])
+            route_ms[key] = round(route_ms.get(key, 0) + e['duration_ms'], 1)
     return {'requests': len(events), 'by_route': dict(sorted(counts.items())),
-            'server_ms_total': round(sum(durations), 1)}
+            'server_ms_total': round(sum(durations), 1), 'by_route_ms': dict(sorted(route_ms.items()))}
 
 
 def placement_trace_ok(summary, servers):
@@ -151,6 +156,63 @@ def glance_trace_ok(events, image_ids, size):
     return len(full) >= len(image_ids) and (not served or set(image_ids) <= served)
 
 
+NOVA_TIME = re.compile(r'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?)')
+TOOK = re.compile(r'\[instance: ([0-9a-f-]{36})\] Took ([\d.]+) seconds to (spawn the instance on the hypervisor|build instance)')
+LOCK_HELD = re.compile(r'Lock "([0-9a-f]{40})" "released" by "([^"]+)" :: held ([\d.]+)s')
+
+
+def nova_time(text):
+    """Nova API timestamps are UTC without zone (microseconds optional)."""
+    found = NOVA_TIME.search(text or '')
+    if not found:
+        return None
+    value = found.group(1)
+    fmt = '%Y-%m-%dT%H:%M:%S.%f' if '.' in value else '%Y-%m-%dT%H:%M:%S'
+    return datetime.datetime.strptime(value, fmt).replace(tzinfo=datetime.timezone.utc).timestamp()
+
+
+def action_phases(action):
+    """Split a create action (GET os-instance-actions/{req}) at the compute
+    build event: before it API, conductor, scheduler (Placement claims) and
+    RPC; inside it the compute build (Glance download, network, libvirt)."""
+    start = nova_time(action.get('start_time'))
+    events = {e.get('event'): e for e in action.get('events') or []}
+    build = events.get('compute__do_build_and_run_instance') or {}
+    b0, b1 = nova_time(build.get('start_time')), nova_time(build.get('finish_time'))
+    out = {'events': sorted(events), 'build_result': build.get('result')}
+    if start is not None and b0 is not None and b1 is not None:
+        out.update(request_to_build_s=round(b0 - start, 3), build_s=round(b1 - b0, 3), request_to_built_s=round(b1 - start, 3),
+                   start_epoch=start, built_epoch=b1)
+    for name, e in events.items():  # e.g. conductor_schedule_and_build_instances when present
+        e0, e1 = nova_time(e.get('start_time')), nova_time(e.get('finish_time'))
+        if name != 'compute__do_build_and_run_instance' and e0 is not None and e1 is not None:
+            out.setdefault('other_events_s', {})[name] = round(e1 - e0, 3)
+    return out
+
+
+def compute_log_phases(journal_lines, server_ids, image_ids):
+    """nova-compute's own timings: 'Took X seconds to spawn/build' per
+    instance and the hold time of the base-image lock (the cold fetch from
+    Glance and conversion into _base) per image."""
+    spawn, build, fetch = {}, {}, {}
+    bases = {base_cache_name(i): i for i in image_ids}
+    for line in journal_lines:
+        try:
+            message = json.loads(line)['MESSAGE']
+        except (ValueError, KeyError, TypeError):
+            continue
+        if not isinstance(message, str):
+            continue
+        took = TOOK.search(message)
+        if took and took.group(1) in server_ids:
+            (spawn if took.group(3).startswith('spawn') else build)[took.group(1)] = float(took.group(2))
+        held = LOCK_HELD.search(message)
+        if held and held.group(1) in bases and 'fetch' in held.group(2):
+            image = bases[held.group(1)]
+            fetch[image] = max(fetch.get(image, 0.0), float(held.group(3)))
+    return {'spawn_s': spawn, 'build_s': build, 'image_fetch_s': fetch}
+
+
 def window_resources(samples, since_us, until_us):
     """CPU seconds (counter delta between the last sample before the window
     and the first after it) and peak PSS inside, per group; VM busy share."""
@@ -164,8 +226,10 @@ def window_resources(samples, since_us, until_us):
     for name in a['groups']:
         x, y = a['groups'].get(name), b['groups'].get(name)
         peaks = [s['groups'][name]['pss_kib'] for s in inside + [a, b] if s['groups'].get(name)]
+        mean = [s['groups'][name]['pss_kib'] for s in inside if s['groups'].get(name)] or peaks
         groups[name] = {'cpu_s': round((y['cpu_usec'] - x['cpu_usec']) / 1e6, 3) if x and y else None,
-                        'pss_max_mib': round(max(peaks) / 1024, 1) if peaks else None}
+                        'pss_max_mib': round(max(peaks) / 1024, 1) if peaks else None,
+                        'pss_mean_mib': round(sum(mean) / len(mean) / 1024, 1) if mean else None}
     busy = b['vm']['busy_ticks'] - a['vm']['busy_ticks']
     total = b['vm']['total_ticks'] - a['vm']['total_ticks']
     return {'span_s': round((b['ts_us'] - a['ts_us']) / 1e6, 2), 'samples_inside': len(inside), 'groups': groups,
@@ -363,6 +427,7 @@ class Campaign(Suite):
             results[i] = record
             barrier.wait()
             t0 = time.monotonic()
+            record['post_epoch'] = time.time()
             try:
                 server = conn.compute.create_server(name=name, image_id=images[i], flavor_id=self.args.flavor_id,
                                                     networks=[{'uuid': self.args.network_id}])
@@ -419,6 +484,30 @@ class Campaign(Suite):
                   {name: [{k: v for k, v in e.items() if k != 'user_id'} for e in ev] for name, ev in events.items()})
         return summary, checks
 
+    def phases(self, servers, images, since, until):
+        """Per server: Nova's create action events and nova-compute's own
+        timings. Read before the servers are deleted."""
+        lines = glance_flow.journal(['devstack@n-cpu.service'], since, until)
+        logs = compute_log_phases(lines, {s['id'] for s in servers}, images)
+        ok = True
+        for s in servers:
+            actions = self.connection.compute.get('/servers/%s/os-instance-actions' % s['id'],
+                                                  microversion='2.84').json().get('instanceActions') or []
+            create = [a for a in actions if a.get('action') == 'create']
+            phase = {}
+            if len(create) == 1:
+                detail = self.connection.compute.get('/servers/%s/os-instance-actions/%s' % (s['id'], create[0]['request_id']),
+                                                     microversion='2.84').json().get('instanceAction') or {}
+                phase = action_phases(detail)
+            phase.update(spawn_log_s=logs['spawn_s'].get(s['id']), build_log_s=logs['build_s'].get(s['id']),
+                         image_fetch_s=logs['image_fetch_s'].get(s['image_id']))
+            if phase.get('built_epoch') is not None and s.get('post_epoch') is not None:
+                # host and Nova share this VM's clock: last ACTIVE poll minus build end
+                phase['active_poll_lag_s'] = round(s['post_epoch'] + s['active_s'] - phase['built_epoch'], 3)
+            s['phases'] = phase
+            ok = ok and all(phase.get(k) is not None for k in ('request_to_build_s', 'build_s', 'spawn_log_s', 'image_fetch_s'))
+        return ok
+
     def verify_allocations(self, servers):
         flavor = self.connection.compute.get_flavor(self.args.flavor_id)
         expected = {'VCPU': int(flavor.vcpus), 'MEMORY_MB': int(flavor.ram), 'DISK_GB': int(flavor.disk)}
@@ -473,15 +562,22 @@ class Campaign(Suite):
         self.expect_routes(placement, glance)
         free = os.statvfs('/')
         require(free.f_bavail * free.f_frsize >= self.protocol['vm_free_minimum_bytes'], 'VM free disk above minimum')
+        idle = None
+        if self.protocol.get('idle_s'):  # both services loaded but quiet: idle CPU and PSS before the block
+            idle_since = time.time_ns() // 1000
+            time.sleep(self.protocol['idle_s'])
+            idle = [idle_since, time.time_ns() // 1000]
         images = [self.upload_image(block, i) for i in range(block['concurrency'])]
         servers, since, until, makespan = self.boot_all(block, images)
         record = dict(block, placement=placement, glance=glance, window_us=[since, until], makespan_s=makespan,
-                      servers=servers, valid=False)
+                      servers=servers, idle_window_us=idle, valid=False)
         try:
             active = all(s.get('final') == 'ACTIVE' and s.get('image_ok') for s in servers)
             record['all_active'] = active
             record['allocations_ok'], record['flavor'] = self.verify_allocations(servers) if active else (False, None)
             record['traces'], record['trace_checks'] = self.traces(block, placement, glance, servers, images, since, until)
+            if self.protocol.get('phases'):
+                record['phases_ok'] = self.phases(servers, images, since, until) if active else False
         finally:
             try:
                 record['cleanup'] = self.remove_block(servers, images)
@@ -491,13 +587,20 @@ class Campaign(Suite):
                 with self.blocks_path.open('a') as out:
                     out.write(json.dumps(record, separators=(',', ':')) + '\n')
                 raise
-        record['resources'] = window_resources(read_samples(self.samples_path), since, until)
+        samples = read_samples(self.samples_path)
+        record['resources'] = window_resources(samples, since, until)
+        if idle:
+            record['idle_resources'] = window_resources(samples, *idle)
         checks = {'all_active': record['all_active'], 'allocations_ok': record['allocations_ok'],
                   **record['trace_checks'], 'cold_transfer': record['cleanup']['base_cache_created'],
                   'released': record['cleanup']['allocations_released_s'] is not None,
                   'provider_idle': record['cleanup']['provider_idle'],
                   'base_cache_removed': record['cleanup']['base_cache_removed'],
                   'resources_sampled': record['resources'] is not None}
+        if idle:
+            checks['idle_sampled'] = record['idle_resources'] is not None
+        if self.protocol.get('phases'):
+            checks['phases_ok'] = record['phases_ok']
         record['checks'] = checks
         record['valid'] = all(checks.values())
         with self.blocks_path.open('a') as out:

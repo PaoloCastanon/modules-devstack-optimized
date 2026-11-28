@@ -29,14 +29,31 @@ def load(path):
     return [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
 
 
+PHASES = ('request_to_build_s', 'build_s', 'image_fetch_s', 'spawn_log_s', 'active_poll_lag_s')
+SERVICE_FIELDS = ('requests', 'server_ms', 'cpu_s', 'cpu_s_per_boot', 'pss_max_mib', 'pss_mean_mib', 'idle_cpu_s', 'idle_pss_mib')
+
+
 def service_view(block, service):
     impl = block[service]
     name = service + '-' + impl
     trace = (block.get('traces') or {}).get(name) or {}
-    groups = ((block.get('resources') or {}).get('groups') or {})
-    res = groups.get(name) or {}
+    res = ((block.get('resources') or {}).get('groups') or {}).get(name) or {}
+    idle = ((block.get('idle_resources') or {}).get('groups') or {}).get(name) or {}
+    cpu = res.get('cpu_s')
     return {'requests': trace.get('requests'), 'server_ms': trace.get('server_ms_total'),
-            'cpu_s': res.get('cpu_s'), 'pss_max_mib': res.get('pss_max_mib')}
+            'cpu_s': cpu, 'cpu_s_per_boot': cpu / block['concurrency'] if cpu is not None else None,
+            'pss_max_mib': res.get('pss_max_mib'), 'pss_mean_mib': res.get('pss_mean_mib'),
+            'idle_cpu_s': idle.get('cpu_s'), 'idle_pss_mib': idle.get('pss_mean_mib')}
+
+
+def stack_view(block):
+    """Placement + Glance (active implementations) together."""
+    views = [service_view(block, service) for service in ('placement', 'glance')]
+    out = {}
+    for field in ('cpu_s_per_boot', 'pss_mean_mib', 'idle_pss_mib'):
+        values = [v[field] for v in views]
+        out[field] = sum(values) if all(v is not None for v in values) else None
+    return out
 
 
 def analyze(blocks):
@@ -53,7 +70,10 @@ def analyze(blocks):
                'vm_busy_fraction': spread([(b.get('resources') or {}).get('vm_busy_fraction') for b in group])}
         for service in ('placement', 'glance'):
             views = [service_view(b, service) for b in group]
-            row[service] = {field: spread([v[field] for v in views]) for field in ('requests', 'server_ms', 'cpu_s', 'pss_max_mib')}
+            row[service] = {field: spread([v[field] for v in views]) for field in SERVICE_FIELDS}
+        stacks = [stack_view(b) for b in group]
+        row['stack'] = {field: spread([v[field] for v in stacks]) for field in ('cpu_s_per_boot', 'pss_mean_mib', 'idle_pss_mib')}
+        row['phases'] = {name: spread([(s.get('phases') or {}).get(name) for b in group for s in b['servers']]) for name in PHASES}
         out[key] = row
     by_rep = {(b['variant'], b['concurrency'], b['repetition']): b for b in valid}
     for (variant, n, rep), b in sorted(by_rep.items()):
@@ -62,11 +82,16 @@ def analyze(blocks):
         ref = by_rep[(REFERENCE, n, rep)]
         med = statistics.median([s['active_s'] for s in b['servers']])
         ref_med = statistics.median([s['active_s'] for s in ref['servers']])
-        entry = ratios.setdefault('%s/%d' % (variant, n), {'boot': [], 'makespan': []})
+        entry = ratios.setdefault('%s/%d' % (variant, n), {'boot': [], 'makespan': [], 'stack_cpu_per_boot': [], 'stack_pss_mean': []})
         entry['boot'].append(med / ref_med)
         entry['makespan'].append(b['makespan_s'] / ref['makespan_s'])
+        for field, name in (('cpu_s_per_boot', 'stack_cpu_per_boot'), ('pss_mean_mib', 'stack_pss_mean')):
+            x, y = stack_view(b)[field], stack_view(ref)[field]
+            if x is not None and y:
+                entry[name].append(x / y)
     ratio_out = {key: {'pairs': len(v['boot']), 'boot_median_ratio': spread(v['boot']),
-                       'makespan_ratio': spread(v['makespan'])} for key, v in sorted(ratios.items())}
+                       'makespan_ratio': spread(v['makespan']), 'stack_cpu_per_boot_ratio': spread(v['stack_cpu_per_boot']),
+                       'stack_pss_mean_ratio': spread(v['stack_pss_mean'])} for key, v in sorted(ratios.items())}
     return {'reference': REFERENCE, 'valid_blocks': len(valid), 'invalid_blocks': len(blocks) - len(valid),
             'cells': out, 'ratios': ratio_out}
 
@@ -93,10 +118,35 @@ def markdown(result):
         lines.append('| %s | %s | %s | %s | %s | %s |' % (
             variant, n, fmt(row['placement']['cpu_s'], 2), fmt(row['placement']['pss_max_mib']),
             fmt(row['glance']['cpu_s'], 2), fmt(row['glance']['pss_max_mib'])))
-    lines += ['', 'Cociente frente a %s, pareado por repetición (<1 = más rápido):' % result['reference'], '',
-              '| Celda | Pares | Boot (mediana) | Makespan |', '|---|---:|---|---|']
+    if any(row['phases'][p] for row in result['cells'].values() for p in PHASES):
+        lines += ['', 'Fases por boot (s): petición→build = API, conductor, scheduler y Placement; build = cómputo '
+                  '(descarga de Glance, red, libvirt); descarga = lock del archivo base mientras se trae de Glance.', '',
+                  '| Variante | N | Petición→build | Build | Descarga imagen | Spawn (log) | Retardo del polling |',
+                  '|---|---:|---|---|---|---|---|']
+        for key, row in result['cells'].items():
+            variant, n = key.split('/')
+            ph = row['phases']
+            lines.append('| %s | %s | %s | %s | %s | %s | %s |' % (
+                variant, n, fmt(ph['request_to_build_s'], 2), fmt(ph['build_s'], 2), fmt(ph['image_fetch_s'], 2),
+                fmt(ph['spawn_log_s'], 2), fmt(ph['active_poll_lag_s'], 2)))
+    if any(row['placement']['cpu_s_per_boot'] for row in result['cells'].values()):
+        lines += ['', 'CPU por boot (s), PSS medio en la ventana y PSS en reposo antes del bloque (MiB):', '',
+                  '| Variante | N | Placement CPU/boot | Glance CPU/boot | Placement PSS medio | Glance PSS medio '
+                  '| Placement PSS reposo | Glance PSS reposo | Pila PSS medio |',
+                  '|---|---:|---|---|---|---|---|---|---|']
+        for key, row in result['cells'].items():
+            variant, n = key.split('/')
+            pl, gl = row['placement'], row['glance']
+            lines.append('| %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
+                variant, n, fmt(pl['cpu_s_per_boot'], 3), fmt(gl['cpu_s_per_boot'], 3), fmt(pl['pss_mean_mib']),
+                fmt(gl['pss_mean_mib']), fmt(pl['idle_pss_mib']), fmt(gl['idle_pss_mib']), fmt(row['stack']['pss_mean_mib'])))
+    lines += ['', 'Cociente frente a %s, pareado por repetición (<1 = más rápido o menos recursos; '
+              'pila = Placement + Glance activos):' % result['reference'], '',
+              '| Celda | Pares | Boot (mediana) | Makespan | Pila CPU/boot | Pila PSS medio |', '|---|---:|---|---|---|---|']
     for key, row in result['ratios'].items():
-        lines.append('| %s | %d | %s | %s |' % (key, row['pairs'], fmt(row['boot_median_ratio'], 3), fmt(row['makespan_ratio'], 3)))
+        lines.append('| %s | %d | %s | %s | %s | %s |' % (key, row['pairs'], fmt(row['boot_median_ratio'], 3),
+                                                       fmt(row['makespan_ratio'], 3), fmt(row['stack_cpu_per_boot_ratio'], 3),
+                                                       fmt(row['stack_pss_mean_ratio'], 3)))
     return '\n'.join(lines) + '\n'
 
 
