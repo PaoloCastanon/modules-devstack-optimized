@@ -1,0 +1,255 @@
+{
+  "placement-go": [],
+  "glance-go": [
+    {
+      "ts_us": 1795832393748526,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 7,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795832393749921,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    },
+    {
+      "ts_us": 1795832393753519,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 8,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795832393755234,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    },
+    {
+      "ts_us": 1795832394414792,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 12,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795832394431716,
+      "method": "GET",
+      "route": "/v2/images/{id}/file",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 15,
+      "response_bytes": 21692416
+    },
+    {
+      "ts_us": 1795832394475367,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795832394476926,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    },
+    {
+      "ts_us": 1795832395505956,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795832395530480,
+      "method": "GET",
+      "route": "/v2/images/{id}/file",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 23,
+      "response_bytes": 21692416
+    },
+    {
+      "ts_us": 1795832395576661,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 1,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795832395578427,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    }
+  ],
+  "placement-python": [
+    {
+      "ts_us": 1795832394017232,
+      "method": "GET",
+      "route": "/allocation_candidates",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 40,
+      "response_bytes": 2503
+    },
+    {
+      "ts_us": 1795832394020287,
+      "method": "GET",
+      "route": "/allocation_candidates",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 39,
+      "response_bytes": 2503
+    },
+    {
+      "ts_us": 1795832394073512,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "fc4a3bcb-4f2b-4102-96f6-2930076e73d6"
+      ],
+      "status": 200,
+      "duration_ms": 8,
+      "response_bytes": 19
+    },
+    {
+      "ts_us": 1795832394075809,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "a00325c4-cd58-4d22-a5b1-2115014ff898"
+      ],
+      "status": 200,
+      "duration_ms": 9,
+      "response_bytes": 19
+    },
+    {
+      "ts_us": 1795832394115062,
+      "method": "PUT",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "fc4a3bcb-4f2b-4102-96f6-2930076e73d6"
+      ],
+      "status": 204,
+      "duration_ms": 39,
+      "response_bytes": 0
+    },
+    {
+      "ts_us": 1795832394231638,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "fc4a3bcb-4f2b-4102-96f6-2930076e73d6"
+      ],
+      "status": 200,
+      "duration_ms": 4,
+      "response_bytes": 258
+    },
+    {
+      "ts_us": 1795832394269643,
+      "method": "GET",
+      "route": "/resource_providers/{id}/allocations",
+      "path_ids": [
+        "3b7cc290-1329-47d2-9502-890059c82d1b"
+      ],
+      "status": 200,
+      "duration_ms": 6,
+      "response_bytes": 153
+    },
+    {
+      "ts_us": 1795832394275209,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "fc4a3bcb-4f2b-4102-96f6-2930076e73d6"
+      ],
+      "status": 200,
+      "duration_ms": 4,
+      "response_bytes": 258
+    },
+    {
+      "ts_us": 1795832395148630,
+      "method": "PUT",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "a00325c4-cd58-4d22-a5b1-2115014ff898"
+      ],
+      "status": 204,
+      "duration_ms": 1070,
+      "response_bytes": 0
+    },
+    {
+      "ts_us": 1795832395288524,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "a00325c4-cd58-4d22-a5b1-2115014ff898"
+      ],
+      "status": 200,
+      "duration_ms": 5,
+      "response_bytes": 258
+    },
+    {
+      "ts_us": 1795832395355667,
+      "method": "GET",
+      "route": "/resource_providers/{id}/allocations",
+      "path_ids": [
+        "3b7cc290-1329-47d2-9502-890059c82d1b"
+      ],
+      "status": 200,
+      "duration_ms": 20,
+      "response_bytes": 253
+    },
+    {
+      "ts_us": 1795832395363080,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "a00325c4-cd58-4d22-a5b1-2115014ff898"
+      ],
+      "status": 200,
+      "duration_ms": 5,
+      "response_bytes": 258
+    },
+    {
+      "ts_us": 1795832395369422,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "fc4a3bcb-4f2b-4102-96f6-2930076e73d6"
+      ],
+      "status": 200,
+      "duration_ms": 4,
+      "response_bytes": 258
+    }
+  ],
+  "glance-python": []
+}

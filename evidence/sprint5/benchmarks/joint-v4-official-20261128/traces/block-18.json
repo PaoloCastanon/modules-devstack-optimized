@@ -1,0 +1,116 @@
+{
+  "placement-go": [
+    {
+      "ts_us": 1795833151877877,
+      "method": "GET",
+      "route": "/allocation_candidates",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 1,
+      "response_bytes": null
+    },
+    {
+      "ts_us": 1795833151888015,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": null
+    },
+    {
+      "ts_us": 1795833151896899,
+      "method": "PUT",
+      "route": "/allocations/{id}",
+      "path_ids": [],
+      "status": 204,
+      "duration_ms": 7,
+      "response_bytes": null
+    },
+    {
+      "ts_us": 1795833152001494,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": null
+    },
+    {
+      "ts_us": 1795833152030207,
+      "method": "GET",
+      "route": "/resource_providers/{id}/allocations",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": null
+    },
+    {
+      "ts_us": 1795833152031879,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": null
+    }
+  ],
+  "glance-go": [
+    {
+      "ts_us": 1795833151731351,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 8,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795833151732654,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    },
+    {
+      "ts_us": 1795833152139703,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 1,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795833152164451,
+      "method": "GET",
+      "route": "/v2/images/{id}/file",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 22,
+      "response_bytes": 21692416
+    },
+    {
+      "ts_us": 1795833152202128,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795833152203438,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    }
+  ],
+  "placement-python": [],
+  "glance-python": []
+}

@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "protocol": "placement-glance-joint-compact-v4",
+  "status": "runner implemented (scripts/integration/joint_campaign.py); pilot required before the official run",
+  "predecessor_design": "joint-protocol-compact-v3.json (accepted 24/24): same matrix, cold-image profile, traces and cleanup; v4 adds concurrency 4, five repetitions, per-boot phases, idle resources and mean PSS",
+  "scope": "Original Nova boots CirrOS servers with Placement and Glance in a 2x2 design (Python/Go each)",
+  "configurations": [
+    {
+      "id": "python-python",
+      "placement": "python",
+      "glance": "python"
+    },
+    {
+      "id": "go-python",
+      "placement": "go",
+      "glance": "python"
+    },
+    {
+      "id": "python-go",
+      "placement": "python",
+      "glance": "go"
+    },
+    {
+      "id": "go-go",
+      "placement": "go",
+      "glance": "go"
+    }
+  ],
+  "concurrent_boots": [
+    1,
+    2,
+    4
+  ],
+  "repetitions": 5,
+  "cache_profiles": [
+    "cold-owned-image"
+  ],
+  "order": "per repetition the four variants in a seeded random order; inside a variant the concurrencies in a seeded random order",
+  "order_seed": 20261128,
+  "variant_switch": "Apache routes via placement_switch/glance_switch with rollback lease; nova-compute and nova-scheduler restarted on every variant change, then Nova schedulable and the compute provider inventory visible in the active Placement before the first block",
+  "settle_s": 10,
+  "sampling_interval_s": 1,
+  "boot_poll_interval_s": 1,
+  "boot_timeout_s": 300,
+  "cleanup_timeout_s": 180,
+  "route_lease_s": 1200,
+  "flavor_id": "42",
+  "flavor": {
+    "name": "m1.nano",
+    "vcpus": 1,
+    "ram_mib": 192,
+    "disk_gib": 1
+  },
+  "image": "DevStack CirrOS 0.6.3 x86_64 qcow2 (/opt/stack/devstack/files), size and SHA-256 recorded in the manifest",
+  "cold_image": "every boot uses its own new image uploaded through the active Glance before the window; Nova's base cache entry sha1(image_id) must be absent before and present after the boot, and the active Glance must serve GET /v2/images/{id}/file 200 inside the window",
+  "service_traces": "active implementation of each service must show the Nova calls inside the window (Placement: allocation_candidates 200 and PUT allocations 204 per server; Glance: file download 200 per image); a Go unit that is not active must show zero requests in the window and an original unit behind a Go route must be stopped",
+  "metrics": [
+    "seconds from POST /servers to ACTIVE per server (1 s polling, +-1 s)",
+    "block makespan from the barrier to the last ACTIVE and boots per minute",
+    "Placement and Glance request counts and server-side latency inside the window",
+    "CPU seconds and peak PSS per cgroup (Placement, Glance, Nova services, Keystone, MySQL, Apache, Placement Go MySQL) over the window",
+    "VM busy CPU over the window",
+    "per-boot phases (phase_sources)",
+    "CPU seconds per boot = window CPU / concurrency",
+    "mean PSS inside the window and CPU and mean PSS over an idle_s window before each block"
+  ],
+  "required_official_blocks": 60,
+  "required_measured_boots": 140,
+  "pilot": {
+    "repetitions": 1,
+    "required_blocks": 12,
+    "required_measured_boots": 28
+  },
+  "acceptance": "All blocks valid: every server ACTIVE within the timeout, allocations equal to the flavor in the active Placement, cold transfer proven, correct service traces, servers/allocations/images/base-cache entries removed, original services and routes restored, lab identity and Go runtimes retired; every server with all phases and the idle window sampled",
+  "statistics": "Five paired repetitions per cell; publish every boot, the median and range per cell and Go/Python ratios per repetition; no tail percentiles or significance claims",
+  "host_free_minimum_bytes": 21474836480,
+  "vm_free_minimum_bytes": 8589934592,
+  "idle_s": 8,
+  "phases": true,
+  "phase_sources": {
+    "to_compute_s": "POST /servers (runner, VM clock) to nova-compute 'Starting instance...' (journal µs): API, conductor, scheduler with Placement allocation_candidates and claim, RPC",
+    "prepare_s": "'Starting instance...' to 'Start spawning the instance on the hypervisor': compute claim, network allocation start, block devices",
+    "spawn_s": "nova-compute 'Took X seconds to spawn the instance on the hypervisor' (includes the image fetch)",
+    "image_fetch_s": "nova-compute lock hold on the base cache file sha1(image_id) while fetching it from the active Glance and converting it",
+    "build_s": "nova-compute 'Took X seconds to build instance'",
+    "post_to_built_s": "POST to the build log record (precise boot time, no polling)",
+    "active_poll_lag_s": "last 1 s poll that saw ACTIVE minus build end (polling resolution)",
+    "note": "Nova instance-action events have 1 s resolution and are not used"
+  }
+}

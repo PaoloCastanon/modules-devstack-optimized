@@ -1,0 +1,126 @@
+{
+  "placement-go": [],
+  "glance-go": [
+    {
+      "ts_us": 1795832431932998,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 6,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795832431934251,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    },
+    {
+      "ts_us": 1795832432393439,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795832432415400,
+      "method": "GET",
+      "route": "/v2/images/{id}/file",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 20,
+      "response_bytes": 21692416
+    },
+    {
+      "ts_us": 1795832432453425,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 1,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795832432454821,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    }
+  ],
+  "placement-python": [
+    {
+      "ts_us": 1795832432095131,
+      "method": "GET",
+      "route": "/allocation_candidates",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 19,
+      "response_bytes": 2503
+    },
+    {
+      "ts_us": 1795832432109895,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "448ed0f1-9bf9-4c4d-86b5-edb2d59e3c81"
+      ],
+      "status": 200,
+      "duration_ms": 3,
+      "response_bytes": 19
+    },
+    {
+      "ts_us": 1795832432136398,
+      "method": "PUT",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "448ed0f1-9bf9-4c4d-86b5-edb2d59e3c81"
+      ],
+      "status": 204,
+      "duration_ms": 25,
+      "response_bytes": 0
+    },
+    {
+      "ts_us": 1795832432239828,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "448ed0f1-9bf9-4c4d-86b5-edb2d59e3c81"
+      ],
+      "status": 200,
+      "duration_ms": 4,
+      "response_bytes": 258
+    },
+    {
+      "ts_us": 1795832432274700,
+      "method": "GET",
+      "route": "/resource_providers/{id}/allocations",
+      "path_ids": [
+        "3b7cc290-1329-47d2-9502-890059c82d1b"
+      ],
+      "status": 200,
+      "duration_ms": 5,
+      "response_bytes": 153
+    },
+    {
+      "ts_us": 1795832432280771,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "448ed0f1-9bf9-4c4d-86b5-edb2d59e3c81"
+      ],
+      "status": 200,
+      "duration_ms": 4,
+      "response_bytes": 258
+    }
+  ],
+  "glance-python": []
+}

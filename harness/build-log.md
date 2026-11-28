@@ -1578,3 +1578,34 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     ~236 MiB. VM apagada.
     [Evidencia](../evidence/sprint5/benchmarks/joint-official-20261127/README.md).
 
+- **2026-11-28 — Campaña conjunta por API (Placement y Glance a la vez), aceptada 72/72.**
+  - Instrumentos: `joint_lab.py` (VM, compone `placement_lab` y `glance_lab`),
+    `joint_api_campaign.py` (host, los dos generadores revisados en paralelo
+    con barrera común antes de medir), `analyze_joint_api.py` (método B18 por
+    servicio). Protocolo `joint-api-protocol-v1.json`: 3 pares de cargas,
+    C=1/16, 4 variantes, 3 repeticiones, 10 s + 30 s.
+  - Piloto: intento 1 detenido (solape 89 % con C=16 y orden de restauración de
+    controles; VM correcta, limpieza terminada a mano), corregido en `7ce3cb8`;
+    intento 2 24/24.
+  - **Oficial 72/72, limpieza completa**: Placement Go con Glance de fondo
+    2,9–15× ops/s, CPU/op 0,06–0,10×, PSS ~16 frente a ~190 MiB; Glance Go con
+    Placement de fondo CPU/op 0,05–0,17×, PSS ~18 frente a ~237 MiB; pila go-go
+    ~35 MiB frente a ~430 MiB. Opción A del usuario: lazo cerrado en ambos,
+    se reporta la competencia por CPU.
+    [Evidencia](../evidence/sprint5/benchmarks/joint-api-official-20261128/README.md).
+
+- **2026-11-28 — Campaña conjunta con Nova v4 (parte B), aceptada 60/60.**
+  - Protocolo `joint-protocol-compact-v4.json`: 2×2 variantes, 1/2/4 boots a
+    la vez, 5 repeticiones (60 bloques, 140 boots). Por boot: fases desde el
+    journal de nova-compute (POST→cómputo, preparación, spawn, descarga de
+    imagen, POST→build). Por bloque: CPU por boot, PSS medio y ventana de
+    reposo previa.
+  - Piloto: intento 1 detenido en el bloque 1 solo por `phases_ok` (eventos de
+    Nova con resolución de 1 s y líneas del journal en bytes), corregido en
+    `9c3f830`; intento 2 12/12.
+  - **Oficial 60/60, limpieza completa**: boot igual en las cuatro variantes
+    (cocientes 0,92–1,05); tiempo del lado del servidor por boot, Placement
+    17 frente a 102 ms y Glance 42,5 frente a 109 ms; CPU por boot de la pila
+    0,42–0,56×; PSS de la pila ~32 frente a ~417 MiB (0,076×).
+    [Evidencia](../evidence/sprint5/benchmarks/joint-v4-official-20261128/README.md).
+

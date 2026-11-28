@@ -122,8 +122,11 @@ def plan(scenario, provider, consumer, config, generation):
     return [(name, *ops[name]) for name in names]
 
 
-def run(config, token, output, stage, duration=120, warmup=30, timeout=10, abort_check=None):
-    """Stop issuing at deadline; clean partial cycles outside measured windows."""
+def run(config, token, output, stage, duration=120, warmup=30, timeout=10, abort_check=None, measurement_gate=None):
+    """Stop issuing at deadline; clean partial cycles outside measured windows.
+
+    measurement_gate, if given, is called after the warm-up cleanup and right
+    before the measured phase (the joint campaign aligns two generators)."""
     output.mkdir(parents=True, exist_ok=False)
     concurrency = config['concurrency']
     if concurrency not in (1, 4, 8, 16) or not .05 <= duration <= 3600 or not 0 <= warmup <= 3600:
@@ -222,6 +225,8 @@ def run(config, token, output, stage, duration=120, warmup=30, timeout=10, abort
 
     report['warmup'] = phase(warmup, False) if warmup else None
     report['warmup_cleanup'] = cleanup_consumers()
+    if measurement_gate is not None:
+        measurement_gate()
     report['measurement'] = phase(duration, True) if report['warmup'] is None or report['warmup']['errors'] == 0 else None
     report['measurement_cleanup'] = cleanup_consumers()
     report['external_abort'] = bool(abort_check is not None and abort_check())

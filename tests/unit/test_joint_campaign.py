@@ -106,7 +106,7 @@ class ResourceTest(unittest.TestCase):
         samples = [self.sample(T0, 0, 1024, 0, 100), self.sample(T0 + 5, 500_000, 4096, 30, 200),
                    self.sample(T0 + 10, 1_000_000, 2048, 50, 300)]
         out = joint.window_resources(samples, T0 + 1, T0 + 9)
-        self.assertEqual(out['groups']['glance-go'], {'cpu_s': 1.0, 'pss_max_mib': 4.0})
+        self.assertEqual(out['groups']['glance-go'], {'cpu_s': 1.0, 'pss_max_mib': 4.0, 'pss_mean_mib': 4.0})
         self.assertEqual(out['vm_busy_fraction'], 0.25)
 
     def test_stopped_group_and_missing_bracket(self):
@@ -190,6 +190,74 @@ class SharedDatabaseTest(unittest.TestCase):
         self.assertEqual(connected['user'], 'root')
         self.assertEqual(connected['password'], 'p@ss')
         self.assertEqual(executed, ['CREATE DATABASE IF NOT EXISTS `glance_go_shared`', 'COMMIT'])
+
+
+PROTOCOL_V4 = json.loads((ROOT / 'docs/benchmarks/joint-protocol-compact-v4.json').read_text())
+SERVER = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d'
+
+
+class ProtocolV4Test(unittest.TestCase):
+    def test_plan_accounting(self):
+        plan = joint.block_plan(PROTOCOL_V4)
+        self.assertEqual(len(plan), PROTOCOL_V4['required_official_blocks'])
+        self.assertEqual(sum(b['concurrency'] for b in plan), PROTOCOL_V4['required_measured_boots'])
+        pilot = joint.block_plan(PROTOCOL_V4, pilot=True)
+        self.assertEqual(len(pilot), PROTOCOL_V4['pilot']['required_blocks'])
+        self.assertEqual(sum(b['concurrency'] for b in pilot), PROTOCOL_V4['pilot']['required_measured_boots'])
+        self.assertEqual(PROTOCOL_V4['configurations'], PROTOCOL['configurations'])
+
+
+def coloured(ts, text):
+    """journald stores ANSI-coloured lines as a byte array."""
+    return json.dumps({'__REALTIME_TIMESTAMP': str(ts), 'MESSAGE': list(text.encode())})
+
+
+class PhaseTest(unittest.TestCase):
+    def test_compute_log_marks_from_coloured_journal(self):
+        base = joint.base_cache_name(IMAGE)
+        pre = 'INFO nova.compute.manager [\x1b[01;36mNone req-1 \x1b[00;36madmin admin] \x1b[01;35m[instance: %s] ' % SERVER
+        s0 = 1_800_000_000_000_000
+        lines = [coloured(s0 + 1_000_000, pre + 'Starting instance...\x1b[00m'),
+                 coloured(s0 + 1_500_000, pre + 'Start spawning the instance on the hypervisor.\x1b[00m'),
+                 coloured(s0 + 2_000_000, 'DEBUG oslo_concurrency.lockutils [\x1b[01;36mNone] \x1b[01;35mLock "%s" "released" by '
+                                          '"nova.virt.libvirt.imagebackend.Image.cache.<locals>.fetch_func_sync" :: held 0.812s\x1b[00m' % base),
+                 entry(s0, 'Lock "%s" "released" by "other.create_qcow2_image" :: held 9.0s' % base),
+                 coloured(s0 + 4_000_000, pre + 'Took 2.50 seconds to spawn the instance on the hypervisor.\x1b[00m'),
+                 coloured(s0 + 4_100_000, pre + 'Took 3.10 seconds to build instance.\x1b[00m'),
+                 coloured(s0, 'INFO [instance: 11111111-2222-4333-8444-555555555555] Took 9.00 seconds to build instance.')]
+        out = joint.compute_log_phases(lines, {SERVER}, [IMAGE])
+        self.assertEqual(out['image_fetch_s'], {IMAGE: 0.812})
+        mark = out['instances'][SERVER]
+        self.assertEqual((mark['spawn_s'], mark['build_s'], mark['compute_start_us']), (2.5, 3.1, s0 + 1_000_000))
+        phases = joint.boot_phases(s0 / 1e6, 4.5, mark, 0.812)
+        self.assertEqual((phases['to_compute_s'], phases['prepare_s'], phases['post_to_built_s']), (1.0, 0.5, 4.1))
+        self.assertEqual((phases['active_poll_lag_s'], phases['spawn_without_fetch_s']), (0.4, 1.688))
+        self.assertTrue(all(phases.get(k) is not None for k in joint.REQUIRED_PHASES))
+        self.assertNotIn('to_compute_s', joint.boot_phases(None, None, {}, None))
+
+
+class AnalyzeV4Test(unittest.TestCase):
+    def test_phases_cpu_per_boot_idle_and_stack_ratios(self):
+        def block(rep, variant, cpu, pss):
+            pl, gl = variant.split('-')
+            groups = {'placement-' + pl: {'cpu_s': cpu, 'pss_max_mib': pss, 'pss_mean_mib': pss},
+                      'glance-' + gl: {'cpu_s': cpu, 'pss_max_mib': pss, 'pss_mean_mib': pss}}
+            return {'repetition': rep, 'variant': variant, 'placement': pl, 'glance': gl, 'concurrency': 2, 'valid': True,
+                    'makespan_s': 5.0, 'traces': {}, 'resources': {'vm_busy_fraction': 0.5, 'groups': groups},
+                    'idle_resources': {'groups': groups},
+                    'servers': [{'active_s': 5.0, 'phases': {'to_compute_s': 1.0, 'build_s': 3.0, 'image_fetch_s': 0.5,
+                                                              'spawn_s': 2.0, 'active_poll_lag_s': 0.4}}] * 2}
+        result = analyze.analyze([block(1, 'python-python', 1.0, 200.0), block(1, 'go-go', 0.1, 20.0)])
+        cell = result['cells']['go-go/2']
+        self.assertEqual(cell['placement']['cpu_s_per_boot']['median'], 0.05)
+        self.assertEqual(cell['stack']['pss_mean_mib']['median'], 40.0)
+        self.assertEqual(cell['phases']['build_s']['median'], 3.0)
+        ratio = result['ratios']['go-go/2']
+        self.assertEqual(ratio['stack_cpu_per_boot_ratio']['median'], 0.1)
+        self.assertEqual(ratio['stack_pss_mean_ratio']['median'], 0.1)
+        text = analyze.markdown(result)
+        self.assertIn('Descarga imagen', text)
+        self.assertIn('PSS reposo', text)
 
 
 if __name__ == '__main__':
