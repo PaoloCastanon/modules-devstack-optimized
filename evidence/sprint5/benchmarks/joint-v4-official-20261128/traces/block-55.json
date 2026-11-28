@@ -1,0 +1,266 @@
+{
+  "placement-go": [],
+  "glance-go": [
+    {
+      "ts_us": 1795834673807052,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 7,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795834673807204,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 7,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795834673808450,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    },
+    {
+      "ts_us": 1795834673808525,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    },
+    {
+      "ts_us": 1795834674461351,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 11,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795834674508742,
+      "method": "GET",
+      "route": "/v2/images/{id}/file",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 40,
+      "response_bytes": 21692416
+    },
+    {
+      "ts_us": 1795834674543176,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 1,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795834674545253,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    },
+    {
+      "ts_us": 1795834674589131,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795834674619437,
+      "method": "GET",
+      "route": "/v2/images/{id}/file",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 27,
+      "response_bytes": 21692416
+    },
+    {
+      "ts_us": 1795834674665117,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 1,
+      "response_bytes": 805
+    },
+    {
+      "ts_us": 1795834674667559,
+      "method": "GET",
+      "route": "/v2/schemas/{id}",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 0,
+      "response_bytes": 6083
+    }
+  ],
+  "placement-python": [
+    {
+      "ts_us": 1795834674055242,
+      "method": "GET",
+      "route": "/allocation_candidates",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 52,
+      "response_bytes": 2503
+    },
+    {
+      "ts_us": 1795834674066751,
+      "method": "GET",
+      "route": "/allocation_candidates",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 51,
+      "response_bytes": 2503
+    },
+    {
+      "ts_us": 1795834674112391,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "aecd9bc4-46b9-468c-a5d4-1cf0725a6c72"
+      ],
+      "status": 200,
+      "duration_ms": 5,
+      "response_bytes": 19
+    },
+    {
+      "ts_us": 1795834674123669,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "5ed874ef-4c3c-457a-a656-058329851980"
+      ],
+      "status": 200,
+      "duration_ms": 3,
+      "response_bytes": 19
+    },
+    {
+      "ts_us": 1795834674153646,
+      "method": "PUT",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "aecd9bc4-46b9-468c-a5d4-1cf0725a6c72"
+      ],
+      "status": 204,
+      "duration_ms": 39,
+      "response_bytes": 0
+    },
+    {
+      "ts_us": 1795834674188189,
+      "method": "PUT",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "5ed874ef-4c3c-457a-a656-058329851980"
+      ],
+      "status": 204,
+      "duration_ms": 62,
+      "response_bytes": 0
+    },
+    {
+      "ts_us": 1795834674278035,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "aecd9bc4-46b9-468c-a5d4-1cf0725a6c72"
+      ],
+      "status": 200,
+      "duration_ms": 6,
+      "response_bytes": 259
+    },
+    {
+      "ts_us": 1795834674318123,
+      "method": "GET",
+      "route": "/resource_providers/{id}/allocations",
+      "path_ids": [
+        "3b7cc290-1329-47d2-9502-890059c82d1b"
+      ],
+      "status": 200,
+      "duration_ms": 8,
+      "response_bytes": 254
+    },
+    {
+      "ts_us": 1795834674320378,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "5ed874ef-4c3c-457a-a656-058329851980"
+      ],
+      "status": 200,
+      "duration_ms": 5,
+      "response_bytes": 259
+    },
+    {
+      "ts_us": 1795834674323999,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "aecd9bc4-46b9-468c-a5d4-1cf0725a6c72"
+      ],
+      "status": 200,
+      "duration_ms": 4,
+      "response_bytes": 259
+    },
+    {
+      "ts_us": 1795834674329555,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "5ed874ef-4c3c-457a-a656-058329851980"
+      ],
+      "status": 200,
+      "duration_ms": 4,
+      "response_bytes": 259
+    },
+    {
+      "ts_us": 1795834674393015,
+      "method": "GET",
+      "route": "/resource_providers/{id}/allocations",
+      "path_ids": [
+        "3b7cc290-1329-47d2-9502-890059c82d1b"
+      ],
+      "status": 200,
+      "duration_ms": 11,
+      "response_bytes": 254
+    },
+    {
+      "ts_us": 1795834674401025,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "aecd9bc4-46b9-468c-a5d4-1cf0725a6c72"
+      ],
+      "status": 200,
+      "duration_ms": 5,
+      "response_bytes": 259
+    },
+    {
+      "ts_us": 1795834674408257,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "5ed874ef-4c3c-457a-a656-058329851980"
+      ],
+      "status": 200,
+      "duration_ms": 4,
+      "response_bytes": 259
+    }
+  ],
+  "glance-python": []
+}

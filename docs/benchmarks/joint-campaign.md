@@ -107,3 +107,13 @@ Salida: `manifest.json` (plan, hashes de binarios y de CirrOS, protocolo),
   ya lo miden las campañas de Placement y de Glance).
 - Tres repeticiones por celda: mediana y rango, sin percentiles de cola ni
   significación estadística.
+
+## Protocolo v4 (parte B ampliada)
+
+`joint-protocol-compact-v4.json` usa el mismo runner con 1/2/4 boots, 5
+repeticiones, `idle_s` (ventana de reposo antes de cada bloque) y `phases`
+(fases por boot desde el journal de nova-compute; se exigen para aceptar el
+bloque). Se ejecuta igual que v3, cambiando `--protocol`.
+Resultados: [piloto](../../evidence/sprint5/benchmarks/joint-v4-pilot-20261128/README.md) (12/12) ·
+[oficial](../../evidence/sprint5/benchmarks/joint-v4-official-20261128/README.md) (60/60).
+

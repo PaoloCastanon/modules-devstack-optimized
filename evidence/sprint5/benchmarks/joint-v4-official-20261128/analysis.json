@@ -1,0 +1,2384 @@
+{
+  "reference": "python-python",
+  "valid_blocks": 60,
+  "invalid_blocks": 0,
+  "cells": {
+    "python-python/1": {
+      "blocks": 5,
+      "boots": 5,
+      "boot_s_all": [
+        2.377,
+        4.481,
+        2.395,
+        2.449,
+        4.477
+      ],
+      "boot_s": {
+        "median": 2.449,
+        "min": 2.377,
+        "max": 4.481
+      },
+      "makespan_s": {
+        "median": 2.45,
+        "min": 2.378,
+        "max": 4.482
+      },
+      "boots_per_min": {
+        "median": 24.4898,
+        "min": 13.3869,
+        "max": 25.2313
+      },
+      "vm_busy_fraction": {
+        "median": 0.3274,
+        "min": 0.3231,
+        "max": 0.3532
+      },
+      "placement": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 67,
+          "min": 65,
+          "max": 76
+        },
+        "cpu_s": {
+          "median": 0.057,
+          "min": 0.053,
+          "max": 0.069
+        },
+        "cpu_s_per_boot": {
+          "median": 0.057,
+          "min": 0.053,
+          "max": 0.069
+        },
+        "pss_max_mib": {
+          "median": 180.7,
+          "min": 179.7,
+          "max": 181.3
+        },
+        "pss_mean_mib": {
+          "median": 180.7,
+          "min": 179.7,
+          "max": 181.3
+        },
+        "idle_cpu_s": {
+          "median": 0.033,
+          "min": 0.01,
+          "max": 0.14
+        },
+        "idle_pss_mib": {
+          "median": 180.7,
+          "min": 179.7,
+          "max": 181.3
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 78,
+          "min": 74,
+          "max": 82
+        },
+        "cpu_s": {
+          "median": 0.203,
+          "min": 0.164,
+          "max": 0.227
+        },
+        "cpu_s_per_boot": {
+          "median": 0.203,
+          "min": 0.164,
+          "max": 0.227
+        },
+        "pss_max_mib": {
+          "median": 237.4,
+          "min": 235.4,
+          "max": 238.5
+        },
+        "pss_mean_mib": {
+          "median": 237.4,
+          "min": 235.4,
+          "max": 238.5
+        },
+        "idle_cpu_s": {
+          "median": 0.115,
+          "min": 0.066,
+          "max": 0.178
+        },
+        "idle_pss_mib": {
+          "median": 236.2,
+          "min": 231.2,
+          "max": 237.5
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.256,
+          "min": 0.223,
+          "max": 0.287
+        },
+        "pss_mean_mib": {
+          "median": 417.2,
+          "min": 415.1,
+          "max": 419.2
+        },
+        "idle_pss_mib": {
+          "median": 415.9,
+          "min": 411.0,
+          "max": 418.7
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 1.898,
+          "min": 1.882,
+          "max": 3.469
+        },
+        "to_compute_s": {
+          "median": 0.324,
+          "min": 0.311,
+          "max": 0.405
+        },
+        "prepare_s": {
+          "median": 0.186,
+          "min": 0.184,
+          "max": 0.196
+        },
+        "spawn_s": {
+          "median": 1.37,
+          "min": 1.35,
+          "max": 2.83
+        },
+        "image_fetch_s": {
+          "median": 0.261,
+          "min": 0.247,
+          "max": 0.272
+        },
+        "spawn_without_fetch_s": {
+          "median": 1.109,
+          "min": 1.083,
+          "max": 2.582
+        },
+        "build_s": {
+          "median": 1.56,
+          "min": 1.54,
+          "max": 3.04
+        },
+        "active_poll_lag_s": {
+          "median": 0.567,
+          "min": 0.479,
+          "max": 1.11
+        }
+      }
+    },
+    "python-python/2": {
+      "blocks": 5,
+      "boots": 10,
+      "boot_s_all": [
+        4.632,
+        3.586,
+        4.659,
+        4.725,
+        4.91,
+        4.903,
+        4.818,
+        4.722,
+        4.632,
+        4.633
+      ],
+      "boot_s": {
+        "median": 4.6905,
+        "min": 3.586,
+        "max": 4.91
+      },
+      "makespan_s": {
+        "median": 4.728,
+        "min": 4.633,
+        "max": 4.914
+      },
+      "boots_per_min": {
+        "median": 25.3807,
+        "min": 24.42,
+        "max": 25.9011
+      },
+      "vm_busy_fraction": {
+        "median": 0.5325,
+        "min": 0.5168,
+        "max": 0.5705
+      },
+      "placement": {
+        "requests": {
+          "median": 14,
+          "min": 14,
+          "max": 17
+        },
+        "server_ms": {
+          "median": 167,
+          "min": 152,
+          "max": 1281
+        },
+        "cpu_s": {
+          "median": 0.121,
+          "min": 0.118,
+          "max": 0.188
+        },
+        "cpu_s_per_boot": {
+          "median": 0.0605,
+          "min": 0.059,
+          "max": 0.094
+        },
+        "pss_max_mib": {
+          "median": 179.7,
+          "min": 178.6,
+          "max": 181.5
+        },
+        "pss_mean_mib": {
+          "median": 179.7,
+          "min": 177.9,
+          "max": 181.5
+        },
+        "idle_cpu_s": {
+          "median": 0.009,
+          "min": 0.002,
+          "max": 0.022
+        },
+        "idle_pss_mib": {
+          "median": 179.7,
+          "min": 174.9,
+          "max": 181.2
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 12,
+          "min": 12,
+          "max": 12
+        },
+        "server_ms": {
+          "median": 225,
+          "min": 192,
+          "max": 258
+        },
+        "cpu_s": {
+          "median": 0.293,
+          "min": 0.242,
+          "max": 0.363
+        },
+        "cpu_s_per_boot": {
+          "median": 0.1465,
+          "min": 0.121,
+          "max": 0.1815
+        },
+        "pss_max_mib": {
+          "median": 236.2,
+          "min": 235.5,
+          "max": 237.3
+        },
+        "pss_mean_mib": {
+          "median": 236.2,
+          "min": 235.4,
+          "max": 237.2
+        },
+        "idle_cpu_s": {
+          "median": 0.205,
+          "min": 0.055,
+          "max": 0.259
+        },
+        "idle_pss_mib": {
+          "median": 235.6,
+          "min": 231.2,
+          "max": 237.2
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.207,
+          "min": 0.1835,
+          "max": 0.2755
+        },
+        "pss_mean_mib": {
+          "median": 415.9,
+          "min": 415.1,
+          "max": 417.9
+        },
+        "idle_pss_mib": {
+          "median": 412.1,
+          "min": 411.2,
+          "max": 417.6
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 3.667,
+          "min": 2.937,
+          "max": 3.877
+        },
+        "to_compute_s": {
+          "median": 0.4735,
+          "min": 0.347,
+          "max": 1.553
+        },
+        "prepare_s": {
+          "median": 0.2335,
+          "min": 0.179,
+          "max": 0.354
+        },
+        "spawn_s": {
+          "median": 2.88,
+          "min": 1.83,
+          "max": 3.12
+        },
+        "image_fetch_s": {
+          "median": 0.347,
+          "min": 0.261,
+          "max": 0.378
+        },
+        "spawn_without_fetch_s": {
+          "median": 2.5295,
+          "min": 1.521,
+          "max": 2.752
+        },
+        "build_s": {
+          "median": 3.2,
+          "min": 2.07,
+          "max": 3.37
+        },
+        "active_poll_lag_s": {
+          "median": 1.037,
+          "min": 0.649,
+          "max": 1.094
+        }
+      }
+    },
+    "python-python/4": {
+      "blocks": 5,
+      "boots": 20,
+      "boot_s_all": [
+        5.685,
+        5.921,
+        5.655,
+        6.049,
+        5.907,
+        5.992,
+        5.774,
+        5.94,
+        5.53,
+        5.783,
+        5.981,
+        5.459,
+        5.924,
+        6.653,
+        5.584,
+        6.051,
+        5.548,
+        5.777,
+        5.806,
+        5.552
+      ],
+      "boot_s": {
+        "median": 5.7945,
+        "min": 5.459,
+        "max": 6.653
+      },
+      "makespan_s": {
+        "median": 5.996,
+        "min": 5.812,
+        "max": 6.658
+      },
+      "boots_per_min": {
+        "median": 40.0267,
+        "min": 36.0469,
+        "max": 41.2939
+      },
+      "vm_busy_fraction": {
+        "median": 0.7974,
+        "min": 0.7627,
+        "max": 0.8129
+      },
+      "placement": {
+        "requests": {
+          "median": 35,
+          "min": 32,
+          "max": 36
+        },
+        "server_ms": {
+          "median": 555,
+          "min": 508,
+          "max": 1489
+        },
+        "cpu_s": {
+          "median": 0.319,
+          "min": 0.307,
+          "max": 0.337
+        },
+        "cpu_s_per_boot": {
+          "median": 0.0798,
+          "min": 0.0767,
+          "max": 0.0843
+        },
+        "pss_max_mib": {
+          "median": 180.7,
+          "min": 180.3,
+          "max": 181.2
+        },
+        "pss_mean_mib": {
+          "median": 180.6,
+          "min": 180.0,
+          "max": 181.1
+        },
+        "idle_cpu_s": {
+          "median": 0.026,
+          "min": 0.0,
+          "max": 0.049
+        },
+        "idle_pss_mib": {
+          "median": 179.8,
+          "min": 178.7,
+          "max": 181.0
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 24,
+          "min": 24,
+          "max": 24
+        },
+        "server_ms": {
+          "median": 656,
+          "min": 574,
+          "max": 843
+        },
+        "cpu_s": {
+          "median": 0.524,
+          "min": 0.309,
+          "max": 0.55
+        },
+        "cpu_s_per_boot": {
+          "median": 0.131,
+          "min": 0.0772,
+          "max": 0.1375
+        },
+        "pss_max_mib": {
+          "median": 237.3,
+          "min": 236.4,
+          "max": 237.7
+        },
+        "pss_mean_mib": {
+          "median": 237.3,
+          "min": 236.3,
+          "max": 237.7
+        },
+        "idle_cpu_s": {
+          "median": 0.11,
+          "min": 0.066,
+          "max": 0.27
+        },
+        "idle_pss_mib": {
+          "median": 236.2,
+          "min": 235.6,
+          "max": 237.4
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.214,
+          "min": 0.154,
+          "max": 0.2208
+        },
+        "pss_mean_mib": {
+          "median": 417.4,
+          "min": 416.8,
+          "max": 418.3
+        },
+        "idle_pss_mib": {
+          "median": 416.5,
+          "min": 415.9,
+          "max": 417.2
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 5.171,
+          "min": 4.968,
+          "max": 5.525
+        },
+        "to_compute_s": {
+          "median": 0.6365,
+          "min": 0.391,
+          "max": 1.588
+        },
+        "prepare_s": {
+          "median": 0.455,
+          "min": 0.305,
+          "max": 0.976
+        },
+        "spawn_s": {
+          "median": 3.935,
+          "min": 3.15,
+          "max": 4.73
+        },
+        "image_fetch_s": {
+          "median": 0.453,
+          "min": 0.382,
+          "max": 0.643
+        },
+        "spawn_without_fetch_s": {
+          "median": 3.37,
+          "min": 2.767,
+          "max": 4.303
+        },
+        "build_s": {
+          "median": 4.485,
+          "min": 3.53,
+          "max": 5.06
+        },
+        "active_poll_lag_s": {
+          "median": 0.671,
+          "min": 0.297,
+          "max": 1.128
+        }
+      }
+    },
+    "go-python/1": {
+      "blocks": 5,
+      "boots": 5,
+      "boot_s_all": [
+        3.489,
+        2.381,
+        2.393,
+        2.417,
+        2.4
+      ],
+      "boot_s": {
+        "median": 2.4,
+        "min": 2.381,
+        "max": 3.489
+      },
+      "makespan_s": {
+        "median": 2.4,
+        "min": 2.381,
+        "max": 3.49
+      },
+      "boots_per_min": {
+        "median": 25.0,
+        "min": 17.192,
+        "max": 25.1995
+      },
+      "vm_busy_fraction": {
+        "median": 0.3446,
+        "min": 0.2909,
+        "max": 0.351
+      },
+      "placement": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 10,
+          "min": 8,
+          "max": 13
+        },
+        "cpu_s": {
+          "median": 0.005,
+          "min": 0.005,
+          "max": 0.006
+        },
+        "cpu_s_per_boot": {
+          "median": 0.005,
+          "min": 0.005,
+          "max": 0.006
+        },
+        "pss_max_mib": {
+          "median": 14.6,
+          "min": 14.3,
+          "max": 14.9
+        },
+        "pss_mean_mib": {
+          "median": 14.6,
+          "min": 14.3,
+          "max": 14.8
+        },
+        "idle_cpu_s": {
+          "median": 0.001,
+          "min": 0.001,
+          "max": 0.003
+        },
+        "idle_pss_mib": {
+          "median": 14.5,
+          "min": 13.7,
+          "max": 14.8
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 77,
+          "min": 70,
+          "max": 96
+        },
+        "cpu_s": {
+          "median": 0.174,
+          "min": 0.155,
+          "max": 0.206
+        },
+        "cpu_s_per_boot": {
+          "median": 0.174,
+          "min": 0.155,
+          "max": 0.206
+        },
+        "pss_max_mib": {
+          "median": 237.5,
+          "min": 237.3,
+          "max": 238.0
+        },
+        "pss_mean_mib": {
+          "median": 237.5,
+          "min": 237.3,
+          "max": 238.0
+        },
+        "idle_cpu_s": {
+          "median": 0.134,
+          "min": 0.073,
+          "max": 0.198
+        },
+        "idle_pss_mib": {
+          "median": 237.0,
+          "min": 236.1,
+          "max": 237.6
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.18,
+          "min": 0.16,
+          "max": 0.211
+        },
+        "pss_mean_mib": {
+          "median": 252.0,
+          "min": 251.6,
+          "max": 252.8
+        },
+        "idle_pss_mib": {
+          "median": 250.7,
+          "min": 250.4,
+          "max": 252.4
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 1.87,
+          "min": 1.81,
+          "max": 3.091
+        },
+        "to_compute_s": {
+          "median": 0.281,
+          "min": 0.272,
+          "max": 0.294
+        },
+        "prepare_s": {
+          "median": 0.161,
+          "min": 0.156,
+          "max": 0.167
+        },
+        "spawn_s": {
+          "median": 1.4,
+          "min": 1.34,
+          "max": 2.62
+        },
+        "image_fetch_s": {
+          "median": 0.268,
+          "min": 0.249,
+          "max": 0.277
+        },
+        "spawn_without_fetch_s": {
+          "median": 1.123,
+          "min": 1.079,
+          "max": 2.352
+        },
+        "build_s": {
+          "median": 1.57,
+          "min": 1.5,
+          "max": 2.78
+        },
+        "active_poll_lag_s": {
+          "median": 0.525,
+          "min": 0.398,
+          "max": 0.571
+        }
+      }
+    },
+    "go-python/2": {
+      "blocks": 5,
+      "boots": 10,
+      "boot_s_all": [
+        3.498,
+        4.584,
+        4.837,
+        4.837,
+        4.688,
+        4.678,
+        4.752,
+        4.771,
+        4.632,
+        4.604
+      ],
+      "boot_s": {
+        "median": 4.683,
+        "min": 3.498,
+        "max": 4.837
+      },
+      "makespan_s": {
+        "median": 4.692,
+        "min": 4.588,
+        "max": 4.84
+      },
+      "boots_per_min": {
+        "median": 25.5754,
+        "min": 24.7934,
+        "max": 26.1552
+      },
+      "vm_busy_fraction": {
+        "median": 0.5215,
+        "min": 0.5138,
+        "max": 0.534
+      },
+      "placement": {
+        "requests": {
+          "median": 14,
+          "min": 14,
+          "max": 14
+        },
+        "server_ms": {
+          "median": 35,
+          "min": 26,
+          "max": 42
+        },
+        "cpu_s": {
+          "median": 0.014,
+          "min": 0.01,
+          "max": 0.015
+        },
+        "cpu_s_per_boot": {
+          "median": 0.007,
+          "min": 0.005,
+          "max": 0.0075
+        },
+        "pss_max_mib": {
+          "median": 14.8,
+          "min": 14.4,
+          "max": 15.1
+        },
+        "pss_mean_mib": {
+          "median": 14.5,
+          "min": 14.3,
+          "max": 15.0
+        },
+        "idle_cpu_s": {
+          "median": 0.002,
+          "min": 0.001,
+          "max": 0.002
+        },
+        "idle_pss_mib": {
+          "median": 14.7,
+          "min": 14.3,
+          "max": 15.1
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 12,
+          "min": 12,
+          "max": 12
+        },
+        "server_ms": {
+          "median": 213,
+          "min": 187,
+          "max": 279
+        },
+        "cpu_s": {
+          "median": 0.252,
+          "min": 0.151,
+          "max": 0.378
+        },
+        "cpu_s_per_boot": {
+          "median": 0.126,
+          "min": 0.0755,
+          "max": 0.189
+        },
+        "pss_max_mib": {
+          "median": 237.6,
+          "min": 235.9,
+          "max": 238.1
+        },
+        "pss_mean_mib": {
+          "median": 237.5,
+          "min": 235.8,
+          "max": 238.1
+        },
+        "idle_cpu_s": {
+          "median": 0.216,
+          "min": 0.035,
+          "max": 0.276
+        },
+        "idle_pss_mib": {
+          "median": 237.4,
+          "min": 231.7,
+          "max": 238.0
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.133,
+          "min": 0.081,
+          "max": 0.1965
+        },
+        "pss_mean_mib": {
+          "median": 252.1,
+          "min": 250.1,
+          "max": 253.1
+        },
+        "idle_pss_mib": {
+          "median": 251.7,
+          "min": 246.1,
+          "max": 252.9
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 3.545,
+          "min": 3.276,
+          "max": 3.778
+        },
+        "to_compute_s": {
+          "median": 0.3445,
+          "min": 0.322,
+          "max": 0.519
+        },
+        "prepare_s": {
+          "median": 0.2365,
+          "min": 0.175,
+          "max": 0.306
+        },
+        "spawn_s": {
+          "median": 2.915,
+          "min": 2.64,
+          "max": 3.02
+        },
+        "image_fetch_s": {
+          "median": 0.3605,
+          "min": 0.344,
+          "max": 0.427
+        },
+        "spawn_without_fetch_s": {
+          "median": 2.541,
+          "min": 2.292,
+          "max": 2.666
+        },
+        "build_s": {
+          "median": 3.18,
+          "min": 2.9,
+          "max": 3.27
+        },
+        "active_poll_lag_s": {
+          "median": 1.0965,
+          "min": 0.222,
+          "max": 1.155
+        }
+      }
+    },
+    "go-python/4": {
+      "blocks": 5,
+      "boots": 20,
+      "boot_s_all": [
+        6.002,
+        5.744,
+        5.75,
+        5.917,
+        5.811,
+        5.473,
+        5.456,
+        5.798,
+        6.201,
+        6.149,
+        7.141,
+        7.081,
+        5.426,
+        5.822,
+        5.837,
+        5.416,
+        6.495,
+        6.445,
+        6.124,
+        6.354
+      ],
+      "boot_s": {
+        "median": 5.877,
+        "min": 5.416,
+        "max": 7.141
+      },
+      "makespan_s": {
+        "median": 6.003,
+        "min": 5.815,
+        "max": 7.146
+      },
+      "boots_per_min": {
+        "median": 39.98,
+        "min": 33.5852,
+        "max": 41.2726
+      },
+      "vm_busy_fraction": {
+        "median": 0.8162,
+        "min": 0.7499,
+        "max": 0.8325
+      },
+      "placement": {
+        "requests": {
+          "median": 36,
+          "min": 34,
+          "max": 36
+        },
+        "server_ms": {
+          "median": 99,
+          "min": 69,
+          "max": 119
+        },
+        "cpu_s": {
+          "median": 0.026,
+          "min": 0.023,
+          "max": 0.028
+        },
+        "cpu_s_per_boot": {
+          "median": 0.0065,
+          "min": 0.0057,
+          "max": 0.007
+        },
+        "pss_max_mib": {
+          "median": 14.8,
+          "min": 13.5,
+          "max": 15.0
+        },
+        "pss_mean_mib": {
+          "median": 14.6,
+          "min": 13.5,
+          "max": 15.0
+        },
+        "idle_cpu_s": {
+          "median": 0.001,
+          "min": 0.0,
+          "max": 0.001
+        },
+        "idle_pss_mib": {
+          "median": 14.0,
+          "min": 10.9,
+          "max": 15.0
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 24,
+          "min": 24,
+          "max": 24
+        },
+        "server_ms": {
+          "median": 675,
+          "min": 571,
+          "max": 743
+        },
+        "cpu_s": {
+          "median": 0.384,
+          "min": 0.382,
+          "max": 0.509
+        },
+        "cpu_s_per_boot": {
+          "median": 0.096,
+          "min": 0.0955,
+          "max": 0.1273
+        },
+        "pss_max_mib": {
+          "median": 236.9,
+          "min": 235.9,
+          "max": 238.3
+        },
+        "pss_mean_mib": {
+          "median": 236.8,
+          "min": 235.8,
+          "max": 238.2
+        },
+        "idle_cpu_s": {
+          "median": 0.203,
+          "min": 0.032,
+          "max": 0.238
+        },
+        "idle_pss_mib": {
+          "median": 233.5,
+          "min": 231.4,
+          "max": 238.1
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.102,
+          "min": 0.1018,
+          "max": 0.1338
+        },
+        "pss_mean_mib": {
+          "median": 250.9,
+          "min": 250.3,
+          "max": 252.8
+        },
+        "idle_pss_mib": {
+          "median": 245.5,
+          "min": 244.4,
+          "max": 253.1
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 5.268,
+          "min": 4.694,
+          "max": 5.922
+        },
+        "to_compute_s": {
+          "median": 0.5775,
+          "min": 0.343,
+          "max": 0.714
+        },
+        "prepare_s": {
+          "median": 0.4135,
+          "min": 0.257,
+          "max": 0.711
+        },
+        "spawn_s": {
+          "median": 4.255,
+          "min": 3.78,
+          "max": 4.98
+        },
+        "image_fetch_s": {
+          "median": 0.4885,
+          "min": 0.367,
+          "max": 0.582
+        },
+        "spawn_without_fetch_s": {
+          "median": 3.7375,
+          "min": 3.259,
+          "max": 4.495
+        },
+        "build_s": {
+          "median": 4.66,
+          "min": 4.3,
+          "max": 5.36
+        },
+        "active_poll_lag_s": {
+          "median": 0.6305,
+          "min": 0.299,
+          "max": 1.219
+        }
+      }
+    },
+    "python-go/1": {
+      "blocks": 5,
+      "boots": 5,
+      "boot_s_all": [
+        3.471,
+        3.419,
+        2.398,
+        3.596,
+        3.449
+      ],
+      "boot_s": {
+        "median": 3.449,
+        "min": 2.398,
+        "max": 3.596
+      },
+      "makespan_s": {
+        "median": 3.45,
+        "min": 2.399,
+        "max": 3.598
+      },
+      "boots_per_min": {
+        "median": 17.3913,
+        "min": 16.6759,
+        "max": 25.0104
+      },
+      "vm_busy_fraction": {
+        "median": 0.3126,
+        "min": 0.2751,
+        "max": 0.3406
+      },
+      "placement": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 82,
+          "min": 60,
+          "max": 108
+        },
+        "cpu_s": {
+          "median": 0.069,
+          "min": 0.053,
+          "max": 0.09
+        },
+        "cpu_s_per_boot": {
+          "median": 0.069,
+          "min": 0.053,
+          "max": 0.09
+        },
+        "pss_max_mib": {
+          "median": 179.9,
+          "min": 176.9,
+          "max": 181.2
+        },
+        "pss_mean_mib": {
+          "median": 179.8,
+          "min": 176.6,
+          "max": 181.2
+        },
+        "idle_cpu_s": {
+          "median": 0.054,
+          "min": 0.011,
+          "max": 0.098
+        },
+        "idle_pss_mib": {
+          "median": 179.7,
+          "min": 175.4,
+          "max": 181.2
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 40,
+          "min": 23,
+          "max": 43
+        },
+        "cpu_s": {
+          "median": 0.112,
+          "min": 0.056,
+          "max": 0.116
+        },
+        "cpu_s_per_boot": {
+          "median": 0.112,
+          "min": 0.056,
+          "max": 0.116
+        },
+        "pss_max_mib": {
+          "median": 16.9,
+          "min": 16.9,
+          "max": 19.4
+        },
+        "pss_mean_mib": {
+          "median": 16.9,
+          "min": 16.6,
+          "max": 17.1
+        },
+        "idle_cpu_s": {
+          "median": 0.084,
+          "min": 0.071,
+          "max": 0.096
+        },
+        "idle_pss_mib": {
+          "median": 19.2,
+          "min": 15.3,
+          "max": 19.5
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.181,
+          "min": 0.11,
+          "max": 0.203
+        },
+        "pss_mean_mib": {
+          "median": 196.9,
+          "min": 193.4,
+          "max": 198.1
+        },
+        "idle_pss_mib": {
+          "median": 198.9,
+          "min": 190.7,
+          "max": 200.6
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 3.141,
+          "min": 1.894,
+          "max": 3.397
+        },
+        "to_compute_s": {
+          "median": 0.376,
+          "min": 0.315,
+          "max": 0.462
+        },
+        "prepare_s": {
+          "median": 0.187,
+          "min": 0.174,
+          "max": 0.188
+        },
+        "spawn_s": {
+          "median": 2.62,
+          "min": 1.31,
+          "max": 2.72
+        },
+        "image_fetch_s": {
+          "median": 0.231,
+          "min": 0.222,
+          "max": 0.241
+        },
+        "spawn_without_fetch_s": {
+          "median": 2.389,
+          "min": 1.088,
+          "max": 2.479
+        },
+        "build_s": {
+          "median": 2.8,
+          "min": 1.5,
+          "max": 2.91
+        },
+        "active_poll_lag_s": {
+          "median": 0.455,
+          "min": 0.074,
+          "max": 0.798
+        }
+      }
+    },
+    "python-go/2": {
+      "blocks": 5,
+      "boots": 10,
+      "boot_s_all": [
+        4.743,
+        4.736,
+        4.635,
+        4.591,
+        4.518,
+        4.714,
+        4.74,
+        4.752,
+        4.874,
+        4.811
+      ],
+      "boot_s": {
+        "median": 4.738,
+        "min": 4.518,
+        "max": 4.874
+      },
+      "makespan_s": {
+        "median": 4.743,
+        "min": 4.635,
+        "max": 4.875
+      },
+      "boots_per_min": {
+        "median": 25.3004,
+        "min": 24.6154,
+        "max": 25.89
+      },
+      "vm_busy_fraction": {
+        "median": 0.5109,
+        "min": 0.4867,
+        "max": 0.5315
+      },
+      "placement": {
+        "requests": {
+          "median": 14,
+          "min": 14,
+          "max": 14
+        },
+        "server_ms": {
+          "median": 238,
+          "min": 165,
+          "max": 303
+        },
+        "cpu_s": {
+          "median": 0.174,
+          "min": 0.13,
+          "max": 0.225
+        },
+        "cpu_s_per_boot": {
+          "median": 0.087,
+          "min": 0.065,
+          "max": 0.1125
+        },
+        "pss_max_mib": {
+          "median": 179.9,
+          "min": 178.3,
+          "max": 180.8
+        },
+        "pss_mean_mib": {
+          "median": 179.8,
+          "min": 178.2,
+          "max": 180.7
+        },
+        "idle_cpu_s": {
+          "median": 0.139,
+          "min": 0.069,
+          "max": 0.213
+        },
+        "idle_pss_mib": {
+          "median": 179.5,
+          "min": 175.6,
+          "max": 180.2
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 12,
+          "min": 12,
+          "max": 12
+        },
+        "server_ms": {
+          "median": 71,
+          "min": 54,
+          "max": 99
+        },
+        "cpu_s": {
+          "median": 0.223,
+          "min": 0.215,
+          "max": 0.234
+        },
+        "cpu_s_per_boot": {
+          "median": 0.1115,
+          "min": 0.1075,
+          "max": 0.117
+        },
+        "pss_max_mib": {
+          "median": 19.0,
+          "min": 16.8,
+          "max": 19.3
+        },
+        "pss_mean_mib": {
+          "median": 19.0,
+          "min": 16.8,
+          "max": 19.3
+        },
+        "idle_cpu_s": {
+          "median": 0.164,
+          "min": 0.139,
+          "max": 0.194
+        },
+        "idle_pss_mib": {
+          "median": 17.0,
+          "min": 14.5,
+          "max": 19.3
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.195,
+          "min": 0.18,
+          "max": 0.2245
+        },
+        "pss_mean_mib": {
+          "median": 197.2,
+          "min": 195.5,
+          "max": 199.7
+        },
+        "idle_pss_mib": {
+          "median": 197.1,
+          "min": 190.1,
+          "max": 198.8
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 3.644,
+          "min": 3.47,
+          "max": 3.784
+        },
+        "to_compute_s": {
+          "median": 0.442,
+          "min": 0.355,
+          "max": 0.509
+        },
+        "prepare_s": {
+          "median": 0.2355,
+          "min": 0.208,
+          "max": 0.328
+        },
+        "spawn_s": {
+          "median": 2.885,
+          "min": 2.81,
+          "max": 3.04
+        },
+        "image_fetch_s": {
+          "median": 0.3155,
+          "min": 0.287,
+          "max": 0.347
+        },
+        "spawn_without_fetch_s": {
+          "median": 2.5835,
+          "min": 2.463,
+          "max": 2.719
+        },
+        "build_s": {
+          "median": 3.17,
+          "min": 3.09,
+          "max": 3.28
+        },
+        "active_poll_lag_s": {
+          "median": 1.089,
+          "min": 0.86,
+          "max": 1.137
+        }
+      }
+    },
+    "python-go/4": {
+      "blocks": 5,
+      "boots": 20,
+      "boot_s_all": [
+        6.026,
+        5.521,
+        6.047,
+        5.554,
+        5.837,
+        4.646,
+        5.841,
+        5.922,
+        6.376,
+        6.617,
+        6.609,
+        6.378,
+        6.311,
+        6.324,
+        6.138,
+        6.174,
+        6.702,
+        5.416,
+        5.385,
+        6.711
+      ],
+      "boot_s": {
+        "median": 6.0925,
+        "min": 4.646,
+        "max": 6.711
+      },
+      "makespan_s": {
+        "median": 6.332,
+        "min": 5.931,
+        "max": 6.719
+      },
+      "boots_per_min": {
+        "median": 37.9027,
+        "min": 35.7196,
+        "max": 40.4654
+      },
+      "vm_busy_fraction": {
+        "median": 0.8154,
+        "min": 0.7565,
+        "max": 0.8287
+      },
+      "placement": {
+        "requests": {
+          "median": 34,
+          "min": 33,
+          "max": 36
+        },
+        "server_ms": {
+          "median": 595,
+          "min": 564,
+          "max": 2037
+        },
+        "cpu_s": {
+          "median": 0.331,
+          "min": 0.301,
+          "max": 0.349
+        },
+        "cpu_s_per_boot": {
+          "median": 0.0828,
+          "min": 0.0752,
+          "max": 0.0872
+        },
+        "pss_max_mib": {
+          "median": 179.7,
+          "min": 179.2,
+          "max": 181.1
+        },
+        "pss_mean_mib": {
+          "median": 179.6,
+          "min": 178.9,
+          "max": 180.9
+        },
+        "idle_cpu_s": {
+          "median": 0.025,
+          "min": 0.01,
+          "max": 0.221
+        },
+        "idle_pss_mib": {
+          "median": 177.1,
+          "min": 175.4,
+          "max": 179.0
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 24,
+          "min": 24,
+          "max": 24
+        },
+        "server_ms": {
+          "median": 218,
+          "min": 208,
+          "max": 355
+        },
+        "cpu_s": {
+          "median": 0.427,
+          "min": 0.249,
+          "max": 0.446
+        },
+        "cpu_s_per_boot": {
+          "median": 0.1067,
+          "min": 0.0622,
+          "max": 0.1115
+        },
+        "pss_max_mib": {
+          "median": 19.1,
+          "min": 19.0,
+          "max": 19.3
+        },
+        "pss_mean_mib": {
+          "median": 19.0,
+          "min": 18.9,
+          "max": 19.3
+        },
+        "idle_cpu_s": {
+          "median": 0.19,
+          "min": 0.015,
+          "max": 0.291
+        },
+        "idle_pss_mib": {
+          "median": 16.9,
+          "min": 14.6,
+          "max": 19.0
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.1832,
+          "min": 0.1495,
+          "max": 0.1913
+        },
+        "pss_mean_mib": {
+          "median": 198.5,
+          "min": 197.9,
+          "max": 200.2
+        },
+        "idle_pss_mib": {
+          "median": 194.0,
+          "min": 190.0,
+          "max": 197.4
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 5.484,
+          "min": 4.373,
+          "max": 6.327
+        },
+        "to_compute_s": {
+          "median": 0.6665,
+          "min": 0.401,
+          "max": 2.386
+        },
+        "prepare_s": {
+          "median": 0.4135,
+          "min": 0.268,
+          "max": 0.725
+        },
+        "spawn_s": {
+          "median": 4.035,
+          "min": 2.91,
+          "max": 4.97
+        },
+        "image_fetch_s": {
+          "median": 0.394,
+          "min": 0.265,
+          "max": 0.774
+        },
+        "spawn_without_fetch_s": {
+          "median": 3.7055,
+          "min": 2.594,
+          "max": 4.242
+        },
+        "build_s": {
+          "median": 4.615,
+          "min": 3.55,
+          "max": 5.38
+        },
+        "active_poll_lag_s": {
+          "median": 0.696,
+          "min": 0.214,
+          "max": 0.968
+        }
+      }
+    },
+    "go-go/1": {
+      "blocks": 5,
+      "boots": 5,
+      "boot_s_all": [
+        2.39,
+        3.437,
+        3.461,
+        3.456,
+        2.407
+      ],
+      "boot_s": {
+        "median": 3.437,
+        "min": 2.39,
+        "max": 3.461
+      },
+      "makespan_s": {
+        "median": 3.437,
+        "min": 2.39,
+        "max": 3.463
+      },
+      "boots_per_min": {
+        "median": 17.4571,
+        "min": 17.326,
+        "max": 25.1046
+      },
+      "vm_busy_fraction": {
+        "median": 0.291,
+        "min": 0.2671,
+        "max": 0.3524
+      },
+      "placement": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 10,
+          "min": 8,
+          "max": 12
+        },
+        "cpu_s": {
+          "median": 0.006,
+          "min": 0.005,
+          "max": 0.006
+        },
+        "cpu_s_per_boot": {
+          "median": 0.006,
+          "min": 0.005,
+          "max": 0.006
+        },
+        "pss_max_mib": {
+          "median": 14.6,
+          "min": 13.9,
+          "max": 15.0
+        },
+        "pss_mean_mib": {
+          "median": 14.4,
+          "min": 13.9,
+          "max": 15.0
+        },
+        "idle_cpu_s": {
+          "median": 0.005,
+          "min": 0.003,
+          "max": 0.006
+        },
+        "idle_pss_mib": {
+          "median": 14.6,
+          "min": 13.4,
+          "max": 14.8
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "server_ms": {
+          "median": 26,
+          "min": 24,
+          "max": 31
+        },
+        "cpu_s": {
+          "median": 0.11,
+          "min": 0.04,
+          "max": 0.116
+        },
+        "cpu_s_per_boot": {
+          "median": 0.11,
+          "min": 0.04,
+          "max": 0.116
+        },
+        "pss_max_mib": {
+          "median": 17.4,
+          "min": 17.2,
+          "max": 18.9
+        },
+        "pss_mean_mib": {
+          "median": 17.2,
+          "min": 16.9,
+          "max": 17.8
+        },
+        "idle_cpu_s": {
+          "median": 0.096,
+          "min": 0.082,
+          "max": 0.14
+        },
+        "idle_pss_mib": {
+          "median": 17.1,
+          "min": 15.7,
+          "max": 18.9
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.115,
+          "min": 0.046,
+          "max": 0.122
+        },
+        "pss_mean_mib": {
+          "median": 31.8,
+          "min": 31.1,
+          "max": 32.1
+        },
+        "idle_pss_mib": {
+          "median": 31.7,
+          "min": 30.0,
+          "max": 33.7
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 3.061,
+          "min": 1.749,
+          "max": 3.077
+        },
+        "to_compute_s": {
+          "median": 0.277,
+          "min": 0.271,
+          "max": 0.289
+        },
+        "prepare_s": {
+          "median": 0.164,
+          "min": 0.157,
+          "max": 0.17
+        },
+        "spawn_s": {
+          "median": 2.6,
+          "min": 1.28,
+          "max": 2.6
+        },
+        "image_fetch_s": {
+          "median": 0.221,
+          "min": 0.212,
+          "max": 0.231
+        },
+        "spawn_without_fetch_s": {
+          "median": 2.369,
+          "min": 1.059,
+          "max": 2.388
+        },
+        "build_s": {
+          "median": 2.76,
+          "min": 1.45,
+          "max": 2.77
+        },
+        "active_poll_lag_s": {
+          "median": 0.395,
+          "min": 0.375,
+          "max": 0.641
+        }
+      }
+    },
+    "go-go/2": {
+      "blocks": 5,
+      "boots": 10,
+      "boot_s_all": [
+        4.623,
+        4.598,
+        4.554,
+        3.507,
+        4.672,
+        4.73,
+        4.773,
+        4.808,
+        4.628,
+        4.599
+      ],
+      "boot_s": {
+        "median": 4.6255,
+        "min": 3.507,
+        "max": 4.808
+      },
+      "makespan_s": {
+        "median": 4.628,
+        "min": 4.555,
+        "max": 4.808
+      },
+      "boots_per_min": {
+        "median": 25.9291,
+        "min": 24.9584,
+        "max": 26.3447
+      },
+      "vm_busy_fraction": {
+        "median": 0.5026,
+        "min": 0.4735,
+        "max": 0.5496
+      },
+      "placement": {
+        "requests": {
+          "median": 14,
+          "min": 14,
+          "max": 14
+        },
+        "server_ms": {
+          "median": 26,
+          "min": 24,
+          "max": 46
+        },
+        "cpu_s": {
+          "median": 0.011,
+          "min": 0.009,
+          "max": 0.013
+        },
+        "cpu_s_per_boot": {
+          "median": 0.0055,
+          "min": 0.0045,
+          "max": 0.0065
+        },
+        "pss_max_mib": {
+          "median": 14.3,
+          "min": 13.3,
+          "max": 14.8
+        },
+        "pss_mean_mib": {
+          "median": 14.3,
+          "min": 13.2,
+          "max": 14.8
+        },
+        "idle_cpu_s": {
+          "median": 0.002,
+          "min": 0.001,
+          "max": 0.01
+        },
+        "idle_pss_mib": {
+          "median": 14.3,
+          "min": 12.5,
+          "max": 14.6
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 12,
+          "min": 12,
+          "max": 12
+        },
+        "server_ms": {
+          "median": 100,
+          "min": 57,
+          "max": 103
+        },
+        "cpu_s": {
+          "median": 0.223,
+          "min": 0.221,
+          "max": 0.23
+        },
+        "cpu_s_per_boot": {
+          "median": 0.1115,
+          "min": 0.1105,
+          "max": 0.115
+        },
+        "pss_max_mib": {
+          "median": 18.9,
+          "min": 16.8,
+          "max": 19.1
+        },
+        "pss_mean_mib": {
+          "median": 18.9,
+          "min": 15.9,
+          "max": 19.1
+        },
+        "idle_cpu_s": {
+          "median": 0.147,
+          "min": 0.002,
+          "max": 0.176
+        },
+        "idle_pss_mib": {
+          "median": 16.5,
+          "min": 14.8,
+          "max": 17.4
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.117,
+          "min": 0.116,
+          "max": 0.12
+        },
+        "pss_mean_mib": {
+          "median": 32.3,
+          "min": 30.1,
+          "max": 33.7
+        },
+        "idle_pss_mib": {
+          "median": 31.1,
+          "min": 27.3,
+          "max": 31.8
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 3.5265,
+          "min": 3.311,
+          "max": 3.739
+        },
+        "to_compute_s": {
+          "median": 0.3345,
+          "min": 0.318,
+          "max": 0.445
+        },
+        "prepare_s": {
+          "median": 0.2565,
+          "min": 0.187,
+          "max": 0.324
+        },
+        "spawn_s": {
+          "median": 2.915,
+          "min": 2.67,
+          "max": 2.99
+        },
+        "image_fetch_s": {
+          "median": 0.324,
+          "min": 0.277,
+          "max": 0.349
+        },
+        "spawn_without_fetch_s": {
+          "median": 2.5885,
+          "min": 2.393,
+          "max": 2.693
+        },
+        "build_s": {
+          "median": 3.175,
+          "min": 2.94,
+          "max": 3.27
+        },
+        "active_poll_lag_s": {
+          "median": 1.0695,
+          "min": 0.196,
+          "max": 1.108
+        }
+      }
+    },
+    "go-go/4": {
+      "blocks": 5,
+      "boots": 20,
+      "boot_s_all": [
+        6.098,
+        6.184,
+        5.723,
+        5.692,
+        6.169,
+        5.932,
+        6.01,
+        6.162,
+        5.726,
+        5.964,
+        5.685,
+        5.891,
+        5.609,
+        5.757,
+        5.712,
+        5.682,
+        5.442,
+        5.772,
+        5.68,
+        5.399
+      ],
+      "boot_s": {
+        "median": 5.7415,
+        "min": 5.399,
+        "max": 6.184
+      },
+      "makespan_s": {
+        "median": 5.969,
+        "min": 5.766,
+        "max": 6.185
+      },
+      "boots_per_min": {
+        "median": 40.2077,
+        "min": 38.8036,
+        "max": 41.6233
+      },
+      "vm_busy_fraction": {
+        "median": 0.8017,
+        "min": 0.7591,
+        "max": 0.8146
+      },
+      "placement": {
+        "requests": {
+          "median": 36,
+          "min": 34,
+          "max": 42
+        },
+        "server_ms": {
+          "median": 102,
+          "min": 82,
+          "max": 110
+        },
+        "cpu_s": {
+          "median": 0.027,
+          "min": 0.026,
+          "max": 0.028
+        },
+        "cpu_s_per_boot": {
+          "median": 0.0067,
+          "min": 0.0065,
+          "max": 0.007
+        },
+        "pss_max_mib": {
+          "median": 14.7,
+          "min": 14.2,
+          "max": 14.8
+        },
+        "pss_mean_mib": {
+          "median": 14.6,
+          "min": 14.0,
+          "max": 14.7
+        },
+        "idle_cpu_s": {
+          "median": 0.016,
+          "min": 0.001,
+          "max": 0.019
+        },
+        "idle_pss_mib": {
+          "median": 13.5,
+          "min": 12.2,
+          "max": 14.8
+        }
+      },
+      "glance": {
+        "requests": {
+          "median": 24,
+          "min": 24,
+          "max": 24
+        },
+        "server_ms": {
+          "median": 260,
+          "min": 155,
+          "max": 296
+        },
+        "cpu_s": {
+          "median": 0.445,
+          "min": 0.431,
+          "max": 0.462
+        },
+        "cpu_s_per_boot": {
+          "median": 0.1113,
+          "min": 0.1077,
+          "max": 0.1155
+        },
+        "pss_max_mib": {
+          "median": 19.1,
+          "min": 16.4,
+          "max": 19.3
+        },
+        "pss_mean_mib": {
+          "median": 17.1,
+          "min": 16.3,
+          "max": 19.0
+        },
+        "idle_cpu_s": {
+          "median": 0.297,
+          "min": 0.28,
+          "max": 0.308
+        },
+        "idle_pss_mib": {
+          "median": 17.2,
+          "min": 11.3,
+          "max": 19.3
+        }
+      },
+      "stack": {
+        "cpu_s_per_boot": {
+          "median": 0.1178,
+          "min": 0.1148,
+          "max": 0.1223
+        },
+        "pss_mean_mib": {
+          "median": 31.6,
+          "min": 30.9,
+          "max": 33.7
+        },
+        "idle_pss_mib": {
+          "median": 31.1,
+          "min": 24.8,
+          "max": 34.1
+        }
+      },
+      "phases": {
+        "post_to_built_s": {
+          "median": 5.4245,
+          "min": 4.838,
+          "max": 5.632
+        },
+        "to_compute_s": {
+          "median": 0.568,
+          "min": 0.348,
+          "max": 0.71
+        },
+        "prepare_s": {
+          "median": 0.4295,
+          "min": 0.276,
+          "max": 0.687
+        },
+        "spawn_s": {
+          "median": 4.2,
+          "min": 3.54,
+          "max": 4.82
+        },
+        "image_fetch_s": {
+          "median": 0.4165,
+          "min": 0.325,
+          "max": 0.487
+        },
+        "spawn_without_fetch_s": {
+          "median": 3.768,
+          "min": 3.17,
+          "max": 4.472
+        },
+        "build_s": {
+          "median": 4.735,
+          "min": 4.16,
+          "max": 5.1
+        },
+        "active_poll_lag_s": {
+          "median": 0.501,
+          "min": 0.16,
+          "max": 1.126
+        }
+      }
+    }
+  },
+  "ratios": {
+    "go-go/1": {
+      "pairs": 5,
+      "boot_median_ratio": {
+        "median": 0.9215,
+        "min": 0.5223,
+        "max": 1.6332
+      },
+      "makespan_ratio": {
+        "median": 1.005,
+        "min": 0.5377,
+        "max": 1.4453
+      },
+      "stack_cpu_per_boot_ratio": {
+        "median": 0.4216,
+        "min": 0.2063,
+        "max": 0.5328
+      },
+      "stack_pss_mean_ratio": {
+        "median": 0.0761,
+        "min": 0.0742,
+        "max": 0.0773
+      }
+    },
+    "go-go/2": {
+      "pairs": 5,
+      "boot_median_ratio": {
+        "median": 0.9945,
+        "min": 0.9294,
+        "max": 1.0681
+      },
+      "makespan_ratio": {
+        "median": 0.9977,
+        "min": 0.9628,
+        "max": 0.9981
+      },
+      "stack_cpu_per_boot_ratio": {
+        "median": 0.5652,
+        "min": 0.4338,
+        "max": 0.6383
+      },
+      "stack_pss_mean_ratio": {
+        "median": 0.0777,
+        "min": 0.0723,
+        "max": 0.0812
+      }
+    },
+    "go-go/4": {
+      "pairs": 5,
+      "boot_median_ratio": {
+        "median": 1.0102,
+        "min": 0.9429,
+        "max": 1.0883
+      },
+      "makespan_ratio": {
+        "median": 0.998,
+        "min": 0.866,
+        "max": 1.0297
+      },
+      "stack_cpu_per_boot_ratio": {
+        "median": 0.5627,
+        "min": 0.5334,
+        "max": 0.7451
+      },
+      "stack_pss_mean_ratio": {
+        "median": 0.0757,
+        "min": 0.074,
+        "max": 0.0806
+      }
+    },
+    "go-python/1": {
+      "pairs": 5,
+      "boot_median_ratio": {
+        "median": 0.9926,
+        "min": 0.5327,
+        "max": 1.6286
+      },
+      "makespan_ratio": {
+        "median": 0.9869,
+        "min": 0.5312,
+        "max": 1.4676
+      },
+      "stack_cpu_per_boot_ratio": {
+        "median": 0.7175,
+        "min": 0.6098,
+        "max": 0.9214
+      },
+      "stack_pss_mean_ratio": {
+        "median": 0.604,
+        "min": 0.6002,
+        "max": 0.6071
+      }
+    },
+    "go-python/2": {
+      "pairs": 5,
+      "boot_median_ratio": {
+        "median": 0.9946,
+        "min": 0.9161,
+        "max": 1.0262
+      },
+      "makespan_ratio": {
+        "median": 0.9903,
+        "min": 0.9548,
+        "max": 1.0237
+      },
+      "stack_cpu_per_boot_ratio": {
+        "median": 0.6259,
+        "min": 0.3913,
+        "max": 1.0452
+      },
+      "stack_pss_mean_ratio": {
+        "median": 0.6068,
+        "min": 0.6013,
+        "max": 0.6081
+      }
+    },
+    "go-python/4": {
+      "pairs": 5,
+      "boot_median_ratio": {
+        "median": 1.024,
+        "min": 0.956,
+        "max": 1.1351
+      },
+      "makespan_ratio": {
+        "median": 0.9906,
+        "min": 0.878,
+        "max": 1.1948
+      },
+      "stack_cpu_per_boot_ratio": {
+        "median": 0.5121,
+        "min": 0.4609,
+        "max": 0.7329
+      },
+      "stack_pss_mean_ratio": {
+        "median": 0.6011,
+        "min": 0.5984,
+        "max": 0.606
+      }
+    },
+    "python-go/1": {
+      "pairs": 5,
+      "boot_median_ratio": {
+        "median": 1.0053,
+        "min": 0.7775,
+        "max": 1.7898
+      },
+      "makespan_ratio": {
+        "median": 1.0013,
+        "min": 0.7631,
+        "max": 1.4686
+      },
+      "stack_cpu_per_boot_ratio": {
+        "median": 0.6725,
+        "min": 0.4803,
+        "max": 0.793
+      },
+      "stack_pss_mean_ratio": {
+        "median": 0.4701,
+        "min": 0.4614,
+        "max": 0.4757
+      }
+    },
+    "python-go/2": {
+      "pairs": 5,
+      "boot_median_ratio": {
+        "median": 0.9744,
+        "min": 0.9429,
+        "max": 1.1005
+      },
+      "makespan_ratio": {
+        "median": 0.9865,
+        "min": 0.9601,
+        "max": 1.0513
+      },
+      "stack_cpu_per_boot_ratio": {
+        "median": 0.9176,
+        "min": 0.6606,
+        "max": 1.1941
+      },
+      "stack_pss_mean_ratio": {
+        "median": 0.4751,
+        "min": 0.4678,
+        "max": 0.48
+      }
+    },
+    "python-go/4": {
+      "pairs": 5,
+      "boot_median_ratio": {
+        "median": 1.0468,
+        "min": 0.9482,
+        "max": 1.1901
+      },
+      "makespan_ratio": {
+        "median": 0.9988,
+        "min": 0.951,
+        "max": 1.1561
+      },
+      "stack_cpu_per_boot_ratio": {
+        "median": 0.8589,
+        "min": 0.6772,
+        "max": 1.2419
+      },
+      "stack_pss_mean_ratio": {
+        "median": 0.4755,
+        "min": 0.4738,
+        "max": 0.4796
+      }
+    }
+  }
+}

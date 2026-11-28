@@ -1594,3 +1594,18 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     se reporta la competencia por CPU.
     [Evidencia](../evidence/sprint5/benchmarks/joint-api-official-20261128/README.md).
 
+- **2026-11-28 — Campaña conjunta con Nova v4 (parte B), aceptada 60/60.**
+  - Protocolo `joint-protocol-compact-v4.json`: 2×2 variantes, 1/2/4 boots a
+    la vez, 5 repeticiones (60 bloques, 140 boots). Por boot: fases desde el
+    journal de nova-compute (POST→cómputo, preparación, spawn, descarga de
+    imagen, POST→build). Por bloque: CPU por boot, PSS medio y ventana de
+    reposo previa.
+  - Piloto: intento 1 detenido en el bloque 1 solo por `phases_ok` (eventos de
+    Nova con resolución de 1 s y líneas del journal en bytes), corregido en
+    `9c3f830`; intento 2 12/12.
+  - **Oficial 60/60, limpieza completa**: boot igual en las cuatro variantes
+    (cocientes 0,92–1,05); tiempo del lado del servidor por boot, Placement
+    17 frente a 102 ms y Glance 42,5 frente a 109 ms; CPU por boot de la pila
+    0,42–0,56×; PSS de la pila ~32 frente a ~417 MiB (0,076×).
+    [Evidencia](../evidence/sprint5/benchmarks/joint-v4-official-20261128/README.md).
+

@@ -1,0 +1,134 @@
+{
+  "placement-go": [],
+  "glance-go": [],
+  "placement-python": [
+    {
+      "ts_us": 1795833492828288,
+      "method": "GET",
+      "route": "/allocation_candidates",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 20,
+      "response_bytes": 2503
+    },
+    {
+      "ts_us": 1795833492842442,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "c1e36442-2bf0-4b48-8f29-e3fc41218b79"
+      ],
+      "status": 200,
+      "duration_ms": 3,
+      "response_bytes": 19
+    },
+    {
+      "ts_us": 1795833492870601,
+      "method": "PUT",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "c1e36442-2bf0-4b48-8f29-e3fc41218b79"
+      ],
+      "status": 204,
+      "duration_ms": 26,
+      "response_bytes": 0
+    },
+    {
+      "ts_us": 1795833492973904,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "c1e36442-2bf0-4b48-8f29-e3fc41218b79"
+      ],
+      "status": 200,
+      "duration_ms": 4,
+      "response_bytes": 258
+    },
+    {
+      "ts_us": 1795833493010671,
+      "method": "GET",
+      "route": "/resource_providers/{id}/allocations",
+      "path_ids": [
+        "3b7cc290-1329-47d2-9502-890059c82d1b"
+      ],
+      "status": 200,
+      "duration_ms": 7,
+      "response_bytes": 153
+    },
+    {
+      "ts_us": 1795833493017643,
+      "method": "GET",
+      "route": "/allocations/{id}",
+      "path_ids": [
+        "c1e36442-2bf0-4b48-8f29-e3fc41218b79"
+      ],
+      "status": 200,
+      "duration_ms": 5,
+      "response_bytes": 258
+    }
+  ],
+  "glance-python": [
+    {
+      "ts_us": 1795833492653337,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [
+        "f90f3e3d-7618-5340-90c9-200cc472a8a3"
+      ],
+      "status": 200,
+      "duration_ms": 5,
+      "response_bytes": 847
+    },
+    {
+      "ts_us": 1795833492656048,
+      "method": "GET",
+      "route": "/v2/schemas/image",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 1,
+      "response_bytes": 6083
+    },
+    {
+      "ts_us": 1795833493137814,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [
+        "f90f3e3d-7618-5340-90c9-200cc472a8a3"
+      ],
+      "status": 200,
+      "duration_ms": 4,
+      "response_bytes": 847
+    },
+    {
+      "ts_us": 1795833493197199,
+      "method": "GET",
+      "route": "/v2/images/{id}/file",
+      "path_ids": [
+        "f90f3e3d-7618-5340-90c9-200cc472a8a3"
+      ],
+      "status": 200,
+      "duration_ms": 58,
+      "response_bytes": 21692416
+    },
+    {
+      "ts_us": 1795833493219542,
+      "method": "GET",
+      "route": "/v2/images/{id}",
+      "path_ids": [
+        "f90f3e3d-7618-5340-90c9-200cc472a8a3"
+      ],
+      "status": 200,
+      "duration_ms": 5,
+      "response_bytes": 847
+    },
+    {
+      "ts_us": 1795833493222955,
+      "method": "GET",
+      "route": "/v2/schemas/image",
+      "path_ids": [],
+      "status": 200,
+      "duration_ms": 2,
+      "response_bytes": 6083
+    }
+  ]
+}

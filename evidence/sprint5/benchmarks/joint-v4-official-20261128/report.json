@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "suite": "joint-campaign",
+  "run_id": "tt-joint-49a64150c223",
+  "started_utc": "2026-11-28T02:21:17.549362+00:00",
+  "cases": {},
+  "cleanup": {
+    "original_unchanged": true,
+    "private_root_removed": true,
+    "runtime_removed": true,
+    "identity_removed": true,
+    "controls_restored": true,
+    "original_services_active": {
+      "devstack@placement-api.service": true,
+      "devstack@g-api.service": true,
+      "devstack@n-cpu.service": true,
+      "devstack@n-sch.service": true,
+      "devstack@keystone.service": true
+    },
+    "pending_images": 0,
+    "placement_restored": true,
+    "placement_runtime_removed": true,
+    "server_removed": true,
+    "service_validator_removed": true
+  },
+  "execution_error": null,
+  "passed": true,
+  "mode": "glance-go+placement-go",
+  "required_cases": [],
+  "protocol": "placement-glance-joint-compact-v4",
+  "pilot": false,
+  "protocol_sha256": "9775cddd5b2bf33247340238cb08b828c2a537863353a580a822b6c9d8bcc6a5",
+  "blocks_required": 60,
+  "blocks_valid": 60,
+  "manifest_sha256": "52dcf454bbcf47d8582ed97acaa76cf6e5671bf5e0d4f573427d705656bf5695",
+  "nova_ready_wait_s": 0.1,
+  "service_validator": {
+    "name": "tt-placement-glance-f70ca6da79fa",
+    "project": "service",
+    "roles": [
+      "service"
+    ]
+  },
+  "switches": [
+    {
+      "variant": "go-python",
+      "switch_s": 26.3,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "python-python",
+      "switch_s": 51.1,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "go-go",
+      "switch_s": 62.8,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "python-go",
+      "switch_s": 68.7,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "python-python",
+      "switch_s": 65.7,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "go-go",
+      "switch_s": 62.8,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "go-python",
+      "switch_s": 63.5,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "python-go",
+      "switch_s": 65.9,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "python-python",
+      "switch_s": 66.5,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "go-go",
+      "switch_s": 62.6,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "python-go",
+      "switch_s": 68.8,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "go-python",
+      "switch_s": 62.8,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "python-go",
+      "switch_s": 127.7,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "python-python",
+      "switch_s": 66.5,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "go-go",
+      "switch_s": 62.9,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "go-python",
+      "switch_s": 133.9,
+      "inventory": {
+        "DISK_GB": 52,
+        "MEMORY_MB": 7935,
+        "VCPU": 4
+      }
+    },
+    {
+      "variant": "python-go",
+      "switch_s": 62.4,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    },
+    {
+      "variant": "python-python",
+      "switch_s": 66.7,
+      "inventory": {
+        "VCPU": 4,
+        "MEMORY_MB": 7935,
+        "DISK_GB": 52
+      }
+    }
+  ],
+  "request_cases": 842,
+  "finished_utc": "2026-11-28T03:00:51.883246+00:00"
+}
