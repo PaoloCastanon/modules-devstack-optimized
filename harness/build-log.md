@@ -1578,3 +1578,19 @@ Revalidación del 28/10/2026: se ejecutó `GOMAXPROCS=2 GOTOOLCHAIN=local make c
     ~236 MiB. VM apagada.
     [Evidencia](../evidence/sprint5/benchmarks/joint-official-20261127/README.md).
 
+- **2026-11-28 — Campaña conjunta por API (Placement y Glance a la vez), aceptada 72/72.**
+  - Instrumentos: `joint_lab.py` (VM, compone `placement_lab` y `glance_lab`),
+    `joint_api_campaign.py` (host, los dos generadores revisados en paralelo
+    con barrera común antes de medir), `analyze_joint_api.py` (método B18 por
+    servicio). Protocolo `joint-api-protocol-v1.json`: 3 pares de cargas,
+    C=1/16, 4 variantes, 3 repeticiones, 10 s + 30 s.
+  - Piloto: intento 1 detenido (solape 89 % con C=16 y orden de restauración de
+    controles; VM correcta, limpieza terminada a mano), corregido en `7ce3cb8`;
+    intento 2 24/24.
+  - **Oficial 72/72, limpieza completa**: Placement Go con Glance de fondo
+    2,9–15× ops/s, CPU/op 0,06–0,10×, PSS ~16 frente a ~190 MiB; Glance Go con
+    Placement de fondo CPU/op 0,05–0,17×, PSS ~18 frente a ~237 MiB; pila go-go
+    ~35 MiB frente a ~430 MiB. Opción A del usuario: lazo cerrado en ambos,
+    se reporta la competencia por CPU.
+    [Evidencia](../evidence/sprint5/benchmarks/joint-api-official-20261128/README.md).
+
