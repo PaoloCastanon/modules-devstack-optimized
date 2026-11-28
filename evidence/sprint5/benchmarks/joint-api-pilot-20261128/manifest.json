@@ -1,0 +1,1705 @@
+{
+  "schema": 1,
+  "campaign_id": "c6570a73-a1cd-4e17-ae02-c609c531fc18",
+  "stage": "pilot",
+  "started_utc": "2026-11-28T00:27:32.331241+00:00",
+  "protocol": {
+    "schema": 1,
+    "protocol": "placement-glance-joint-api-v1",
+    "status": "runner implemented (scripts/benchmarks/joint_api_campaign.py + joint_lab.py); pilot required before the official run",
+    "scope": "Placement and Glance loaded at the same time through the public Apache routes, in the 2x2 design (Python/Go each). Each window yields Placement metrics with Glance load and Glance metrics with Placement load, measured with the instruments of the individual campaigns",
+    "configurations": [
+      {
+        "id": "python-python",
+        "placement": "python",
+        "glance": "python"
+      },
+      {
+        "id": "go-python",
+        "placement": "go",
+        "glance": "python"
+      },
+      {
+        "id": "python-go",
+        "placement": "python",
+        "glance": "go"
+      },
+      {
+        "id": "go-go",
+        "placement": "go",
+        "glance": "go"
+      }
+    ],
+    "pairs": [
+      {
+        "id": "nova",
+        "placement": "nova-mix",
+        "glance": "nova-mix",
+        "size_bytes": 16777216,
+        "why": "what Nova does to each service when it boots: candidates/claim/provider reads and show/download/list"
+      },
+      {
+        "id": "claim-download",
+        "placement": "claim-cycle",
+        "glance": "download-16m",
+        "size_bytes": 16777216,
+        "why": "writes in Placement (claim/read/release) while Glance streams image bytes"
+      },
+      {
+        "id": "schedule-catalog",
+        "placement": "candidates",
+        "glance": "catalog-show",
+        "size_bytes": null,
+        "why": "the heaviest Placement query while Glance answers metadata reads"
+      }
+    ],
+    "concurrency": [
+      1,
+      16
+    ],
+    "concurrency_note": "the same C applies to both generators in a window",
+    "repetitions": 3,
+    "order": "per (pair, concurrency, repetition) block, the four variants in a seeded random order",
+    "order_seed": 20261128,
+    "warmup_s": 10,
+    "measurement_s": 30,
+    "request_timeout_s": 10,
+    "metadata_request_timeout_s": 120,
+    "binary_request_timeout_s": 120,
+    "minimum_overlap_fraction": 0.9,
+    "load_model": "closed-loop for both generators, on the host; both started together, each with its own barrier",
+    "routes": "both services through Apache (/placement, /image) as Nova reaches them; Glance with noop notifications in both implementations as in glance-v7",
+    "sampling_interval_s": 1,
+    "metrics": {
+      "per_service": [
+        "correct ops/s",
+        "p50/p95/p99 per run and per operation",
+        "errors",
+        "complete cycles/s",
+        "Glance validated MiB/s and TTFB",
+        "CPU s per correct request (service cgroup)",
+        "PSS mean and observed peak",
+        "RSS peak (secondary)",
+        "idle PSS before warm-up"
+      ],
+      "controls": [
+        "MySQL",
+        "Placement Go MySQL",
+        "Apache",
+        "Keystone",
+        "memcached",
+        "nova-compute",
+        "nova-scheduler",
+        "RabbitMQ",
+        "inactive implementations"
+      ],
+      "vm": [
+        "CPU ticks by state",
+        "steal",
+        "minimum MemAvailable",
+        "load average"
+      ]
+    },
+    "required_official_windows": 72,
+    "pilot": {
+      "concurrency": [
+        1,
+        16
+      ],
+      "repetitions": 1,
+      "warmup_s": 2,
+      "measurement_s": 5,
+      "required_windows": 24
+    },
+    "acceptance": "All 72 windows valid: both generators valid (status, bodies, bytes and hashes), measurement windows overlapping at least 90 %, clock drift < 100 ms, seeds removed after each window, original services, routes and catalogs restored, owned runtimes and identities retired",
+    "comparability": "Placement windows use placement-compact-v2 timing and scenarios (warm-up 10 s, 30 s, C=1/16, 3 repetitions); Glance windows use glance-v7 timing and scenarios. Individual-campaign results are the 'alone' reference; this campaign is the 'together' condition",
+    "statistics": "Three paired repetitions per cell; median and observed range, Go/Python ratios paired by repetition against python-python; no significance claims",
+    "host_free_minimum_bytes": 21474836480
+  },
+  "protocol_sha256": "592b44a10ab536a9bdab47621d78df4866ad53609d7222ec00559f870ea2e568",
+  "git_base": "7ce3cb8d34258d5068ed67ea570f711fbc50ec77",
+  "source_sha256": {
+    "analyze_glance.py": "dedd960d8b31b5d8d605235aad90d19eb51622421cc228bc0245df4043877147",
+    "analyze_joint.py": "f90588a474ae3d655eb8124230ad85712368370a3af36a502b6e70ed11ce7b5d",
+    "analyze_joint_api.py": "7fb3eeee220b321d942258af9207a3d8c408788ff35eb217bc60136b5a08519d",
+    "analyze_placement.py": "373793206df681e712d1e1e2113833d15db6fb7ad1032c5e99e6adbc4108f84f",
+    "campaign_protocol.py": "6533ba82a0656bdce05695c63b74475fc3814d0c16c4835e706f19b88dd341d0",
+    "cgroup_sampler.py": "c4717466c0552a81e240a48a8652234ccf58cf71247bb600310979b719e916fa",
+    "complete_glance_campaign.py": "41906485b6ab009335c9f23333c424f27519f6735167451fe3c5cf75d8224490",
+    "complete_placement_campaign.py": "5040deda76262a3602574df841dcd2024b54e88a15cfdd6b3c9be3bfa0bcd965",
+    "glance_campaign.py": "130f18b7f282d5867e53596f8bc456f96399534d6897287ee84e7b01e2e8b003",
+    "glance_fd_calibration.py": "b099e32351316f812b4380d2368600cc65d771905bf7a1bf15244f525fee5755",
+    "glance_http.py": "60371e010ecb5b4ceb41e4732d7aae7c7c5524d30d489b2196172da7aa5bbc11",
+    "glance_lab.py": "b87cc816e3216d582e98f04ec0b37e1e883ed364d561945cefe3436e6c578b9e",
+    "glance_memory.py": "41ed8387bf0ce5693174a6fe53313b9da2fdf210f1126deb458279311ad5725f",
+    "glance_notifications.py": "96aa83a6d061cbe57350ea4f45f0087f57dba2b47043b375b1c2ea4fc9df99de",
+    "glance_preflight.py": "034227a0f3c369cb70d6b0d50205babc299d64f4cd33a3aaf9b4c50bd3ff8d51",
+    "glance_window.py": "09ea421613f3a66492b8383e65ba764967987f706531a5a9c004f97e4301abfa",
+    "joint_api_campaign.py": "cd94cf9e4949c6e5159c8e2276cc54c9dd12795f5246a0a9baf8b6e3d2291356",
+    "joint_lab.py": "0f5a993813572b6f6f0362eeebc845866e1f1a3491d84705e22161cda4bf4856",
+    "lab_controls.py": "a12bd2571181d47390aba6d7ffcdcd49dad7e1d2f3f52a97474f541f9ffc202e",
+    "placement_campaign.py": "8f2d5ef722a05b9079e92cd24b30a32a97f393cc24ea8fc41a61eb91c6800e55",
+    "placement_http.py": "57657eebd44580f0989640cbdc1da20375e90cda943ae259974f3110f0ac0d7b",
+    "placement_lab.py": "6e91fe4a58e125b154a18af0e2799e38e945cf746aa79a07d518461e0b174220",
+    "placement_resources.py": "bad10d1fbd277f8852c3cdd720d634f18be58411960a05817c2a2b23fc5cc508",
+    "placement_window.py": "672cd49a2ad95ac6fdd56fc8ac221ca4f9b7929413cc26aa1b68e7760c4f4bec",
+    "publish_placement_results.py": "6bf999f2f3a3a49e5af16d4558a2740a94104291f6154b51695815f0e8cf5ca8",
+    "sample_processes.py": "5a4252ba10ce1b2de3a37b479e4a7febe62f8ec8a0c7df31ae81b505dc16b72c"
+  },
+  "sequence": [
+    {
+      "run_id": "nova-c01-r01-python-go",
+      "block": "nova-c01-r01",
+      "pair": "nova",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "python-go",
+      "placement": {
+        "run_id": "nova-c01-r01-python-go-p",
+        "implementation": "python",
+        "scenario": "nova-mix",
+        "concurrency": 1,
+        "providers": [
+          "9a667fe2-8e5c-547b-803d-63e5a563bf6e",
+          "fa38b067-6fee-5479-9bee-984249bbb861",
+          "05cc4155-726b-593f-bd50-b299d009387c",
+          "71fb129d-4de1-5fff-a597-f95eb2ac2963",
+          "8d542c3a-bc49-55cc-9fdc-4e87c12a9269",
+          "6f89c44a-cae1-51bc-909b-c2447be5615a",
+          "300f6258-ac92-5cfc-b7d7-96da88bcf9a0",
+          "69766f45-82d1-5d53-abf7-fe4f6cfafee0",
+          "97e69256-3e7c-53db-b9ba-3da40447f6a8",
+          "32f2520f-ac31-5dd5-b60f-dbd146bb8477",
+          "9edffb96-b1e6-5154-b290-f0f8a96a69a0",
+          "0377a0a7-c1ed-5208-ade2-62d502ded9d8",
+          "0380b21d-61fd-5323-b8d6-47fb8957cca0",
+          "49db738c-66d7-588d-9b62-d4c0f9ab821d",
+          "071a27d5-106d-5bde-b8f6-bad057387851",
+          "9effc818-ea5a-5d67-9ead-c3f90de5ab94"
+        ],
+        "consumers": [
+          "b805abc1-c64b-5dbd-87a6-1b75eff5d8bb",
+          "5020046f-f2fd-5e43-acb2-4e4c311e0800",
+          "10d96c58-afe9-5ec4-9775-c3d24774dd45",
+          "7674edca-59ad-522b-8d60-a52101e9e2de",
+          "71588719-0d3e-5421-a7a6-5a08a989faab",
+          "401aed00-bd80-5e46-82a2-b7f0ae9e1d4e",
+          "3287dffc-8a39-562a-991b-02299b4d2069",
+          "cce9df80-0626-5a59-aaec-e2566bd884ef",
+          "dae47e15-8ff9-5c49-b97d-f5dc86374aa3",
+          "82c442fb-ad4e-59f0-8e94-889812ba2fff",
+          "f7891233-9f2d-5f92-bbae-3a1a771e20f4",
+          "adad4c09-3449-527a-b9eb-8b375257c763",
+          "a88e15ad-737b-5e6e-ba82-6926fb4e5f54",
+          "74691c7c-8d9c-5702-a200-77d5498aeda2",
+          "8ddd19fa-7299-5175-8853-132f8a590e3a",
+          "544a159f-17cb-56e1-a6e9-7f02821607f3"
+        ],
+        "custom": "CUSTOM_TT_B17_0E6565E046F9511F"
+      },
+      "glance": {
+        "run_id": "nova-c01-r01-python-go-g",
+        "implementation": "go",
+        "scenario": "nova-mix",
+        "concurrency": 1,
+        "size_bytes": 16777216,
+        "namespace": "c054cc4a-b2c3-524c-8621-2a7993dcccdb"
+      }
+    },
+    {
+      "run_id": "nova-c01-r01-go-go",
+      "block": "nova-c01-r01",
+      "pair": "nova",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "go-go",
+      "placement": {
+        "run_id": "nova-c01-r01-go-go-p",
+        "implementation": "go",
+        "scenario": "nova-mix",
+        "concurrency": 1,
+        "providers": [
+          "99ee229c-7dee-5190-a6b0-f7b6de034d5c",
+          "2739514b-5a37-57bd-9d64-d27d7556ba72",
+          "03df73c6-2565-5fda-8232-dd3417865006",
+          "8ccb19cd-c0a1-597d-ae50-7fc8e1d5d185",
+          "c098f839-9930-50bb-a96b-80078de3d4e6",
+          "232d4262-0a59-52cf-9dbb-de6d77d7c6e4",
+          "ccf73c28-880d-5e70-9181-c8a07ba462ee",
+          "617e1977-ab0a-587f-9b08-ff6955518366",
+          "dd7176dd-897b-5654-85f5-68b56e02b532",
+          "8b5148db-e925-526b-95b3-a15b48eaf632",
+          "345400ef-9002-5ee0-a065-1ee3b057a2d8",
+          "8bad1133-8153-5536-9432-0969b0e35d89",
+          "ec9a89d5-c7d2-5506-9cd5-ded109d307e1",
+          "25d88158-2151-5441-a5b0-bcfc0a95f98e",
+          "974ab279-533b-569c-a0e5-ab2f3c8df7e4",
+          "0110e800-48d8-585e-b284-c2f227e3030b"
+        ],
+        "consumers": [
+          "cd9371a7-075b-5ce0-97ef-ca7fb0d96f71",
+          "8d902d57-9e51-52b2-9482-c2576f73a7e3",
+          "23a97207-adab-5678-83eb-4d5a03ff5c96",
+          "925b3ee8-7d9a-5bb7-8da6-9cadf25c1cbf",
+          "3a32ae4f-a2a9-54da-8aaa-a9024d2ce0f5",
+          "81d1b18b-1ab6-550f-b776-66aab47c0650",
+          "f74213a5-1391-5bff-87d7-45a9af9472b1",
+          "fa384f14-e09f-5373-9652-5e230c86bf4d",
+          "8f0eeae2-58c4-5e4f-a01e-fc06aa70d679",
+          "5d4c18a0-1d8f-5675-a42a-e9f9a18499ae",
+          "6dc50664-e913-56a7-a1bd-a607867727d4",
+          "685ee430-9d3a-5408-9e6e-a570645e5edd",
+          "4c42b242-3aaf-55cd-8b36-0d6aaf4f4ccd",
+          "bd7b3de5-78f5-5d03-97f7-2434fefeae91",
+          "a60c5dcc-8570-5133-b08c-be0b8038c8dc",
+          "8dc6ca30-97a7-5d0b-896f-7d4fa241a98e"
+        ],
+        "custom": "CUSTOM_TT_B17_0B5ABC29EBCF5E35"
+      },
+      "glance": {
+        "run_id": "nova-c01-r01-go-go-g",
+        "implementation": "go",
+        "scenario": "nova-mix",
+        "concurrency": 1,
+        "size_bytes": 16777216,
+        "namespace": "0f475f7d-d3bd-54f8-94f7-70c986ce9cb7"
+      }
+    },
+    {
+      "run_id": "nova-c01-r01-go-python",
+      "block": "nova-c01-r01",
+      "pair": "nova",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "go-python",
+      "placement": {
+        "run_id": "nova-c01-r01-go-python-p",
+        "implementation": "go",
+        "scenario": "nova-mix",
+        "concurrency": 1,
+        "providers": [
+          "c7e07a89-73cf-57bc-b9ea-e8063cd4df66",
+          "27048bc3-c092-55d6-9529-324a6f5d7740",
+          "d5c5b40b-9e0b-5e1e-9c0e-b5e4f6523b04",
+          "b8971a29-03de-506f-94ad-e271cfaf53f1",
+          "9fe66cea-b54d-50fe-b61a-45743ec3d904",
+          "9c901ea2-85c5-56ee-8779-01498e688471",
+          "c6a12b52-61c0-5d36-bd53-1eda46e96b15",
+          "e8ec57cd-4429-59b7-9745-0e3b01544aba",
+          "dfb5d13f-decc-5013-9465-f32fb27cbfed",
+          "b9443079-adcb-5e1e-a1e4-def2bbe0e1f1",
+          "d6f3e2ee-2c51-54eb-baf3-ecc6836b0093",
+          "162d5dcf-61c0-528f-89df-49d3f86fb9b3",
+          "2056d3fd-391c-5de0-a7a3-d2677925e85c",
+          "63193674-65e1-5120-88e5-ada797d5f0b8",
+          "9bffc0d0-2274-5c42-8987-487d07fee0f8",
+          "8959611c-8bbe-5ef4-9538-a773aa43bb25"
+        ],
+        "consumers": [
+          "8f1bc510-ec9f-5eb6-af95-a7986c14e11c",
+          "73cdcad5-23d0-54c1-9f71-11fe5a12b87f",
+          "1736a50d-6267-582d-9c0b-43ab88ab8846",
+          "3f98f8f9-434f-58e9-9264-09b4e5403ac1",
+          "659fbfb2-39af-56b2-9526-e28212180e10",
+          "8be5e50c-80dc-5f4d-bbc7-e37aa0dd0395",
+          "b17b7f58-ad4e-5504-93e8-d470ccf38bf9",
+          "ae8df3a5-1528-5add-b364-a3c6622f959a",
+          "c83475cb-8b98-5525-9bf9-36da7e8ca568",
+          "ca46a1de-db9c-5da6-8128-5ba2547ae2f5",
+          "a3d2eb1d-f5ed-5d9f-860f-c282b012dac1",
+          "6d70cfaf-d5df-5926-a57e-39a1b4a4243c",
+          "967391b1-4c0a-52bb-8780-a4eb45ab1f9b",
+          "53dbdfec-3aee-5421-9f5d-ba3eab53d641",
+          "40d57850-4e73-5d0e-8076-2e191765cc60",
+          "ba1cea24-0954-540a-a26d-aa62ecbc1a3b"
+        ],
+        "custom": "CUSTOM_TT_B17_A9A7A9F3F6A15EB5"
+      },
+      "glance": {
+        "run_id": "nova-c01-r01-go-python-g",
+        "implementation": "python",
+        "scenario": "nova-mix",
+        "concurrency": 1,
+        "size_bytes": 16777216,
+        "namespace": "36c2265c-24c3-5768-bfcd-8b151b476cbc"
+      }
+    },
+    {
+      "run_id": "nova-c01-r01-python-python",
+      "block": "nova-c01-r01",
+      "pair": "nova",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "python-python",
+      "placement": {
+        "run_id": "nova-c01-r01-python-python-p",
+        "implementation": "python",
+        "scenario": "nova-mix",
+        "concurrency": 1,
+        "providers": [
+          "7244c44f-7330-56d6-bdd5-91d97a5eb7d7",
+          "bcc6e298-b22a-536e-a030-6b74e05ba8f1",
+          "c1b35471-94a4-5584-ad86-2b2b3e709803",
+          "44e28220-ec49-5dd8-bc07-2a14cadbc58b",
+          "7c8623a6-720a-5c37-b57d-73efb49ea60d",
+          "3589e645-225f-550b-bb9e-710f038014e3",
+          "5b71a099-766d-5f72-ad89-25b5365e5bad",
+          "8d664411-a169-501b-864b-3d47347ed981",
+          "2f22d26c-36be-517e-b13f-ab0baa70dad9",
+          "0e1212ff-0623-529e-9516-06a1ba0a30b1",
+          "024a6498-7342-512a-b343-3b308c43062b",
+          "e6f8a532-b47b-5f95-8a2d-b4557120ba50",
+          "2062d2a7-5aab-53e0-982e-ab961a81f6df",
+          "eba19cbd-f1d0-5b08-a238-fe71a16fde62",
+          "f6cd0024-cd93-5b4f-a97b-0ac691c30bf8",
+          "d9965d8d-5579-500d-9262-74da6d15e084"
+        ],
+        "consumers": [
+          "e863e726-d45e-54e3-a873-8940c975a7b8",
+          "d4a1bef3-99ff-5b22-9fcf-c7d529c9cb76",
+          "98a0413f-7a88-5a8e-9ef1-d870e91c3fa9",
+          "72c6d4ac-9215-5195-8cb3-803e5167a0a0",
+          "e17ab272-2694-568e-afaf-d7ebf9640189",
+          "eb59fccd-dee1-55d0-825d-95c398e17c10",
+          "851a4b0f-08b1-5254-a37d-0e08a120e69b",
+          "7be815e8-85fd-550d-bd25-7c66eaeeb114",
+          "57a1a484-87fa-53a6-a776-c6ee3abbcea1",
+          "868b68fd-3fa0-5c28-b410-d5ad232e91c6",
+          "26fe4ddf-9241-566b-9fdf-a948101e2e2d",
+          "667702a6-aee0-5c50-b8cc-08f6c64e970a",
+          "6ee32fc5-29a6-5648-b25c-e51c5f30829f",
+          "970c6708-1446-56e5-a0f5-0ef068da7332",
+          "277a9125-7cbd-5e5a-b60e-11c6cff5dbeb",
+          "c0f53f2b-2cb9-5d28-8387-dab3e634284c"
+        ],
+        "custom": "CUSTOM_TT_B17_7914ED756B5C5382"
+      },
+      "glance": {
+        "run_id": "nova-c01-r01-python-python-g",
+        "implementation": "python",
+        "scenario": "nova-mix",
+        "concurrency": 1,
+        "size_bytes": 16777216,
+        "namespace": "2228b9f4-7a9b-5cd9-af17-374438f4eaa1"
+      }
+    },
+    {
+      "run_id": "nova-c16-r01-python-python",
+      "block": "nova-c16-r01",
+      "pair": "nova",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "python-python",
+      "placement": {
+        "run_id": "nova-c16-r01-python-python-p",
+        "implementation": "python",
+        "scenario": "nova-mix",
+        "concurrency": 16,
+        "providers": [
+          "f9bb8880-95f5-53db-a056-368c688b986e",
+          "5e66bbd7-cafb-5cf6-a52b-e0cd815e8c15",
+          "d88a99d6-d4de-57a9-89ad-06f4bec22c1b",
+          "66c83f68-8511-5b7c-b1cd-226b0d0af98f",
+          "ca0b7ba5-d5b6-5f25-902f-c9d0d72dbc49",
+          "28caafb7-3c47-5d57-ba13-7bd00112c00c",
+          "5082dd40-cb00-5506-b22c-552db1b27fdf",
+          "1cd7f0ad-66b8-53e9-9309-c3cdff6755b6",
+          "f7dd2ce0-01dc-5c7e-9034-3476a226b20b",
+          "152ae969-36f3-53d1-9b45-e84e80ef38e8",
+          "c1dc8bfd-fe51-557c-9741-0e8c61c67e05",
+          "4e9c1f87-8c11-55b8-bef2-76fd331aad1a",
+          "8c1a4915-60c4-599c-a05e-5ae4e41b7264",
+          "92c8a4d4-9d97-59a2-88ad-5ae53e1e969a",
+          "d15b2e2c-2c2f-51db-ad66-84a25a53147f",
+          "31296b2f-2aea-5f72-b399-dc7107951427"
+        ],
+        "consumers": [
+          "47288d5c-6037-557a-85c1-3a1c1565629b",
+          "72706266-4d68-5c99-9cae-f9814ac8995d",
+          "e063e385-c62a-5d39-8ea9-be282cbf2aaf",
+          "97dd829c-1d73-578a-a26c-6935d5947db4",
+          "eca86446-2203-5caa-b597-5bfa0ec6ea45",
+          "979a675c-3d38-53d7-b2be-3fa7a957447c",
+          "2c71185b-6b60-5aec-a803-a217209d6769",
+          "c76e8580-90bf-56a4-8dbf-694539f4a573",
+          "99aeec7b-964f-5e98-8db3-6d666386913a",
+          "66adf7a5-d273-5154-ab09-c9641d99175a",
+          "c39b957b-be82-57c5-807d-0a45242b259a",
+          "0fa43349-f68d-5997-85d7-f647f2bd1e34",
+          "2652b4a2-bdcd-55e4-a1e5-b280032b102e",
+          "451fa4c3-bc54-5435-9a9b-07321bfadfb6",
+          "d38116ea-28ce-5659-bf70-ef177c931b68",
+          "7fed71b8-4f3b-5878-b8c8-ef1604aa610a"
+        ],
+        "custom": "CUSTOM_TT_B17_0295289598E95A5F"
+      },
+      "glance": {
+        "run_id": "nova-c16-r01-python-python-g",
+        "implementation": "python",
+        "scenario": "nova-mix",
+        "concurrency": 16,
+        "size_bytes": 16777216,
+        "namespace": "6961fe1e-6c57-540e-ad87-58f335d00959"
+      }
+    },
+    {
+      "run_id": "nova-c16-r01-go-go",
+      "block": "nova-c16-r01",
+      "pair": "nova",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "go-go",
+      "placement": {
+        "run_id": "nova-c16-r01-go-go-p",
+        "implementation": "go",
+        "scenario": "nova-mix",
+        "concurrency": 16,
+        "providers": [
+          "8093b430-48c2-52a7-a693-27cec1167767",
+          "d7146d30-50f3-5616-95fd-1ee1c7a8d5bf",
+          "fde9fb5a-9b4a-59ce-8bfc-7f77ce6a730b",
+          "c3459ae1-7fb6-5bf3-af1f-478547920192",
+          "1de7e7f9-9e10-5722-aef8-022948c8966d",
+          "76438dd4-2db8-543f-90ba-a704a3617cb4",
+          "24261249-759b-5799-b340-fb6233da5e01",
+          "c016d20d-da62-5561-a348-6861280d314c",
+          "8a48cb79-d26d-5c1e-a441-6887f893caa7",
+          "83056ab2-6f69-547a-8d7b-bb4fcc17d550",
+          "33a5a567-64e2-5083-809e-5a3669b711e5",
+          "68eef7c7-ea47-53f4-aaab-c5580546bce0",
+          "98401017-dc83-5463-99e6-ce072da73649",
+          "5ffcf3e6-f28c-51fc-9c7d-4bbcee1a36d1",
+          "c5c733c6-4e97-587d-8449-eee95dc9c9e3",
+          "2320b33b-2b4f-59de-8a26-55d3189a24bd"
+        ],
+        "consumers": [
+          "6ae877a9-900e-51c1-9b0d-3794475ba40a",
+          "5261fe8d-6a41-545e-a64a-71610b8ede8a",
+          "d7cb2890-2f2e-5df5-a057-8500f36b131e",
+          "fa788476-f567-5bd1-a605-c214e9300031",
+          "1d40264e-b6f8-5775-ae84-123f08a4e886",
+          "ac8b2788-b705-5ff9-9390-5f25cb826d2f",
+          "eb648d95-e031-5a0d-a23e-0ebe5857b7ad",
+          "b1efa63c-4381-573b-8104-f54e2d916782",
+          "4bc061dc-584f-53a9-b3d1-c31c24826da9",
+          "3b206fdd-a1b4-5711-830d-131b84479398",
+          "f8684343-73f4-5008-89a3-2003b11bf947",
+          "d49105bd-da0d-57b9-b717-7e0aebfb7553",
+          "e2ada4a6-c9a7-5afc-bc2d-357f02c3e513",
+          "031c6c16-7455-59b5-bca5-90dbb01f8022",
+          "ce9f3b7b-565f-59f5-82c3-c3deb350e16a",
+          "50f3d749-ee46-5819-b0ca-a5ac3655e92f"
+        ],
+        "custom": "CUSTOM_TT_B17_2D6D0A7F199F5051"
+      },
+      "glance": {
+        "run_id": "nova-c16-r01-go-go-g",
+        "implementation": "go",
+        "scenario": "nova-mix",
+        "concurrency": 16,
+        "size_bytes": 16777216,
+        "namespace": "1e015549-e75f-56fb-9c9e-84946b19a4f8"
+      }
+    },
+    {
+      "run_id": "nova-c16-r01-python-go",
+      "block": "nova-c16-r01",
+      "pair": "nova",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "python-go",
+      "placement": {
+        "run_id": "nova-c16-r01-python-go-p",
+        "implementation": "python",
+        "scenario": "nova-mix",
+        "concurrency": 16,
+        "providers": [
+          "b09ef6d6-6e4a-5b06-a42d-51aca960ee64",
+          "fd573122-ca72-5461-a456-47893d009bc4",
+          "6e255856-92bc-57ea-b270-f0ca3f2e897d",
+          "6946c848-8e41-5944-a4b0-ffd9492314d1",
+          "51436395-f235-5057-92e4-91fd8eea1c1a",
+          "90774cc7-2bc2-593f-97ae-7c5cdcd9d177",
+          "60b6e57f-2c8c-5290-be45-07871650a18b",
+          "6e2e724d-361e-5c36-8669-f916498e2e76",
+          "1ae73e73-c728-5364-8e48-f886483c4c5b",
+          "29a51500-f1a4-53ac-97b4-575c40dcf375",
+          "7189091c-b8e1-5005-9bf0-90a6d5d29ae8",
+          "98ee3332-bdea-50a2-915b-d1a5e0a35008",
+          "ee63b5a1-6ea2-51f6-87fd-7ba10bccfb06",
+          "f4ad98bd-e355-56cb-b576-6a0b246a02b6",
+          "b4906a86-9450-5b9b-8667-846a027f4001",
+          "949404c4-8212-5c9a-a5cd-3a8b9cb236d2"
+        ],
+        "consumers": [
+          "7bd61227-e2f9-51d0-8527-f214e7b059e6",
+          "96409af9-4e96-5392-b44e-d15601b076ec",
+          "046fa610-fc4e-51bc-9ab4-a75a156aae0a",
+          "e3485bbd-d725-5125-81eb-cc8a482c9b0a",
+          "5fd88ab0-2adf-5b00-8e50-5ec0a87d13e6",
+          "b95ceefa-6e29-5a83-ad1a-6456f4dc8081",
+          "eac9c226-95c3-5d67-a1d3-55d4bf0fee45",
+          "274f07c4-c1ea-5339-aa63-c8855988a0da",
+          "ab8497b8-1dc4-5911-a026-6cfd0a422689",
+          "b62212db-46bf-587e-a5e4-c89f5d8c120d",
+          "3957199a-aa78-58a5-93a4-f014583ff93b",
+          "b666fb34-ebf3-5c5d-bfe3-1c2c5d109a69",
+          "3bcb0fcb-063c-566d-abe7-09d23fdf70b8",
+          "e681939c-0984-5f74-9fce-6fc43f80fdd4",
+          "a25dcc0d-4460-5f20-9eec-4928e03f42a7",
+          "292a95ee-da59-5ad3-bdcc-cdd136bbb079"
+        ],
+        "custom": "CUSTOM_TT_B17_F3404F3B59C4528F"
+      },
+      "glance": {
+        "run_id": "nova-c16-r01-python-go-g",
+        "implementation": "go",
+        "scenario": "nova-mix",
+        "concurrency": 16,
+        "size_bytes": 16777216,
+        "namespace": "d2770a63-401c-531c-a25e-08df336b5e00"
+      }
+    },
+    {
+      "run_id": "nova-c16-r01-go-python",
+      "block": "nova-c16-r01",
+      "pair": "nova",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "go-python",
+      "placement": {
+        "run_id": "nova-c16-r01-go-python-p",
+        "implementation": "go",
+        "scenario": "nova-mix",
+        "concurrency": 16,
+        "providers": [
+          "f052d9bd-5775-5aff-90b0-55677dce09e1",
+          "341d4bf0-0276-5062-a43b-a4634c5691f2",
+          "cf1f6594-5378-517b-b83a-fc4b3deb1389",
+          "4ff09d5f-cea2-5c2f-9386-d9325e3c4800",
+          "0a2f215a-6a64-59ee-ba35-9fadd93aaad4",
+          "f0ca1c34-c8ca-55e3-816c-b30b28b0e67a",
+          "408cd72a-7422-5a40-84fc-190058c442f1",
+          "ca33ee09-f924-58fe-8e5b-faac58d76316",
+          "6345fcd2-305c-5a1f-921d-b29a0b1ec127",
+          "65e28060-520e-5c47-8aa8-6c1259b3d5e9",
+          "664ccbe8-9d9d-5d85-b742-57c80596723b",
+          "69c8b81d-05d9-5f5e-9f14-4da0dd3686cf",
+          "c9beb554-08aa-57b7-bc20-50e391c9eb52",
+          "86d5e484-7f69-56c8-b36b-265d84f64aa8",
+          "0f298390-a0bf-5c6a-84cb-5c9b10d3bb62",
+          "c4156b94-7984-5bd6-a9f7-1175262dd2b9"
+        ],
+        "consumers": [
+          "09c0f805-33dd-5258-8a05-13a454c6c6da",
+          "b7089d60-5fef-58c6-b637-10c6a2b5c038",
+          "0d4ae343-e663-51b6-a7af-c6b7f206d670",
+          "723ac1aa-8ba0-5def-8806-9ba3aa2c52d8",
+          "3ba58f3a-4d8b-5d20-8ecf-70da3ab0e8f0",
+          "425b4c9b-59f7-5881-900f-4e045fc36c85",
+          "ecc30b12-f75a-55f8-8252-16ee0de92ca2",
+          "29b14c6a-d191-581f-86b0-a8efbf768b66",
+          "9403e188-b4f5-5c13-a1fd-6dbcb299cfea",
+          "5afcd50f-924f-58c5-acc1-f7edb8553d75",
+          "d6af0fcc-7812-56ae-b511-27d48c8bb8b1",
+          "3a21382e-6e72-5335-84e4-8abb6d45e6f3",
+          "f8f390e2-88fc-53b8-a9ac-2f56d930856b",
+          "eef90bd7-1cff-568f-baef-8e09601581f1",
+          "4f28ebe0-3b98-52d8-926c-8b875f298fa4",
+          "a8005d0d-d4c9-515a-ba8d-5e42657a1c82"
+        ],
+        "custom": "CUSTOM_TT_B17_B39E3D5F106F5154"
+      },
+      "glance": {
+        "run_id": "nova-c16-r01-go-python-g",
+        "implementation": "python",
+        "scenario": "nova-mix",
+        "concurrency": 16,
+        "size_bytes": 16777216,
+        "namespace": "3447b85f-0c37-5aa0-8e6d-a5cc562891e4"
+      }
+    },
+    {
+      "run_id": "claim-download-c01-r01-go-python",
+      "block": "claim-download-c01-r01",
+      "pair": "claim-download",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "go-python",
+      "placement": {
+        "run_id": "claim-download-c01-r01-go-python-p",
+        "implementation": "go",
+        "scenario": "claim-cycle",
+        "concurrency": 1,
+        "providers": [
+          "c8330f83-ef6a-5082-add7-fc4352d74e76",
+          "8444614c-ff8e-5f67-9edf-9e725e6d63af",
+          "831019ec-c023-5c4d-8c90-0a1565797173",
+          "7d6579f9-4496-5e21-9898-7d148bf16930",
+          "3a647a54-0cf4-5b08-b55d-62b71cfbd852",
+          "6d905bd7-8fd1-59ca-bc17-e6e35fd3d271",
+          "7d867283-3202-53d8-927f-cb67a930be65",
+          "45f4fa54-977d-58c2-8ab3-0a6c376ca429",
+          "da417e50-804f-52a1-a396-b5ccd93ff610",
+          "20283eeb-21e5-5484-8b5f-86e363c9a1d5",
+          "1b443417-45c2-52ac-b4a9-768c4a0fc55a",
+          "0be9be96-86cd-57e0-a108-b642e3862e99",
+          "aca7fe29-948e-56e8-9cbe-575899ab39b5",
+          "f180648f-f4f9-5c66-9469-529c05a00862",
+          "5a31fb25-bf62-5cc1-bef7-ea3d4e9bea78",
+          "2cfa50a6-968e-5df0-a3c6-83db1e745506"
+        ],
+        "consumers": [
+          "3b439c6b-82db-571b-a246-d3f59961b96b",
+          "d348b835-bb09-5c14-b6cd-a514d04b0692",
+          "453c8808-ecb7-5213-9a80-67f853c63b99",
+          "a4bb0887-07eb-535a-92d8-afe9b7f1c934",
+          "2e8dcab1-d8ba-5b56-acd8-c9e336f9bfdb",
+          "864c714a-df7e-5fe5-823e-55b3ef4b4070",
+          "5aca4521-57d9-5df5-b439-5b01d31fc092",
+          "26a54ddd-323a-5fa8-b14c-cab0960fe6fb",
+          "0932be51-833e-5ff1-bb11-49ee2b70b868",
+          "dbf00475-813b-5def-9884-b9a566d46fd0",
+          "86421d2e-b9ea-5230-be6e-1a66e95b63dc",
+          "f937c58c-97a1-5b5f-b246-1fcd69d1f81b",
+          "65d81197-f032-579a-89f9-64bbd8a383e3",
+          "ee3cfef7-98b6-5161-93bf-a1b7fab02076",
+          "71ed052e-119d-561e-a8ba-68d2adb74b60",
+          "e701e30c-9524-5891-bce7-a7225c19c579"
+        ],
+        "custom": "CUSTOM_TT_B17_37E90B73CA90558A"
+      },
+      "glance": {
+        "run_id": "claim-download-c01-r01-go-python-g",
+        "implementation": "python",
+        "scenario": "download-16m",
+        "concurrency": 1,
+        "size_bytes": 16777216,
+        "namespace": "1379d436-988a-5a58-bdd9-2137e8a785e1"
+      }
+    },
+    {
+      "run_id": "claim-download-c01-r01-python-python",
+      "block": "claim-download-c01-r01",
+      "pair": "claim-download",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "python-python",
+      "placement": {
+        "run_id": "claim-download-c01-r01-python-python-p",
+        "implementation": "python",
+        "scenario": "claim-cycle",
+        "concurrency": 1,
+        "providers": [
+          "bcf61049-d43a-569b-8c63-baf542736e1f",
+          "6c4e35a1-4a5c-56e8-8874-a3b352b64e39",
+          "c87b4035-565a-5ba8-81c0-06d09f86a648",
+          "d5c060f3-3b95-575c-b150-b870a1b67eef",
+          "47e57563-8e92-554a-ab92-cad1ac9d1a07",
+          "af933ee3-246d-5f76-8939-dcbeeb1c8512",
+          "292d4f9d-bafd-5f9b-84c8-78f2edb70ff2",
+          "75f5353a-8ae0-585d-9572-99ccbd1c6a7e",
+          "680501f1-cd2f-571e-8ec7-905e27f43e8c",
+          "4ed097fa-01ef-52a8-9400-d0d6ac654183",
+          "42f04137-6880-5710-972a-73133cfc1b98",
+          "3db254e3-30ff-5f45-aedd-c78369897b10",
+          "a53157de-c992-58a0-a149-dcf7cff727a9",
+          "2e2b112c-b11d-5d62-b5d6-a9ab3d8a7cbd",
+          "5e817b6d-b117-57de-9594-fddc878639a4",
+          "8131e6f0-1f9a-5f7a-9a61-61a0f9fb5af8"
+        ],
+        "consumers": [
+          "557d5a5f-ac7a-5fe7-a750-ee9a8f489585",
+          "e72c9b7e-2e70-528c-aba2-6eaba7e59f28",
+          "9d2cb40f-5976-5335-959f-dcf7ce5e73ad",
+          "8fbdbbaf-d365-541c-8aef-0a354c37d713",
+          "b54e0c0c-06d5-5b51-8bde-57640f079bac",
+          "07635544-1379-59d2-a236-f95a61c0dcd8",
+          "7cb9bac1-a07f-5a5e-bad4-32777097ae9e",
+          "950f3dab-ed91-542d-a1f1-90f9e84c49f8",
+          "d5c17e1a-3775-5288-a9f5-5e034ceed44f",
+          "f61866b0-3691-5b3b-a1d4-dd92f77998e4",
+          "37deea57-c678-5ef1-b0e2-e0ec28d08eb7",
+          "68df9e18-792c-5ee6-bff4-dc2ee2636437",
+          "aa11b150-0d86-581e-8435-5ff212148fc3",
+          "47565d43-2cff-50c4-a738-529848c0eb49",
+          "319f64eb-d0bb-5d5b-89a1-52a8d60dc0e0",
+          "af98c3a1-ba4b-5b23-8d06-4a175c1f8886"
+        ],
+        "custom": "CUSTOM_TT_B17_3B2D2F2A99C25792"
+      },
+      "glance": {
+        "run_id": "claim-download-c01-r01-python-python-g",
+        "implementation": "python",
+        "scenario": "download-16m",
+        "concurrency": 1,
+        "size_bytes": 16777216,
+        "namespace": "3eea64ec-21d9-533a-894b-c6cb6d586e1f"
+      }
+    },
+    {
+      "run_id": "claim-download-c01-r01-python-go",
+      "block": "claim-download-c01-r01",
+      "pair": "claim-download",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "python-go",
+      "placement": {
+        "run_id": "claim-download-c01-r01-python-go-p",
+        "implementation": "python",
+        "scenario": "claim-cycle",
+        "concurrency": 1,
+        "providers": [
+          "3c96c845-fd20-5703-abc7-935a47152967",
+          "abe863f4-410f-5f4a-9227-a63eda107760",
+          "8e517eca-4eef-5107-9e24-f730325ba126",
+          "1b777e74-a8e8-5ba3-9368-183ce04a7870",
+          "f625f63f-83b4-5914-96cc-db9664c2f40a",
+          "99eb1ecc-dffa-5a1a-9f21-f322e3a99e29",
+          "9bcbd8b9-fdab-5157-aafe-c991fb88527c",
+          "6e1b9fa9-9710-5154-9515-1404269b4916",
+          "7f452647-72ef-566e-9f45-5b3027f1c799",
+          "e51d082a-f3be-5557-88e7-658cb7b1c499",
+          "0ba581d7-6af8-5cc4-9f78-08e1fb07d434",
+          "41034f5d-d6b1-522b-aa40-2dc4ccad4d33",
+          "1b25f1f8-d922-5a74-b788-fa5393fa0e82",
+          "34452130-2e2f-54fb-b800-ff5a64087cb5",
+          "d634562d-474b-5d01-94b0-c023b307d028",
+          "0ec240e2-66e1-5e87-9a54-c99bcc2e4a47"
+        ],
+        "consumers": [
+          "905ee5bb-b6a6-5304-9773-04a416031dc3",
+          "a5e05f84-5f26-5fee-8586-1ca5f85b3b63",
+          "b3b910cd-a6cf-5cbe-b5ea-4b260fc988ad",
+          "0207cf62-6ebc-56b2-9f6d-dbb3de4cc72f",
+          "0dcf343e-fc61-5d90-9a8a-771c01c1d57e",
+          "7d77236f-0426-555b-bc7d-1068623ab211",
+          "65ef354b-7e78-5d2b-86ba-04768e2c627e",
+          "dc611d65-a9aa-5a67-816f-3ca5c035c558",
+          "b5c005b0-dafc-561c-ac04-ff8de47354cc",
+          "cee9a89d-ec5d-5d39-93fe-69eee129b454",
+          "19fafead-2404-5f48-bf53-677ded1e7338",
+          "a840e69d-491e-5713-94fd-df533776004e",
+          "e3be8904-b61d-5b41-a54a-f5b0a363674b",
+          "9cc618c9-047e-53a1-927c-391a99cf0d3d",
+          "9aaff3d3-a41b-5cfe-84a7-853c1013a29f",
+          "572012cd-0ea4-5d49-a8f2-d2d09bf67d88"
+        ],
+        "custom": "CUSTOM_TT_B17_8E10130095515354"
+      },
+      "glance": {
+        "run_id": "claim-download-c01-r01-python-go-g",
+        "implementation": "go",
+        "scenario": "download-16m",
+        "concurrency": 1,
+        "size_bytes": 16777216,
+        "namespace": "7f967ab4-6bcc-5e0c-906a-fce5ea45d7a8"
+      }
+    },
+    {
+      "run_id": "claim-download-c01-r01-go-go",
+      "block": "claim-download-c01-r01",
+      "pair": "claim-download",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "go-go",
+      "placement": {
+        "run_id": "claim-download-c01-r01-go-go-p",
+        "implementation": "go",
+        "scenario": "claim-cycle",
+        "concurrency": 1,
+        "providers": [
+          "18b5f167-f2c9-5f41-87cb-0fa80e3976b6",
+          "2f887311-0cf3-5802-9ff7-2d410d68af42",
+          "4e6dcf4f-7172-5462-893f-c1284f99831d",
+          "18ec5f12-0b9a-57fe-bd20-cbbebc5d5166",
+          "360ef8e8-0ce9-5641-935c-73e237b78eb7",
+          "c8d07570-f5a6-5dbf-8e10-a95754815079",
+          "b88a6a4c-7071-5161-8fbd-bace09ff85da",
+          "68181500-88a1-525e-b780-af13a558489c",
+          "0ce622ea-0254-5c41-888c-ac0354d1f2fe",
+          "e61d81ef-dddc-5b57-aca2-ed7c0bdd4fcf",
+          "6188b9a4-753d-552c-bc7d-1e20c4a2b3ac",
+          "35e4e821-73f4-5945-8776-98142495b31f",
+          "1625e9d9-9a7f-5976-b724-147d71e46147",
+          "493ffd06-f478-5c8a-9a9a-95593dcc3f56",
+          "d09eee1e-dcdc-53f6-8dc8-16c1bb2a54f6",
+          "44f7f2fc-3132-572a-ba0e-ea819c9963fe"
+        ],
+        "consumers": [
+          "1fdcdc65-b575-5181-80d9-5118523ce34f",
+          "ebedebb2-421b-5253-a5ab-5f4a83da0ccd",
+          "fc690253-6783-5e72-876c-4a2a4bbbd1ac",
+          "055b3ab6-8bb1-5be4-bf03-ee2d816ef0cc",
+          "3455933d-092b-5f2a-805a-778bf49430be",
+          "f7b341da-cea9-551a-93e0-d90eef2cf797",
+          "5d639e80-2115-54c6-8ac5-72d5edd68fcb",
+          "856e7028-d6d7-5bf1-b7ee-99ce238a2185",
+          "1d64aaf2-3d58-5d0a-8ea5-de64f7092b4c",
+          "2d0a2ce2-19bf-5a17-ae72-b682ba189bf0",
+          "b95f8220-c70b-5e8d-8173-37ac4a2fe04d",
+          "30b766d4-040f-5dc7-bcc3-e0871ce7ad88",
+          "e6f88f86-2a86-53d9-b5d3-0895a3d7f36b",
+          "7007b42f-4930-531b-a881-613c07138a10",
+          "a1eea7d8-1569-5350-aa57-6ee31a585ed6",
+          "7d288cdf-3be3-5dfb-9629-c9ff263e57dc"
+        ],
+        "custom": "CUSTOM_TT_B17_500749D602AC5206"
+      },
+      "glance": {
+        "run_id": "claim-download-c01-r01-go-go-g",
+        "implementation": "go",
+        "scenario": "download-16m",
+        "concurrency": 1,
+        "size_bytes": 16777216,
+        "namespace": "4a5c2c02-9e6e-5aac-b7e6-f108bc6e1aba"
+      }
+    },
+    {
+      "run_id": "claim-download-c16-r01-go-python",
+      "block": "claim-download-c16-r01",
+      "pair": "claim-download",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "go-python",
+      "placement": {
+        "run_id": "claim-download-c16-r01-go-python-p",
+        "implementation": "go",
+        "scenario": "claim-cycle",
+        "concurrency": 16,
+        "providers": [
+          "c613f935-2b25-5116-b4bf-a351e4522793",
+          "b2a4dd30-e1bb-5c8a-b8f8-41c19e8aab54",
+          "71a8309e-927a-5348-a42a-b0de82428050",
+          "322c8340-0441-5d88-98b4-213f383ab25c",
+          "de94d086-49d6-5e23-bdaf-cef899f3d501",
+          "d2fe12d2-e19e-51a5-947f-9e19c9e4df21",
+          "0eac6473-5d53-5c2c-97af-f19b24346949",
+          "fabdcce2-7d5b-5977-8c35-fe1ad65c1989",
+          "3442968f-d568-5f63-9cb5-f2dec7e6c146",
+          "6fa2cbb8-0f16-5829-a9b9-c9689cb67f90",
+          "f7562321-2ec4-549c-8bc5-c02072d5509f",
+          "f25cf403-2b37-5245-b3b4-8e098805f461",
+          "531c2281-8922-566c-8c3f-8fe7511a5176",
+          "a06c45a3-0876-5021-81f7-ecff1b96896b",
+          "e8d8d8cf-7058-5dd4-9d58-6b5dd817565a",
+          "e746ddb8-262b-5bba-a352-8e13259792c7"
+        ],
+        "consumers": [
+          "39e04100-700b-56dc-8be6-4c38f261a4c9",
+          "233e9bce-d72b-5b64-aeff-508bbf96018f",
+          "c4b2712a-14cf-5a4f-a394-266e395d5be4",
+          "95f1067d-01bc-56c2-82d6-20bf9017c538",
+          "fad2b926-654c-5382-aa5a-461139660490",
+          "0f21cc83-2831-55cb-84a3-286915f31980",
+          "d542c702-7003-50b4-b941-63366a26fdf1",
+          "7c358702-6578-5045-9075-4dec7a1861f7",
+          "b16dcdc7-041c-59f2-a67e-5baa8b218c2c",
+          "987ef1b2-fb24-5bb1-a34a-4405fd4ec22d",
+          "a83d0e37-0cd9-59a5-9571-5ee140a071ff",
+          "07f4946e-2e3a-58e4-8ee1-edfe5ad5ddd0",
+          "385e53c9-f354-5c5a-928b-b72199ba5369",
+          "b839daa6-fb27-5e39-b047-189c35d55257",
+          "47e43e86-9180-52ec-877d-7909ab83e87f",
+          "d900b5d9-d1b3-5dc9-bab7-61a5984ba928"
+        ],
+        "custom": "CUSTOM_TT_B17_067A934507B3517F"
+      },
+      "glance": {
+        "run_id": "claim-download-c16-r01-go-python-g",
+        "implementation": "python",
+        "scenario": "download-16m",
+        "concurrency": 16,
+        "size_bytes": 16777216,
+        "namespace": "3ca1214c-1bd2-5ac1-888c-8316aa130d88"
+      }
+    },
+    {
+      "run_id": "claim-download-c16-r01-go-go",
+      "block": "claim-download-c16-r01",
+      "pair": "claim-download",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "go-go",
+      "placement": {
+        "run_id": "claim-download-c16-r01-go-go-p",
+        "implementation": "go",
+        "scenario": "claim-cycle",
+        "concurrency": 16,
+        "providers": [
+          "7553808f-130e-5c48-9464-45adbec3cd26",
+          "7e22fbbc-cce1-51dc-a5a1-d34681460705",
+          "ddb55d63-fc93-5551-a39b-2e33df326843",
+          "b0c08045-9676-5b99-aa02-d89ab5f50588",
+          "a4e81bdb-7a3b-520e-9a5c-f0bfb27965ac",
+          "c7ba3f0a-d6f4-5ff2-85a9-a8bf5f81e7cd",
+          "ce265b19-ee6c-5a0f-9b72-76e68de28f78",
+          "d3d8cf14-1e2a-57e6-a719-943a125b254a",
+          "d3b846cf-6644-565b-b7c9-3804b2a732da",
+          "16f93ca1-47f9-5447-8221-8df75e6740bd",
+          "f14ad5a0-0bce-50f8-bbef-aceecc8bae7e",
+          "49454f2f-4d2a-5e2a-bace-a6ae4315c035",
+          "d944356a-ff36-5c9f-b35b-aa9322222ca9",
+          "250d6c6c-b950-5e9b-923d-db247d0b7053",
+          "1b71c90a-bb3f-53bd-8437-5e5e1c0134b8",
+          "14613e29-a7de-5110-ab66-706a52d79071"
+        ],
+        "consumers": [
+          "aef2ba35-5f88-52fc-adad-ae635b6f8002",
+          "23a13b69-3265-5492-885a-495e294e9ace",
+          "bc757128-eb4b-51d4-a1b8-51515ea3b6df",
+          "5ad81fcb-478f-52ef-ae1c-3cd6b7ba128f",
+          "b2c550ff-7b5a-5571-ba0a-45e489788e5c",
+          "59aad804-030e-5947-ace4-e941e402f8b5",
+          "15b893c3-26d5-5061-9b4a-ce14ad27e310",
+          "e523a1f2-12b4-5217-b467-45e394d2cd83",
+          "1d501748-ed65-5bba-8424-b375f9052247",
+          "fc934f0d-2d13-5d4c-ac95-0cb41c826119",
+          "ec6dd580-b38f-5db3-9580-5ef8d47b9f33",
+          "8fc13384-c924-513a-9376-2592d22f145d",
+          "5c4e2fcd-7f59-5e21-b378-2106009e183a",
+          "cb6808ac-f6f4-5f7b-b81e-6d9d11a90eaa",
+          "13f31896-e957-55f2-bfa0-2017fabf14d1",
+          "99b31e2a-bb93-53a3-8e07-97ea282adfa1"
+        ],
+        "custom": "CUSTOM_TT_B17_6C2D7DD5EAC25758"
+      },
+      "glance": {
+        "run_id": "claim-download-c16-r01-go-go-g",
+        "implementation": "go",
+        "scenario": "download-16m",
+        "concurrency": 16,
+        "size_bytes": 16777216,
+        "namespace": "27bfd972-2019-5579-9015-7cc7932c74e9"
+      }
+    },
+    {
+      "run_id": "claim-download-c16-r01-python-go",
+      "block": "claim-download-c16-r01",
+      "pair": "claim-download",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "python-go",
+      "placement": {
+        "run_id": "claim-download-c16-r01-python-go-p",
+        "implementation": "python",
+        "scenario": "claim-cycle",
+        "concurrency": 16,
+        "providers": [
+          "9d28ce3d-1686-5860-8bb5-b7a447125068",
+          "4babeddb-01ab-5843-b843-6225f796fd27",
+          "40ce623d-8d3b-5e12-bfcd-8a56c61d9936",
+          "c5dde23c-da37-5414-bcb7-1379d6ecdc13",
+          "be3ad581-6828-5af4-9526-3f7e98f74aac",
+          "ce694f33-9b0e-5410-bf0a-09cb28adb435",
+          "8748e947-efae-58e3-84af-050e81539dd4",
+          "6a043530-b16a-5057-a797-a0c22115d0e1",
+          "a394171d-55f3-5440-8c9c-c319628afd95",
+          "748f63bc-ef33-51ed-a68f-14a3eb6f0c84",
+          "0214cd9c-96ca-5da0-96b7-1afb5b014762",
+          "a6491553-7788-5e53-b0b8-3d59380375fe",
+          "7b1786af-210c-54de-a398-f9682f2616b7",
+          "df9045e8-46c4-5538-af0d-9b92e146afde",
+          "0aed4466-a753-548f-90ca-f6f57bf1a79f",
+          "d1829da6-1eeb-52df-8dd3-a4e89344ee7a"
+        ],
+        "consumers": [
+          "87ea7e40-5bec-57d8-8a32-7634ab011633",
+          "e964d075-6bb9-5b20-849d-254d780cb8df",
+          "2e210d07-0bf3-552d-a86a-55d4f10cd6e7",
+          "4babce7d-e835-5817-8bfb-8f5d91b54286",
+          "a5becc7a-98c2-59b6-a112-e73112d350b2",
+          "c6c8b915-a8a5-5931-a261-c1b273ddc792",
+          "d681d48b-b240-5d20-81ae-bb29f14fbdd7",
+          "6409d7ab-107a-5d10-af12-c8f94a048f6d",
+          "0ebc216c-e17b-5d85-b152-a8af195fe3c0",
+          "a21ac04d-8717-5da0-ac25-99370ad2a4b6",
+          "9444403b-0cd8-5f14-addd-3bcc77546add",
+          "0619573c-3429-571b-a466-6a5eeb9a1a7b",
+          "adc29f8d-93f5-58f7-a07e-f16155b9dae2",
+          "433cdf11-6edd-5e3d-adaf-0459cf57cfd2",
+          "2fcb6949-c4b7-5229-844b-0b5f107d9ce7",
+          "02f3fff9-cbdb-5a17-b1e2-88abf7769de3"
+        ],
+        "custom": "CUSTOM_TT_B17_7B70BB555EFF5F23"
+      },
+      "glance": {
+        "run_id": "claim-download-c16-r01-python-go-g",
+        "implementation": "go",
+        "scenario": "download-16m",
+        "concurrency": 16,
+        "size_bytes": 16777216,
+        "namespace": "60cc7d34-a086-5f00-a368-1917d3d4e881"
+      }
+    },
+    {
+      "run_id": "claim-download-c16-r01-python-python",
+      "block": "claim-download-c16-r01",
+      "pair": "claim-download",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "python-python",
+      "placement": {
+        "run_id": "claim-download-c16-r01-python-python-p",
+        "implementation": "python",
+        "scenario": "claim-cycle",
+        "concurrency": 16,
+        "providers": [
+          "0df9c074-2238-5f95-9c97-d33a05d5deaa",
+          "8f446009-1373-5f1a-b0ac-efae0e21d615",
+          "762b0f97-f587-538a-9afd-5ab8a12936a0",
+          "b2547c34-2a87-5872-aca3-cb2f53ac7b28",
+          "0b9ad489-87a0-5a3f-856c-58cac8e04124",
+          "0b4e598f-d505-5201-aec3-dd966cdbe4c7",
+          "dc1b764c-88dc-58a5-9826-eab55b445bd7",
+          "32369d27-282b-5935-8f46-3ec7be3c44d1",
+          "beb61478-a796-5130-a4d0-6e52a8bc1761",
+          "112dd534-8fbd-56d2-9547-d611f62d08f0",
+          "71abec1b-e352-58cd-b5d0-45f8ec340f39",
+          "f375c610-3322-5b27-8f81-583d2fb0e000",
+          "092d1f56-2a4a-5950-84e7-4df3812b5890",
+          "48fc657f-96b1-5601-a1a1-2da46f98b742",
+          "627f5beb-1928-56e9-94c7-c03f04822af8",
+          "0de06f6b-701e-5233-b40f-219e861db2e5"
+        ],
+        "consumers": [
+          "86777687-fdd0-5740-b769-5050b2035275",
+          "9c502a75-44d4-5798-9eca-31d70a76c77d",
+          "2ca671ab-c47e-5622-acb2-6951c7b5bb7c",
+          "3353c364-2344-50ec-86e1-c487f53a1a40",
+          "490d9318-c3ff-5788-bfb1-71c86ae0cc8b",
+          "753dbd8c-55a1-52f7-9a3e-7d72efef233b",
+          "7c1380c8-4a46-5f27-bff0-7a717aa227ff",
+          "a7d4e3d9-5cbc-5008-bebd-612b9553d282",
+          "9e7ca133-292c-5f0d-9530-8ee8e2428696",
+          "22f2da25-ce91-5d9f-abcb-e38fa0c063b6",
+          "b13f5eab-e26b-59f6-ba2c-b2d71d873664",
+          "09e2b253-2607-507b-899e-7143f9b7ca64",
+          "8aa0eb2b-0c90-52b8-8c38-7ba32e551429",
+          "d41a10b4-b37b-5501-931e-ba93d7ee14e7",
+          "8c96b75d-c2de-586b-b2da-eab0cd6c5a2c",
+          "9a1bab10-1c2c-50ef-9f66-c1587cf33a6a"
+        ],
+        "custom": "CUSTOM_TT_B17_6F06871BC8635CAB"
+      },
+      "glance": {
+        "run_id": "claim-download-c16-r01-python-python-g",
+        "implementation": "python",
+        "scenario": "download-16m",
+        "concurrency": 16,
+        "size_bytes": 16777216,
+        "namespace": "90850aa0-dfcc-5603-983f-8cf7f7dba2c5"
+      }
+    },
+    {
+      "run_id": "schedule-catalog-c01-r01-python-python",
+      "block": "schedule-catalog-c01-r01",
+      "pair": "schedule-catalog",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "python-python",
+      "placement": {
+        "run_id": "schedule-catalog-c01-r01-python-python-p",
+        "implementation": "python",
+        "scenario": "candidates",
+        "concurrency": 1,
+        "providers": [
+          "323648d2-78ec-55ae-abd4-4e19a30f4b57",
+          "8548fb21-cee5-5c60-81e8-7abdde7ecfff",
+          "23a85533-7ffa-5536-950a-f3c617a9bc67",
+          "438b7038-f06b-5e21-9ac4-7f3cdf85a956",
+          "f1cb1575-68d1-5e91-9b86-ad306ff02f12",
+          "bf043c83-552b-5645-b37f-af778456a9b4",
+          "57793006-8ef2-5f18-a260-2c25cfb0a817",
+          "2dca3117-4531-55dc-91cc-2941e66131a5",
+          "228dea39-0d5c-5c8b-8e52-62f5eb7728fb",
+          "142319c5-e017-5764-bbf9-feee74ab2bba",
+          "d1b8c801-0096-58e8-9802-07099bb73ec8",
+          "8788baa4-fe83-5b8b-ac74-8f393aa82a9c",
+          "9b5d7012-c460-5c61-ac79-be10c8200bc9",
+          "86532100-d918-588f-8a27-d88fc5eff2d5",
+          "7c9447c9-0194-5977-b56e-270831bce6cd",
+          "2fd53181-cff8-5845-96c4-da24e4c8238e"
+        ],
+        "consumers": [
+          "ced81959-3535-5d35-884a-0b3907d7b332",
+          "0f934a5c-2c5b-5066-b705-f82b48a4a66c",
+          "f6263190-6824-59c1-969f-68302f3575cf",
+          "47cd8823-b1cb-5e29-abf8-322b140ac802",
+          "f651e9d3-a890-54a0-aab7-31dd859f69ed",
+          "e178c72e-2be4-5f4c-aaf9-eb94eb710b17",
+          "fe775b31-b37e-5e71-8ad3-5cf397aec257",
+          "0ebd1b0d-3ac0-5a82-8246-e9df4d8d9718",
+          "41f36d35-0244-59a0-9953-71a92aa7df17",
+          "cb050f3e-6b07-548e-a29c-7ac377b5848b",
+          "3f51ad57-796d-5310-968e-a7f61d40f1bc",
+          "9ee72b98-4d78-57f6-ad19-522312d9ab63",
+          "fbb9ad41-e7f6-5e3b-9445-41d754cbef15",
+          "4f8e62bd-ae74-53c8-9a57-a17196827a4e",
+          "ff830b01-0518-5361-b477-fc14e72d33d1",
+          "d4270779-d158-54cb-aef8-da1dac5a08f9"
+        ],
+        "custom": "CUSTOM_TT_B17_9F6452928F6E5AE2"
+      },
+      "glance": {
+        "run_id": "schedule-catalog-c01-r01-python-python-g",
+        "implementation": "python",
+        "scenario": "catalog-show",
+        "concurrency": 1,
+        "size_bytes": null,
+        "namespace": "f29acfe4-df77-5941-8bc0-12b9284d5091"
+      }
+    },
+    {
+      "run_id": "schedule-catalog-c01-r01-go-python",
+      "block": "schedule-catalog-c01-r01",
+      "pair": "schedule-catalog",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "go-python",
+      "placement": {
+        "run_id": "schedule-catalog-c01-r01-go-python-p",
+        "implementation": "go",
+        "scenario": "candidates",
+        "concurrency": 1,
+        "providers": [
+          "509a2681-fe13-5baa-9c0e-fb516b3b312d",
+          "d2b06365-eae5-5dbb-8674-c6843e544ec3",
+          "cfe6b10a-01ce-500d-9856-0dbaf9c52e8d",
+          "97502de9-fadb-5150-b07e-bf4e84e1ef27",
+          "b2731dd7-fc7e-5440-919d-dae68de6bd7c",
+          "db00946f-eebb-5a04-a12c-49b00a584b41",
+          "01832eb6-f658-52a9-ac0e-5497c71cd144",
+          "9c52389c-8aa5-59aa-8518-779105e503fc",
+          "77d1266c-697a-56f9-be6d-3682f94c09f0",
+          "b7908157-410e-5769-97c1-21a7c35658d6",
+          "d2dfef66-5d51-5400-b1ce-d20100110bc1",
+          "179ce90b-5e46-5753-b5b1-0e5b0e616a95",
+          "3dd24623-10a6-5bda-ae33-1f9a992cffb5",
+          "2a79e138-7f52-56fc-940e-551e5234ef56",
+          "efd7ba4e-9d43-512a-b496-cb3ebaeb08fd",
+          "73e34d4f-cb63-551f-96ee-fd9be9688a56"
+        ],
+        "consumers": [
+          "d8fd1dd2-cd3d-5dcb-87d2-29a864d91811",
+          "8aa96ad2-ee1a-5af0-ae86-2b0e341be1fb",
+          "5fca8562-86e2-568b-945b-73a304c7d7f1",
+          "091dc0e4-c0a6-5956-b605-d8e2cdebfedc",
+          "2d27e391-0756-5aac-991f-66c180d600ca",
+          "8c8486b0-ec03-5554-9024-2bea5d8b87b1",
+          "9ebfa6fe-6797-58ed-96c7-7984949e07ac",
+          "f4a1733b-f3bb-513b-a001-371671e47e8d",
+          "2f4e1754-f8d0-548a-bc5a-9f1bed7e3473",
+          "a50aa30c-e9c0-5077-a023-a4d33660c313",
+          "eabd28c7-013d-5571-ae7a-94866e1769cf",
+          "178f8018-a901-5ba1-87a7-e4f8d01f8ed7",
+          "c7e42c2e-d24e-5379-982e-2e2ac5c9af07",
+          "e7216f29-e41d-5884-bbe8-37ffc77e22ca",
+          "62dcb83e-3f4c-5c8f-aa97-34f00641a2a6",
+          "9ddc814f-5fb4-5cae-b8d4-a584ebfba87a"
+        ],
+        "custom": "CUSTOM_TT_B17_A22D3298E2F85850"
+      },
+      "glance": {
+        "run_id": "schedule-catalog-c01-r01-go-python-g",
+        "implementation": "python",
+        "scenario": "catalog-show",
+        "concurrency": 1,
+        "size_bytes": null,
+        "namespace": "7ce11495-cbf8-5134-a06d-9951e7b1a5b5"
+      }
+    },
+    {
+      "run_id": "schedule-catalog-c01-r01-python-go",
+      "block": "schedule-catalog-c01-r01",
+      "pair": "schedule-catalog",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "python-go",
+      "placement": {
+        "run_id": "schedule-catalog-c01-r01-python-go-p",
+        "implementation": "python",
+        "scenario": "candidates",
+        "concurrency": 1,
+        "providers": [
+          "b4a8eafd-df1b-5ba1-9770-431a34b8568e",
+          "908b5e4e-6c29-5c31-b50d-6aaf5d2a777b",
+          "b6409694-8e30-5774-af4d-c67667b764f9",
+          "26ee8b85-ce41-55bc-b2e1-a11f7f9c8466",
+          "01c7a578-be56-5ca1-9782-f7a598b3301b",
+          "5d8ec545-643b-5831-855d-7915c6a944a3",
+          "af17c5da-2c92-53e6-b83f-8cc84ebf6e7c",
+          "699118e5-d4f0-5da3-bab1-c6add1014af8",
+          "6c5a34b6-ffa6-555d-87c4-956f6f54567c",
+          "7862c9f8-5485-5789-9c15-c33a92d73304",
+          "e4ad1b5e-0f5a-552d-9af6-735148f2f8db",
+          "01c0ae93-7712-55b2-acea-caa60edaa62f",
+          "6819ec53-8f61-582a-8707-03ef8247a444",
+          "fbfd4e8d-812d-5213-a2cd-55cc1aa7e34c",
+          "877b472d-6c71-5aaa-b4f2-6db00f2613cd",
+          "87d95764-019f-5356-b2fa-a3800b563ed5"
+        ],
+        "consumers": [
+          "9ead9a86-2feb-5dad-b8d8-60ad9f2f3bd1",
+          "26745953-28d5-5cec-afe7-d6ed2815aa40",
+          "15982506-c44b-50d0-b75f-ba351e89fc18",
+          "00916f71-c96a-553a-af27-924a99fd4f7e",
+          "ab58e9f3-1026-5fd4-97d0-a48879b8be9f",
+          "b5c533f8-9b92-5b2b-8816-ba5249d7f4c4",
+          "5fa3acff-d30f-500d-a56b-2bdad7dbbd73",
+          "34f9bcef-555a-5c6a-af9a-cf4f1f64bcb8",
+          "4a2ed85e-03c8-55b9-bf54-8fd595bbdf6c",
+          "8d0c6166-f3b0-5c9a-a334-99b18b8e7084",
+          "97b00593-819d-57dd-bb62-8c44619b53bc",
+          "132ba067-cd6d-5b28-bff7-5d498e07733a",
+          "ed568df1-13c7-5105-aa46-2de22bd3e079",
+          "cf83341a-eb85-55dd-bfd2-916542fcc2e8",
+          "212a1899-e498-5e1b-bc27-625dd8bd43e6",
+          "cc0a3437-5dd9-5bcb-ba01-62f91937a1d1"
+        ],
+        "custom": "CUSTOM_TT_B17_DD4FFA1661D75924"
+      },
+      "glance": {
+        "run_id": "schedule-catalog-c01-r01-python-go-g",
+        "implementation": "go",
+        "scenario": "catalog-show",
+        "concurrency": 1,
+        "size_bytes": null,
+        "namespace": "2b206eaa-7df7-5804-8b52-7c83b77c8b1c"
+      }
+    },
+    {
+      "run_id": "schedule-catalog-c01-r01-go-go",
+      "block": "schedule-catalog-c01-r01",
+      "pair": "schedule-catalog",
+      "concurrency": 1,
+      "repetition": 1,
+      "variant": "go-go",
+      "placement": {
+        "run_id": "schedule-catalog-c01-r01-go-go-p",
+        "implementation": "go",
+        "scenario": "candidates",
+        "concurrency": 1,
+        "providers": [
+          "c45a9786-c767-501c-a5a1-6cc6e2d260ed",
+          "b79bb779-cfc2-58ce-ac57-063561e988c0",
+          "07011503-44b5-5f3b-8900-824f1fa15d2b",
+          "e07c9d6a-db1c-5ef0-9e15-3d217c0e09b0",
+          "0951aa8e-3b96-5ad3-b16d-2a93cfc27f1b",
+          "6b1e389a-0c65-5837-94b1-53a541b0fffa",
+          "f593ba83-1834-5343-b9ad-5c1a173fef31",
+          "7af4e9f1-5bbe-5e43-8c1e-714b7d094610",
+          "0191f543-8338-5f40-b06c-e5d9144e760e",
+          "2ebdbfa8-d30e-5d76-9715-6860d1cec81f",
+          "66805c4e-1906-54bc-b1da-1ecedc3122dc",
+          "b7b72a3d-ad1a-5f47-9e2b-52e79b73a82c",
+          "aa0799a0-cb7a-5713-bf0c-5e6401373a4f",
+          "33751d0b-db73-50dc-9425-ee25e7b4c1bf",
+          "59746c07-6be2-59b4-b012-5a7fc2b0defe",
+          "22de0b1b-fe87-54c9-83a4-dce6e22e83d1"
+        ],
+        "consumers": [
+          "efe801aa-e7ad-5647-9899-7ff9c06e066f",
+          "e0f1b3ed-6588-5700-8813-846299cc4eed",
+          "ce40956f-abbd-5e14-b31b-1949489a9a3a",
+          "390c8830-c676-5d8f-857b-1ef39bd9a1b5",
+          "711c5c83-3a83-59b6-b72b-1761a3ccb511",
+          "8bd2f2c1-7ba9-5eeb-b79a-254f434ba037",
+          "2840b24f-9527-58b7-beb2-c65a07f0160c",
+          "e1e57198-9830-501d-bf7b-2895974c8375",
+          "3f8e7865-3d8c-5a38-acd2-9a88dc2a9b80",
+          "d4070552-2e3e-5045-b1b5-144a789c5ce3",
+          "ffbe09a8-2300-5c3b-b0a5-25fb5cae08b2",
+          "8fbc5d70-e4ba-569e-bf3b-f3723935042a",
+          "44f54283-a265-548c-99ba-03613853d95a",
+          "444ba408-80bc-525b-83a9-e83dfcb068de",
+          "bb498f08-651e-5ed5-91d5-26cb45c9b8eb",
+          "50ea0134-bf28-597c-a0b2-d35d1d46d8a7"
+        ],
+        "custom": "CUSTOM_TT_B17_E3CFCD46066C515F"
+      },
+      "glance": {
+        "run_id": "schedule-catalog-c01-r01-go-go-g",
+        "implementation": "go",
+        "scenario": "catalog-show",
+        "concurrency": 1,
+        "size_bytes": null,
+        "namespace": "d777ef90-7dea-5f94-b845-7f5075c90525"
+      }
+    },
+    {
+      "run_id": "schedule-catalog-c16-r01-python-python",
+      "block": "schedule-catalog-c16-r01",
+      "pair": "schedule-catalog",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "python-python",
+      "placement": {
+        "run_id": "schedule-catalog-c16-r01-python-python-p",
+        "implementation": "python",
+        "scenario": "candidates",
+        "concurrency": 16,
+        "providers": [
+          "04cb4890-f97e-5a49-9db4-f781c823920a",
+          "57e03e2d-a44b-5ab7-927a-7b967c9915fc",
+          "78f0c261-1060-5166-b7e3-7c3b20041814",
+          "8da81293-5520-5238-8f75-9bf059112051",
+          "adf3c49e-66cc-5f84-8124-73475f262eb6",
+          "9004084d-4576-561f-a374-568e8eb8fe58",
+          "3674a812-dddf-5aca-899c-af51cd58244a",
+          "26bfded8-30c7-58fa-a3ee-4603b59d805b",
+          "0acc9c21-8dfa-5856-b848-6d53e87ed3db",
+          "9ccfede3-d594-5e03-81e6-d9c3973d4310",
+          "6fb25aa8-3397-533b-b1a0-3953c0ea4675",
+          "157c7ec6-ce28-52e6-bc71-4fc5426eec6e",
+          "0aef19a1-302e-57c9-939f-8f5b540d76c4",
+          "c51acfa0-77a0-5e49-ba31-718d97f94396",
+          "7c3e715c-f0d8-51c4-8b1b-109543ed31a6",
+          "831f124e-74ab-5b07-8b46-e1d74494eeb4"
+        ],
+        "consumers": [
+          "3129f5c5-677b-554f-bef3-1711296b3156",
+          "9e93a8a4-145e-54c9-81a6-dffd512eb5e5",
+          "c3458f95-1870-56b0-93f8-49feec2015bb",
+          "48c653f2-4015-54ef-922f-04d97c38dc96",
+          "30580bb3-41b3-5ed6-934b-e30078ab1a05",
+          "7352424d-6fcb-5b15-bcc9-fff54056ca60",
+          "5e04536a-35b5-5521-8004-141cef2187c6",
+          "c1d5b085-e42d-5a48-8788-54e6d65a3af5",
+          "21fb6096-e998-5caa-91c3-eff9f5bf166d",
+          "c8c6513d-03d9-55a8-9ec9-188c1b34ea13",
+          "c7dc3d67-d5bb-5977-b188-7bc98af4a3ea",
+          "6eb531cd-9ee4-5209-95bc-d5ab62b34c43",
+          "7ff9db2f-24e3-5475-8346-b8b3a02ab727",
+          "719a00fa-6232-5f03-91e1-7f20772d680a",
+          "729b83bd-4946-5a55-8f91-d161799a5a9c",
+          "f63ac127-c530-5f4f-8dfe-475435aaa5c8"
+        ],
+        "custom": "CUSTOM_TT_B17_46EE5BF1FF12585A"
+      },
+      "glance": {
+        "run_id": "schedule-catalog-c16-r01-python-python-g",
+        "implementation": "python",
+        "scenario": "catalog-show",
+        "concurrency": 16,
+        "size_bytes": null,
+        "namespace": "82e3eda5-cb52-5970-9693-af3bc49f252f"
+      }
+    },
+    {
+      "run_id": "schedule-catalog-c16-r01-python-go",
+      "block": "schedule-catalog-c16-r01",
+      "pair": "schedule-catalog",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "python-go",
+      "placement": {
+        "run_id": "schedule-catalog-c16-r01-python-go-p",
+        "implementation": "python",
+        "scenario": "candidates",
+        "concurrency": 16,
+        "providers": [
+          "c1df00df-652e-5bbd-ba61-1db9fa08510f",
+          "84b8ea88-2553-575a-95af-e6cd2e89d4ae",
+          "4a0ad1f1-2f61-531d-81f7-98e8b4452e74",
+          "ec0d90e4-3bdb-5505-802e-ba11e72a81de",
+          "3fbee28a-1539-5796-9853-91a4e8b9cdb5",
+          "df0e131d-6d98-5f88-95a4-21996806821f",
+          "223b0977-4041-5b33-a11b-4a903e283ff7",
+          "d26f4649-0d34-55ce-b085-c345a4e72e23",
+          "9f263ff2-c35f-588b-a087-d2b28fb40b68",
+          "1fda47e4-aaf8-5ea6-8bb1-79baca51fd05",
+          "3e600d27-e973-5dbb-a261-2a859cc66aa5",
+          "2746f0c0-0c6b-53fe-8457-ad8404c56b1b",
+          "c2338567-344f-5579-aa42-1d573fc0d0fe",
+          "86816a72-757e-5910-9aca-93eda24d270a",
+          "bc80e304-d343-5d23-8365-6fbbdd85391a",
+          "3d025ceb-9c6a-5451-8c4b-d634b6b6986a"
+        ],
+        "consumers": [
+          "3f6acde7-f8d4-5850-bf06-17fdfd63165b",
+          "90c162ce-f69b-5362-8e0b-5da05e16c9c2",
+          "5c39f00b-400e-5973-ac9d-5d8f35557809",
+          "d2655b5b-c31b-582d-bcfa-ef2cc980d954",
+          "ebf057ac-17d3-5009-a3bf-9a8974e57442",
+          "9cd62a77-9e30-5ff5-bfcb-70f076887790",
+          "dce8cbb1-9ba5-5b89-8539-ed66e12055d4",
+          "aba27c87-68ca-59bc-8ce4-64f0db1f60d6",
+          "781e9f90-1fd8-579f-9098-e0107e2f6172",
+          "b0fb73ef-4569-55ce-8c7b-4e779306d019",
+          "60c43a13-5d9a-536f-b994-b528dbc948db",
+          "20a9e2e1-2662-5187-a4a6-6deef1ceae0d",
+          "25bba2b0-84cb-575b-a6b4-051a50a8e19c",
+          "3199ba6a-57d7-539a-acc0-70b06ad9ef2f",
+          "243684a8-0bb7-5472-94a4-6d4445bc5d1b",
+          "4b31c787-bed7-5537-83a9-1624d1e50e4a"
+        ],
+        "custom": "CUSTOM_TT_B17_940CC1F1BFAA58DB"
+      },
+      "glance": {
+        "run_id": "schedule-catalog-c16-r01-python-go-g",
+        "implementation": "go",
+        "scenario": "catalog-show",
+        "concurrency": 16,
+        "size_bytes": null,
+        "namespace": "4b321a28-1d65-5eb1-8d6a-c00e4383c2fb"
+      }
+    },
+    {
+      "run_id": "schedule-catalog-c16-r01-go-go",
+      "block": "schedule-catalog-c16-r01",
+      "pair": "schedule-catalog",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "go-go",
+      "placement": {
+        "run_id": "schedule-catalog-c16-r01-go-go-p",
+        "implementation": "go",
+        "scenario": "candidates",
+        "concurrency": 16,
+        "providers": [
+          "0910627d-35aa-5441-82a6-b3be9f4b7dc6",
+          "785c1724-2973-542f-9eae-79b63b03bb04",
+          "058771e6-1c3e-510a-83d4-0100f89d6eff",
+          "b83d7e23-9ee9-5962-a730-03516d061058",
+          "103753af-d82b-5f5e-8082-224ed5b234ec",
+          "b2692f6d-24a1-5f67-bbd8-f1a915239382",
+          "f5b6795d-95a9-59f6-910a-429a4c6c4e99",
+          "f181dcee-1151-5354-a066-c497ad2f0ad3",
+          "c3f2985d-83b7-5f3a-a596-c2609a28d2e1",
+          "0a5f879f-9a24-5a32-a823-def1451c9d3b",
+          "bf20f4ab-6487-5167-a2cf-9ed7f15d4dbf",
+          "20eb86d2-ef76-5867-9961-2614007b465c",
+          "ef79ac41-70cf-58ac-8ea0-f8ce8a716c23",
+          "2787e4fd-041b-56ab-8666-8341dd6f59ec",
+          "48d735ba-066a-5d93-be21-65e86231d8bf",
+          "62d04039-f7e0-5876-9aff-337ff965288c"
+        ],
+        "consumers": [
+          "d1c51f03-bcb1-5382-9f8f-ce37f7c6a0f6",
+          "10d2e433-de71-5363-9ffb-d4e6579b5c3a",
+          "99dfff7c-18db-50ed-9b83-a111137b0cbd",
+          "d0766aee-315c-500b-a18a-9fed3894ec03",
+          "7ac56ecd-4f2a-5442-b935-15ef30246d59",
+          "fa98e549-1444-550d-9f8e-b63587e52ef4",
+          "63eb5884-378b-5b13-8c82-1528c99bbb92",
+          "baa8b35c-3488-5e8d-bede-0488e250ad9c",
+          "ad04def3-4b52-59d2-973d-9d1248735ec1",
+          "3afab18a-6680-533e-b67c-024c8eccc9f4",
+          "bbadfb09-421e-56d1-b6fa-4c7042586b1b",
+          "081e767a-5a92-53f9-bcfe-db55943ed71a",
+          "5052c1ea-ea41-5812-8886-2b3866a0329a",
+          "78a3bc23-7062-5e7d-92d5-f15cae170cb9",
+          "b7b536be-d420-5de9-9ae5-264b3181853e",
+          "021aaea3-99d1-53f0-bda3-65e874198750"
+        ],
+        "custom": "CUSTOM_TT_B17_C28C4D4E077657D3"
+      },
+      "glance": {
+        "run_id": "schedule-catalog-c16-r01-go-go-g",
+        "implementation": "go",
+        "scenario": "catalog-show",
+        "concurrency": 16,
+        "size_bytes": null,
+        "namespace": "0ecccd1a-e662-5709-8830-4472fa40cf24"
+      }
+    },
+    {
+      "run_id": "schedule-catalog-c16-r01-go-python",
+      "block": "schedule-catalog-c16-r01",
+      "pair": "schedule-catalog",
+      "concurrency": 16,
+      "repetition": 1,
+      "variant": "go-python",
+      "placement": {
+        "run_id": "schedule-catalog-c16-r01-go-python-p",
+        "implementation": "go",
+        "scenario": "candidates",
+        "concurrency": 16,
+        "providers": [
+          "26868973-6eae-53ab-b729-cdd24cbd87d4",
+          "b375fe32-58e3-5b73-a89f-e0236b0c5c5f",
+          "b19acbc6-911f-5773-8d2f-2cc89830ffe3",
+          "9a7a0b7e-6bd6-53c7-bc72-cecc3b901a25",
+          "d6e459b5-8232-51d0-8ebc-2750ec60a558",
+          "15f54a1e-c442-559f-9841-30b21b68c703",
+          "b7ad559b-b114-5a40-b17b-be939911d67d",
+          "7808f1d8-d1d5-5a06-888e-7bb1cc253511",
+          "9c46f15e-900b-5192-bd47-8d835072703b",
+          "5a84c055-5062-509a-b8b6-139ac0a4abd9",
+          "b250c372-f8bb-50ec-9a22-634724c8f719",
+          "58b110db-9c5c-5f09-a911-55b1117616d0",
+          "51313c8d-1fd4-549c-b5ee-90d2e3638f01",
+          "b6c34ed7-3be4-5ab4-b1f3-b486367394de",
+          "9aa8c690-26f5-5fd5-8418-277716fc8cb1",
+          "ef6318df-3b0a-5ad2-ae37-8079c57d0c0e"
+        ],
+        "consumers": [
+          "e18ac0e7-18b3-5d59-9b88-598647659d95",
+          "ad8a566b-339b-54cb-b26f-39987206d3e1",
+          "f27bf1ae-a6ad-56b2-9284-e570debb9dfd",
+          "4646d9c1-9983-5e81-b287-05857907317f",
+          "32b83ab3-3e72-577f-b684-553f22948e5e",
+          "1b2af357-3b13-527f-b782-c1302d0c3827",
+          "80ffb85a-5800-5408-b3da-de28e2678aea",
+          "3fe326bc-711f-5a04-b5e0-b7bc3dd3a760",
+          "a4ba8f57-e76b-5b98-a831-2fbe66c03b6a",
+          "96a9fd74-30ff-5cef-ad56-5a525dcb410b",
+          "a46c4b88-f070-51a0-a4d7-cc3a151a6db4",
+          "23ac75c3-419b-566f-91aa-110403bb12c1",
+          "70713d0b-753e-54ad-ae3b-f5e54b6c5e1b",
+          "d774ee4a-cd5b-5ea4-80fd-a18591b7dce1",
+          "a93ab53d-bf2b-5f19-9d2c-1537503b0e9a",
+          "5474b1a0-3225-5e10-9e3c-be1a8265ad86"
+        ],
+        "custom": "CUSTOM_TT_B17_4C3BCDAAE4A45794"
+      },
+      "glance": {
+        "run_id": "schedule-catalog-c16-r01-go-python-g",
+        "implementation": "python",
+        "scenario": "catalog-show",
+        "concurrency": 16,
+        "size_bytes": null,
+        "namespace": "bd40b2fd-d32c-5cf4-b29f-36a3e13595f9"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "nova-c01-r01-python-go",
+      "valid": true
+    },
+    {
+      "run_id": "nova-c01-r01-go-go",
+      "valid": true
+    },
+    {
+      "run_id": "nova-c01-r01-go-python",
+      "valid": true
+    },
+    {
+      "run_id": "nova-c01-r01-python-python",
+      "valid": true
+    },
+    {
+      "run_id": "nova-c16-r01-python-python",
+      "valid": true
+    },
+    {
+      "run_id": "nova-c16-r01-go-go",
+      "valid": true
+    },
+    {
+      "run_id": "nova-c16-r01-python-go",
+      "valid": true
+    },
+    {
+      "run_id": "nova-c16-r01-go-python",
+      "valid": true
+    },
+    {
+      "run_id": "claim-download-c01-r01-go-python",
+      "valid": true
+    },
+    {
+      "run_id": "claim-download-c01-r01-python-python",
+      "valid": true
+    },
+    {
+      "run_id": "claim-download-c01-r01-python-go",
+      "valid": true
+    },
+    {
+      "run_id": "claim-download-c01-r01-go-go",
+      "valid": true
+    },
+    {
+      "run_id": "claim-download-c16-r01-go-python",
+      "valid": true
+    },
+    {
+      "run_id": "claim-download-c16-r01-go-go",
+      "valid": true
+    },
+    {
+      "run_id": "claim-download-c16-r01-python-go",
+      "valid": true
+    },
+    {
+      "run_id": "claim-download-c16-r01-python-python",
+      "valid": true
+    },
+    {
+      "run_id": "schedule-catalog-c01-r01-python-python",
+      "valid": true
+    },
+    {
+      "run_id": "schedule-catalog-c01-r01-go-python",
+      "valid": true
+    },
+    {
+      "run_id": "schedule-catalog-c01-r01-python-go",
+      "valid": true
+    },
+    {
+      "run_id": "schedule-catalog-c01-r01-go-go",
+      "valid": true
+    },
+    {
+      "run_id": "schedule-catalog-c16-r01-python-python",
+      "valid": true
+    },
+    {
+      "run_id": "schedule-catalog-c16-r01-python-go",
+      "valid": true
+    },
+    {
+      "run_id": "schedule-catalog-c16-r01-go-go",
+      "valid": true
+    },
+    {
+      "run_id": "schedule-catalog-c16-r01-go-python",
+      "valid": true
+    }
+  ],
+  "valid": true,
+  "cleanup": true,
+  "cleanup_report": {
+    "placement": {
+      "seed_cleanup": {
+        "removed": true
+      },
+      "controls_restored": true,
+      "guest_trim": "/: 3 GiB (3170123776 bytes) trimmed",
+      "original_unchanged": true,
+      "runtime_removed": true,
+      "identity_removed": true,
+      "private_root_removed": true,
+      "original_services_active": {
+        "devstack@placement-api.service": true,
+        "devstack@n-cpu.service": true,
+        "devstack@n-sch.service": true,
+        "devstack@keystone.service": true,
+        "devstack@g-api.service": true
+      },
+      "original_mysql_apparmor_sha256": "0c242ac102a58b00c9e879cef5671dec35fe0c8ec45d85fa01bbea926d63775d"
+    },
+    "glance": {
+      "original_unchanged": true,
+      "private_root_removed": true,
+      "runtime_removed": true,
+      "identity_removed": true,
+      "controls_restored": true,
+      "original_services_active": {
+        "devstack@placement-api.service": true,
+        "devstack@g-api.service": true,
+        "devstack@n-cpu.service": true,
+        "devstack@n-sch.service": true,
+        "devstack@keystone.service": true
+      },
+      "pending_images": 0
+    },
+    "private_root_removed": true
+  },
+  "finished_utc": "2026-11-28T00:37:19.626813+00:00"
+}
